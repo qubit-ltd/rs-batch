@@ -81,6 +81,24 @@ fn test_sequential_batch_executor_collects_failures_and_panics() {
     assert_eq!(result.failures().len(), 2);
     assert_eq!(result.failures()[0].index(), 1);
     assert_eq!(result.failures()[1].index(), 2);
+    assert_eq!(
+        result.failures()[1].error().panic_message(),
+        Some("panic in sequential batch")
+    );
+}
+
+#[test]
+fn test_sequential_batch_executor_records_non_string_panic_without_message() {
+    let executor = SequentialBatchExecutor::new();
+    let tasks = vec![TestTask::panic_usize(7)];
+
+    let result = executor
+        .execute(tasks, 1)
+        .expect("task panic should stay in the batch result");
+
+    assert_eq!(result.completed_count(), 1);
+    assert_eq!(result.panicked_count(), 1);
+    assert_eq!(result.failures()[0].error().panic_message(), None);
 }
 
 #[test]

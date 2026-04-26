@@ -25,6 +25,7 @@ use crate::{
     BatchExecutionResult,
     BatchTaskError,
     BatchTaskFailure,
+    batch_task_error::panic_payload_to_error,
     progress::{
         NoOpProgressReporter,
         ProgressReporter,
@@ -274,10 +275,13 @@ fn execute_one_task<T, E>(
             *failed_count += 1;
             failures.push(BatchTaskFailure::new(index, BatchTaskError::Failed(error)));
         }
-        Err(_) => {
+        Err(payload) => {
             *completed_count += 1;
             *panicked_count += 1;
-            failures.push(BatchTaskFailure::new(index, BatchTaskError::Panicked));
+            failures.push(BatchTaskFailure::new(
+                index,
+                panic_payload_to_error(payload.as_ref()),
+            ));
         }
     }
 }

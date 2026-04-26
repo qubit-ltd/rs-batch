@@ -142,7 +142,7 @@ fn test_parallel_batch_executor_collects_failures_and_panics() {
     let tasks = vec![
         TestTask::succeed(),
         TestTask::fail("failed"),
-        TestTask::panic("panic in parallel batch"),
+        TestTask::panic_string("panic in parallel batch"),
     ];
 
     let result = executor
@@ -154,6 +154,10 @@ fn test_parallel_batch_executor_collects_failures_and_panics() {
     assert_eq!(result.failed_count(), 1);
     assert_eq!(result.panicked_count(), 1);
     assert_eq!(result.failures().len(), 2);
+    assert_eq!(
+        result.failures()[1].error().panic_message(),
+        Some("panic in parallel batch")
+    );
 }
 
 #[test]

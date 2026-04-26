@@ -7,6 +7,7 @@
  *
  ******************************************************************************/
 use std::{
+    any::Any,
     error::Error,
     fmt,
 };
@@ -26,10 +27,39 @@ pub enum BatchTaskError<E> {
     Failed(E),
 
     /// The task panicked while running.
-    Panicked,
+    Panicked {
+        /// Captured panic message when the panic payload is a string.
+        message: Option<String>,
+    },
 }
 
 impl<E> BatchTaskError<E> {
+    /// Creates a panicked task error with a captured message.
+    ///
+    /// # Parameters
+    ///
+    /// * `message` - Panic message captured from the task.
+    ///
+    /// # Returns
+    ///
+    /// A panicked task error containing `message`.
+    #[inline]
+    pub fn panicked(message: impl Into<String>) -> Self {
+        Self::Panicked {
+            message: Some(message.into()),
+        }
+    }
+
+    /// Creates a panicked task error without a readable message.
+    ///
+    /// # Returns
+    ///
+    /// A panicked task error with no captured message.
+    #[inline]
+    pub const fn panicked_without_message() -> Self {
+        Self::Panicked { message: None }
+    }
+
     /// Returns whether this task error wraps the task's own error value.
     ///
     /// # Returns
@@ -47,7 +77,23 @@ impl<E> BatchTaskError<E> {
     /// `true` if this error is [`Self::Panicked`].
     #[inline]
     pub const fn is_panicked(&self) -> bool {
-        matches!(self, Self::Panicked)
+        matches!(self, Self::Panicked { .. })
+    }
+
+    /// Returns the captured panic message, if one is available.
+    ///
+    /// # Returns
+    ///
+    /// `Some(message)` when the panic payload was a string, or `None` for
+    /// business errors and non-string panic payloads.
+    #[inline]
+    pub fn panic_message(&self) -> Option<&str> {
+        match self {
+            Self::Failed(_) | Self::Panicked { message: None } => None,
+            Self::Panicked {
+                message: Some(message),
+            } => Some(message.as_str()),
+        }
     }
 }
 
@@ -67,9 +113,46 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Failed(error) => write!(f, "task failed: {error}"),
-            Self::Panicked => f.write_str("task panicked"),
+            Self::Panicked { message: None } => f.write_str("task panicked"),
+            Self::Panicked {
+                message: Some(message),
+            } => write!(f, "task panicked: {message}"),
         }
     }
 }
 
 impl<E> Error for BatchTaskError<E> where E: Error + 'static {}
+
+/// Converts a panic payload into a task panic error.
+///
+/// # Parameters
+///
+/// * `payload` - Panic payload captured by `catch_unwind`.
+///
+/// # Returns
+///
+/// A panicked task error containing a string message when the payload carries
+/// one.
+pub(crate) fn panic_payload_to_error<E>(payload: &(dyn Any + Send)) -> BatchTaskError<E> {
+    match panic_payload_message(payload) {
+        Some(message) => BatchTaskError::panicked(message),
+        None => BatchTaskError::panicked_without_message(),
+    }
+}
+
+/// Extracts a readable panic message from a panic payload.
+///
+/// # Parameters
+///
+/// * `payload` - Panic payload captured by `catch_unwind`.
+///
+/// # Returns
+///
+/// A cloned panic message when `payload` is `&'static str` or `String`.
+fn panic_payload_message(payload: &(dyn Any + Send)) -> Option<String> {
+    if let Some(message) = payload.downcast_ref::<&'static str>() {
+        Some((*message).to_owned())
+    } else {
+        payload.downcast_ref::<String>().cloned()
+    }
+}
