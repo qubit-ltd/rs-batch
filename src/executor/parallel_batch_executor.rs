@@ -424,10 +424,11 @@ impl<E> ParallelBatchResultState<E> {
         completed_count: usize,
         elapsed: Duration,
     ) -> BatchExecutionResult<E> {
-        let failures = self
+        let mut failures = self
             .failures
             .into_inner()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
+        failures.sort_by_key(|failure| failure.index());
         BatchExecutionResult::new(
             task_count,
             completed_count,
