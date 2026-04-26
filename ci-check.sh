@@ -38,6 +38,52 @@ print_warning() {
     echo -e "${YELLOW}⚠️  $1${NC}"
 }
 
+# Verify each source file meets the project coverage thresholds.
+enforce_coverage_thresholds() {
+    local coverage_log="$1"
+    awk '
+        function percent(value) {
+            gsub(/%/, "", value)
+            return value + 0
+        }
+        function report(file, metric, value, rule) {
+            printf "Coverage threshold failed: %s %s coverage is %.2f%% (%s)\n", file, metric, value, rule > "/dev/stderr"
+        }
+        BEGIN {
+            failed = 0
+            in_table = 0
+        }
+        /^Filename[[:space:]]/ {
+            in_table = 1
+            next
+        }
+        !in_table || /^-+$/ || /^TOTAL[[:space:]]/ || NF < 10 {
+            next
+        }
+        {
+            file = $1
+            region_coverage = percent($4)
+            function_coverage = percent($7)
+            line_coverage = percent($10)
+            if (function_coverage < 100) {
+                report(file, "function", function_coverage, "required 100%")
+                failed = 1
+            }
+            if (line_coverage <= 98) {
+                report(file, "line", line_coverage, "required > 98%")
+                failed = 1
+            }
+            if (region_coverage <= 98) {
+                report(file, "region", region_coverage, "required > 98%")
+                failed = 1
+            }
+        }
+        END {
+            exit failed
+        }
+    ' "$coverage_log"
+}
+
 # Switch to script directory
 cd "$(dirname "$0")"
 
@@ -182,6 +228,13 @@ if command -v cargo-llvm-cov &> /dev/null; then
     if [ -n "$COVERAGE_LINE" ]; then
         print_success "Coverage report generated"
         echo "$COVERAGE_LINE"
+        if enforce_coverage_thresholds "$COVERAGE_LOG"; then
+            print_success "Per-file coverage thresholds passed"
+        else
+            print_error "Per-file coverage thresholds failed"
+            command rm -f "$COVERAGE_LOG"
+            exit 1
+        fi
 
         # Check if coverage is below threshold (e.g., 90%) — use awk so we
         # do not depend on `bc` (often missing on minimal/macOS setups).
@@ -234,4 +287,3 @@ echo ""
 
 # Clean up temporary files
 rm -f /tmp/clippy-output.txt
-

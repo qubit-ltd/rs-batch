@@ -29,7 +29,8 @@ single-task submission. The crate provides:
 - Accept eager or lazy task sources through `IntoIterator`.
 - Keep batch-level statistics for completed, succeeded, failed, and panicked
   tasks.
-- Record per-task failures with stable batch indexes.
+- Record per-task failures with stable batch indexes and readable panic
+  messages.
 - Use Rayon for CPU-oriented parallel execution.
 - Fall back to sequential execution for small batches.
 
