@@ -302,7 +302,7 @@ fn validate_failure_details<E>(
         );
         match failure.error() {
             BatchTaskError::Failed(_) => observed_failed_count += 1,
-            BatchTaskError::Panicked => observed_panicked_count += 1,
+            BatchTaskError::Panicked { .. } => observed_panicked_count += 1,
         }
     }
     assert_eq!(

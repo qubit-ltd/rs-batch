@@ -44,7 +44,7 @@ fn test_batch_execution_result_success_state() {
 fn test_batch_execution_result_failure_details() {
     let failures = vec![
         BatchTaskFailure::new(1, BatchTaskError::Failed("bad")),
-        BatchTaskFailure::new(2, BatchTaskError::Panicked),
+        BatchTaskFailure::new(2, BatchTaskError::panicked("panic")),
     ];
     let result = BatchExecutionResult::new(3, 3, 1, 1, 1, Duration::from_millis(25), failures);
 
@@ -99,7 +99,7 @@ fn test_batch_execution_result_into_failures() {
 #[test]
 fn test_batch_execution_result_sorts_failure_details() {
     let failures = vec![
-        BatchTaskFailure::new(2, BatchTaskError::Panicked),
+        BatchTaskFailure::new(2, BatchTaskError::panicked("panic")),
         BatchTaskFailure::new(1, BatchTaskError::Failed("bad")),
     ];
 
@@ -138,7 +138,7 @@ fn test_batch_execution_result_rejects_failure_detail_count_mismatch() {
 #[test]
 fn test_batch_execution_result_rejects_failed_detail_variant_mismatch() {
     let failures: Vec<BatchTaskFailure<&'static str>> =
-        vec![BatchTaskFailure::new(1, BatchTaskError::Panicked)];
+        vec![BatchTaskFailure::new(1, BatchTaskError::panicked("panic"))];
 
     assert_invalid_result_panics(|| {
         BatchExecutionResult::new(2, 2, 1, 1, 0, Duration::from_millis(1), failures);
@@ -196,11 +196,16 @@ fn test_batch_execution_result_rejects_terminal_count_overflow() {
 #[test]
 fn test_batch_task_error_display_and_failure_into_error() {
     let failed = BatchTaskError::Failed("bad");
-    let panicked: BatchTaskError<&'static str> = BatchTaskError::Panicked;
+    let panicked: BatchTaskError<&'static str> = BatchTaskError::panicked_without_message();
+    let panicked_with_message: BatchTaskError<&'static str> = BatchTaskError::panicked("boom");
     let failure = BatchTaskFailure::new(7, BatchTaskError::Failed("bad"));
 
     assert_eq!(failed.to_string(), "task failed: bad");
     assert_eq!(panicked.to_string(), "task panicked");
+    assert_eq!(panicked_with_message.to_string(), "task panicked: boom");
+    assert_eq!(failed.panic_message(), None);
+    assert_eq!(panicked.panic_message(), None);
+    assert_eq!(panicked_with_message.panic_message(), Some("boom"));
     assert!(failed.is_failed());
     assert!(!failed.is_panicked());
     assert!(!panicked.is_failed());

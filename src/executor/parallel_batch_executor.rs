@@ -40,6 +40,7 @@ use crate::{
     BatchExecutionResult,
     BatchTaskError,
     BatchTaskFailure,
+    batch_task_error::panic_payload_to_error,
     progress::{
         NoOpProgressReporter,
         ProgressReporter,
@@ -471,11 +472,13 @@ fn run_parallel_task<T, E>(
             lock_failures(&result_state.failures)
                 .push(BatchTaskFailure::new(index, BatchTaskError::Failed(error)));
         }
-        Err(_) => {
+        Err(payload) => {
             progress_state.completed_count.inc();
             result_state.panicked_count.inc();
-            lock_failures(&result_state.failures)
-                .push(BatchTaskFailure::new(index, BatchTaskError::Panicked));
+            lock_failures(&result_state.failures).push(BatchTaskFailure::new(
+                index,
+                panic_payload_to_error(payload.as_ref()),
+            ));
         }
     }
 }

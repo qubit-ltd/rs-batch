@@ -9,6 +9,7 @@
 //! Shared test support for `qubit-batch`.
 
 use std::{
+    panic::panic_any,
     sync::{
         Arc,
         Mutex,
@@ -148,6 +149,16 @@ pub enum TestTaskAction {
         /// Panic message.
         message: &'static str,
     },
+    /// Panic with an owned string payload while running.
+    PanicString {
+        /// Panic message.
+        message: &'static str,
+    },
+    /// Panic with a non-string payload while running.
+    PanicUsize {
+        /// Panic payload.
+        payload: usize,
+    },
     /// Sleep for the supplied duration, then succeed.
     SleepSuccess {
         /// Sleep duration.
@@ -244,6 +255,36 @@ impl TestTask {
         }
     }
 
+    /// Creates a task that panics with an owned `String` payload.
+    ///
+    /// # Parameters
+    ///
+    /// * `message` - Panic message.
+    ///
+    /// # Returns
+    ///
+    /// A panicking test task.
+    pub const fn panic_string(message: &'static str) -> Self {
+        Self {
+            action: TestTaskAction::PanicString { message },
+        }
+    }
+
+    /// Creates a task that panics with a non-string payload.
+    ///
+    /// # Parameters
+    ///
+    /// * `payload` - Panic payload.
+    ///
+    /// # Returns
+    ///
+    /// A panicking test task.
+    pub const fn panic_usize(payload: usize) -> Self {
+        Self {
+            action: TestTaskAction::PanicUsize { payload },
+        }
+    }
+
     /// Creates a task that sleeps and then succeeds.
     ///
     /// # Parameters
@@ -308,7 +349,9 @@ impl Runnable<&'static str> for TestTask {
                 thread::sleep(*duration);
                 Err(*error)
             }
-            TestTaskAction::Panic { message } => panic!("{message}"),
+            TestTaskAction::Panic { message } => panic_any(*message),
+            TestTaskAction::PanicString { message } => panic_any((*message).to_owned()),
+            TestTaskAction::PanicUsize { payload } => panic_any(*payload),
             TestTaskAction::SleepSuccess { duration } => {
                 thread::sleep(*duration);
                 Ok(())
