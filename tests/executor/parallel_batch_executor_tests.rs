@@ -75,6 +75,21 @@ fn test_parallel_batch_executor_build_rejects_zero_stack_size() {
 }
 
 #[test]
+fn test_parallel_batch_executor_build_reports_thread_pool_failure() {
+    let error = ParallelBatchExecutor::builder()
+        .parallelism(2)
+        .stack_size(usize::MAX)
+        .build()
+        .err()
+        .expect("impossibly large stack size should make Rayon fail");
+
+    assert!(matches!(
+        error,
+        ParallelBatchExecutorBuildError::BuildFailed { .. }
+    ));
+}
+
+#[test]
 fn test_parallel_batch_executor_new_default_and_accessors() {
     let executor = ParallelBatchExecutor::new(2).expect("parallel executor should build");
     let default_executor = ParallelBatchExecutor::default();
