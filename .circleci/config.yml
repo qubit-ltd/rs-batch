@@ -127,48 +127,7 @@ jobs:
               | tee coverage.txt
       - run:
           name: Enforce coverage thresholds
-          command: |
-            awk '
-              function percent(value) {
-                gsub(/%/, "", value)
-                return value + 0
-              }
-              function report(file, metric, value, rule) {
-                printf "Coverage threshold failed: %s %s coverage is %.2f%% (%s)\n", file, metric, value, rule > "/dev/stderr"
-              }
-              BEGIN {
-                failed = 0
-                in_table = 0
-              }
-              /^Filename[[:space:]]/ {
-                in_table = 1
-                next
-              }
-              !in_table || /^-+$/ || /^TOTAL[[:space:]]/ || NF < 10 {
-                next
-              }
-              {
-                file = $1
-                region_coverage = percent($4)
-                function_coverage = percent($7)
-                line_coverage = percent($10)
-                if (function_coverage < 100) {
-                  report(file, "function", function_coverage, "required 100%")
-                  failed = 1
-                }
-                if (line_coverage <= 98) {
-                  report(file, "line", line_coverage, "required > 98%")
-                  failed = 1
-                }
-                if (region_coverage <= 98) {
-                  report(file, "region", region_coverage, "required > 98%")
-                  failed = 1
-                }
-              }
-              END {
-                exit failed
-              }
-            ' coverage.txt
+          command: ./check-coverage-thresholds.sh coverage.txt
       - run:
           name: Display coverage summary
           command: |
