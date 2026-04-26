@@ -26,7 +26,10 @@ pub mod executor;
 pub mod progress;
 
 pub use batch_execution_error::BatchExecutionError;
-pub use batch_execution_result::BatchExecutionResult;
+pub use batch_execution_result::{
+    BatchExecutionResult,
+    BatchExecutionResultBuildError,
+};
 pub use batch_task_error::BatchTaskError;
 pub use batch_task_failure::BatchTaskFailure;
 pub use executor::{
