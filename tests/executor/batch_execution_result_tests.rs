@@ -74,6 +74,18 @@ fn test_batch_execution_result_display_summary() {
 }
 
 #[test]
+fn test_batch_execution_result_display_does_not_require_debug_error() {
+    struct NonDebugError;
+    let result: BatchExecutionResult<NonDebugError> =
+        BatchExecutionResult::new(1, 1, 1, 0, 0, Duration::from_millis(1), Vec::new());
+
+    let text = result.to_string();
+
+    assert!(text.contains("task_count: 1"));
+    assert!(text.contains("elapsed: 1ms"));
+}
+
+#[test]
 fn test_batch_execution_result_into_failures() {
     let failures = vec![BatchTaskFailure::new(4, BatchTaskError::Failed("bad"))];
     let result = BatchExecutionResult::new(5, 1, 0, 1, 0, Duration::from_millis(1), failures);
