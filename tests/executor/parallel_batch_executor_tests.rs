@@ -157,6 +157,27 @@ fn test_parallel_batch_executor_collects_failures_and_panics() {
 }
 
 #[test]
+fn test_parallel_batch_executor_orders_failures_by_task_index() {
+    let executor = ParallelBatchExecutor::builder()
+        .parallelism(2)
+        .parallel_threshold(1)
+        .build()
+        .expect("parallel executor should build");
+    let tasks = vec![
+        TestTask::fail_after_sleep("slow failure", Duration::from_millis(50)),
+        TestTask::fail("fast failure"),
+    ];
+
+    let result = executor
+        .execute(tasks, 2)
+        .expect("task failures should stay in the batch result");
+
+    assert_eq!(result.failures().len(), 2);
+    assert_eq!(result.failures()[0].index(), 0);
+    assert_eq!(result.failures()[1].index(), 1);
+}
+
+#[test]
 fn test_parallel_batch_executor_reports_count_shortfall() {
     let executor = ParallelBatchExecutor::builder()
         .parallelism(4)

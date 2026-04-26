@@ -136,6 +136,13 @@ pub enum TestTaskAction {
         /// Error returned by the task.
         error: &'static str,
     },
+    /// Sleep for the supplied duration, then return a task error.
+    FailAfterSleep {
+        /// Error returned by the task.
+        error: &'static str,
+        /// Sleep duration.
+        duration: Duration,
+    },
     /// Panic while running.
     Panic {
         /// Panic message.
@@ -203,6 +210,22 @@ impl TestTask {
     pub const fn fail(error: &'static str) -> Self {
         Self {
             action: TestTaskAction::Fail { error },
+        }
+    }
+
+    /// Creates a task that sleeps before failing with `error`.
+    ///
+    /// # Parameters
+    ///
+    /// * `error` - Error returned by the task.
+    /// * `duration` - Sleep duration before returning the error.
+    ///
+    /// # Returns
+    ///
+    /// A delayed failing test task.
+    pub const fn fail_after_sleep(error: &'static str, duration: Duration) -> Self {
+        Self {
+            action: TestTaskAction::FailAfterSleep { error, duration },
         }
     }
 
@@ -281,6 +304,10 @@ impl Runnable<&'static str> for TestTask {
                 Ok(())
             }
             TestTaskAction::Fail { error } => Err(*error),
+            TestTaskAction::FailAfterSleep { error, duration } => {
+                thread::sleep(*duration);
+                Err(*error)
+            }
             TestTaskAction::Panic { message } => panic!("{message}"),
             TestTaskAction::SleepSuccess { duration } => {
                 thread::sleep(*duration);

@@ -37,7 +37,7 @@ pub struct BatchExecutionResult<E> {
     panicked_count: usize,
     /// Total elapsed wall-clock time for the batch.
     elapsed: Duration,
-    /// Detailed failure records in task-index order of discovery.
+    /// Detailed failure records sorted by task index.
     failures: Vec<BatchTaskFailure<E>>,
 }
 
