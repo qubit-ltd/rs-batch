@@ -16,6 +16,7 @@ use std::{
 
 use qubit_batch::{
     BatchExecutionResult,
+    BatchExecutionResultBuildError,
     BatchTaskError,
     BatchTaskFailure,
     NoOpProgressReporter,
@@ -113,6 +114,142 @@ fn test_batch_execution_result_sorts_failure_details() {
     assert!(result.failures()[0].error().is_failed());
     assert_eq!(result.failures()[1].index(), 2);
     assert!(result.failures()[1].error().is_panicked());
+}
+
+#[test]
+fn test_batch_execution_result_try_new_sorts_failure_details() {
+    let failures = vec![
+        BatchTaskFailure::new(2, BatchTaskError::panicked("panic")),
+        BatchTaskFailure::new(1, BatchTaskError::Failed("bad")),
+    ];
+
+    let result = BatchExecutionResult::try_new(3, 3, 1, 1, 1, Duration::from_millis(25), failures)
+        .expect("valid batch execution result should be created");
+
+    assert_eq!(result.failures()[0].index(), 1);
+    assert!(result.failures()[0].error().is_failed());
+    assert_eq!(result.failures()[1].index(), 2);
+    assert!(result.failures()[1].error().is_panicked());
+}
+
+#[test]
+fn test_batch_execution_result_try_new_reports_invalid_inputs() {
+    assert_eq!(
+        BatchExecutionResult::<&'static str>::try_new(
+            1,
+            2,
+            2,
+            0,
+            0,
+            Duration::from_millis(1),
+            Vec::new(),
+        )
+        .expect_err("completed count above task count should be rejected"),
+        BatchExecutionResultBuildError::CompletedCountExceeded {
+            task_count: 1,
+            completed_count: 2,
+        }
+    );
+    assert_eq!(
+        BatchExecutionResult::<&'static str>::try_new(
+            usize::MAX,
+            usize::MAX,
+            0,
+            usize::MAX,
+            1,
+            Duration::from_millis(1),
+            Vec::new(),
+        )
+        .expect_err("overflowing failure count should be rejected"),
+        BatchExecutionResultBuildError::FailureCountOverflow {
+            failed_count: usize::MAX,
+            panicked_count: 1,
+        }
+    );
+    assert_eq!(
+        BatchExecutionResult::<&'static str>::try_new(
+            usize::MAX,
+            usize::MAX,
+            usize::MAX,
+            1,
+            0,
+            Duration::from_millis(1),
+            Vec::new(),
+        )
+        .expect_err("overflowing terminal count should be rejected"),
+        BatchExecutionResultBuildError::TerminalCountOverflow {
+            succeeded_count: usize::MAX,
+            failure_count: 1,
+        }
+    );
+    assert_eq!(
+        BatchExecutionResult::<&'static str>::try_new(
+            2,
+            2,
+            1,
+            0,
+            0,
+            Duration::from_millis(1),
+            Vec::new(),
+        )
+        .expect_err("terminal count mismatch should be rejected"),
+        BatchExecutionResultBuildError::TerminalCountMismatch {
+            completed_count: 2,
+            terminal_count: 1,
+            succeeded_count: 1,
+            failed_count: 0,
+            panicked_count: 0,
+        }
+    );
+    assert_eq!(
+        BatchExecutionResult::<&'static str>::try_new(
+            2,
+            2,
+            1,
+            1,
+            0,
+            Duration::from_millis(1),
+            Vec::new(),
+        )
+        .expect_err("failure detail count mismatch should be rejected"),
+        BatchExecutionResultBuildError::FailureDetailCountMismatch {
+            expected: 1,
+            actual: 0,
+        }
+    );
+
+    let failures = vec![BatchTaskFailure::new(2, BatchTaskError::Failed("bad"))];
+    assert_eq!(
+        BatchExecutionResult::try_new(2, 2, 1, 1, 0, Duration::from_millis(1), failures)
+            .expect_err("out-of-range failure index should be rejected"),
+        BatchExecutionResultBuildError::FailureIndexOutOfRange {
+            index: 2,
+            task_count: 2,
+        }
+    );
+
+    let failures: Vec<BatchTaskFailure<&'static str>> =
+        vec![BatchTaskFailure::new(1, BatchTaskError::panicked("panic"))];
+    assert_eq!(
+        BatchExecutionResult::try_new(2, 2, 1, 1, 0, Duration::from_millis(1), failures)
+            .expect_err("failed detail variant mismatch should be rejected"),
+        BatchExecutionResultBuildError::FailureVariantCountMismatch {
+            expected_failed: 1,
+            actual_failed: 0,
+            expected_panicked: 0,
+            actual_panicked: 1,
+        }
+    );
+
+    let error_text = BatchExecutionResultBuildError::FailureVariantCountMismatch {
+        expected_failed: 1,
+        actual_failed: 0,
+        expected_panicked: 0,
+        actual_panicked: 1,
+    }
+    .to_string();
+    assert!(error_text.contains("expected_failed 1"));
+    assert!(error_text.contains("actual_panicked 1"));
 }
 
 #[test]
