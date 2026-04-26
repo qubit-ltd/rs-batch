@@ -121,7 +121,24 @@ where
     }
 }
 
-impl<E> Error for BatchTaskError<E> where E: Error + 'static {}
+impl<E> Error for BatchTaskError<E>
+where
+    E: Error + 'static,
+{
+    /// Returns the wrapped task error as the source when this error represents
+    /// a business failure.
+    ///
+    /// # Returns
+    ///
+    /// `Some(error)` for [`Self::Failed`], or `None` for task panics because a
+    /// panic payload is not an error source.
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Failed(error) => Some(error),
+            Self::Panicked { .. } => None,
+        }
+    }
+}
 
 /// Converts a panic payload into a task panic error.
 ///
