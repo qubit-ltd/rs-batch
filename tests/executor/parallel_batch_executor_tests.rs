@@ -16,7 +16,6 @@ use std::{
             Ordering,
         },
     },
-    thread,
     time::Duration,
 };
 
@@ -30,6 +29,7 @@ use qubit_batch::{
 use crate::support::{
     ProgressEvent,
     RecordingProgressReporter,
+    TestTask,
 };
 
 #[test]
@@ -47,6 +47,70 @@ fn test_parallel_batch_executor_build_rejects_invalid_parallelism() {
 }
 
 #[test]
+fn test_parallel_batch_executor_build_rejects_zero_report_interval() {
+    let error = ParallelBatchExecutor::builder()
+        .report_interval(Duration::ZERO)
+        .build()
+        .err()
+        .expect("zero report interval should be rejected");
+
+    assert!(matches!(
+        error,
+        ParallelBatchExecutorBuildError::ZeroReportInterval
+    ));
+}
+
+#[test]
+fn test_parallel_batch_executor_build_rejects_zero_stack_size() {
+    let error = ParallelBatchExecutor::builder()
+        .stack_size(0)
+        .build()
+        .err()
+        .expect("zero stack size should be rejected");
+
+    assert!(matches!(
+        error,
+        ParallelBatchExecutorBuildError::ZeroStackSize
+    ));
+}
+
+#[test]
+fn test_parallel_batch_executor_new_default_and_accessors() {
+    let executor = ParallelBatchExecutor::new(2).expect("parallel executor should build");
+    let default_executor = ParallelBatchExecutor::default();
+
+    assert_eq!(executor.parallelism(), 2);
+    assert_eq!(
+        executor.parallel_threshold(),
+        ParallelBatchExecutor::DEFAULT_PARALLEL_THRESHOLD
+    );
+    assert_eq!(
+        executor.report_interval(),
+        ParallelBatchExecutor::DEFAULT_REPORT_INTERVAL
+    );
+    executor.reporter().start(0);
+    assert!(default_executor.parallelism() >= 1);
+}
+
+#[test]
+fn test_parallel_batch_executor_builder_custom_options() {
+    let executor = ParallelBatchExecutor::builder()
+        .parallelism(2)
+        .parallel_threshold(3)
+        .report_interval(Duration::from_millis(25))
+        .reporter(RecordingProgressReporter::new())
+        .no_reporter()
+        .thread_name_prefix("qubit-batch-test")
+        .stack_size(2 * 1024 * 1024)
+        .build()
+        .expect("parallel executor should build with custom options");
+
+    assert_eq!(executor.parallelism(), 2);
+    assert_eq!(executor.parallel_threshold(), 3);
+    assert_eq!(executor.report_interval(), Duration::from_millis(25));
+}
+
+#[test]
 fn test_parallel_batch_executor_executes_successfully() {
     let executor = ParallelBatchExecutor::builder()
         .parallelism(4)
@@ -54,14 +118,9 @@ fn test_parallel_batch_executor_executes_successfully() {
         .build()
         .expect("parallel executor should build");
     let counter = Arc::new(AtomicUsize::new(0));
-    let counter_for_tasks = Arc::clone(&counter);
-    let tasks = (0..8).map(move |_| {
-        let counter = Arc::clone(&counter_for_tasks);
-        move || {
-            counter.fetch_add(1, Ordering::AcqRel);
-            Ok::<(), &'static str>(())
-        }
-    });
+    let tasks = (0..8)
+        .map(|_| TestTask::count_success(Arc::clone(&counter)))
+        .collect::<Vec<_>>();
 
     let result = executor
         .execute(tasks, 8)
@@ -80,13 +139,11 @@ fn test_parallel_batch_executor_collects_failures_and_panics() {
         .parallel_threshold(1)
         .build()
         .expect("parallel executor should build");
-    let tasks = (0..3).map(|index| {
-        move || match index {
-            0 => Ok::<(), &'static str>(()),
-            1 => Err("failed"),
-            _ => panic!("panic in parallel batch"),
-        }
-    });
+    let tasks = vec![
+        TestTask::succeed(),
+        TestTask::fail("failed"),
+        TestTask::panic("panic in parallel batch"),
+    ];
 
     let result = executor
         .execute(tasks, 3)
@@ -106,7 +163,7 @@ fn test_parallel_batch_executor_reports_count_shortfall() {
         .parallel_threshold(1)
         .build()
         .expect("parallel executor should build");
-    let tasks = (0..2).map(|_| || Ok::<(), &'static str>(()));
+    let tasks = vec![TestTask::succeed(), TestTask::succeed()];
 
     let error = executor
         .execute(tasks, 3)
@@ -127,13 +184,40 @@ fn test_parallel_batch_executor_reports_count_shortfall() {
 }
 
 #[test]
+fn test_parallel_batch_executor_handles_huge_declared_count_without_preallocation() {
+    let executor = ParallelBatchExecutor::builder()
+        .parallelism(2)
+        .parallel_threshold(1)
+        .build()
+        .expect("parallel executor should build");
+    let tasks = vec![TestTask::succeed()];
+
+    let error = executor
+        .execute(tasks, usize::MAX)
+        .expect_err("shortfall should be reported without preallocating count");
+
+    match error {
+        BatchExecutionError::CountShortfall {
+            expected,
+            actual,
+            result,
+        } => {
+            assert_eq!(expected, usize::MAX);
+            assert_eq!(actual, 1);
+            assert_eq!(result.completed_count(), 1);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
 fn test_parallel_batch_executor_reports_count_exceeded() {
     let executor = ParallelBatchExecutor::builder()
         .parallelism(4)
         .parallel_threshold(1)
         .build()
         .expect("parallel executor should build");
-    let tasks = (0..2).map(|_| || Ok::<(), &'static str>(()));
+    let tasks = vec![TestTask::succeed(), TestTask::succeed()];
 
     let error = executor
         .execute(tasks, 1)
@@ -154,6 +238,37 @@ fn test_parallel_batch_executor_reports_count_exceeded() {
 }
 
 #[test]
+fn test_parallel_batch_executor_reports_count_exceeded_in_parallel_path() {
+    let executor = ParallelBatchExecutor::builder()
+        .parallelism(4)
+        .parallel_threshold(1)
+        .build()
+        .expect("parallel executor should build");
+    let tasks = vec![
+        TestTask::succeed(),
+        TestTask::succeed(),
+        TestTask::succeed(),
+    ];
+
+    let error = executor
+        .execute(tasks, 2)
+        .expect_err("overflow should be reported");
+
+    match error {
+        BatchExecutionError::CountExceeded {
+            expected,
+            observed_at_least,
+            result,
+        } => {
+            assert_eq!(expected, 2);
+            assert_eq!(observed_at_least, 3);
+            assert_eq!(result.completed_count(), 2);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
 fn test_parallel_batch_executor_runs_tasks_concurrently() {
     let executor = ParallelBatchExecutor::builder()
         .parallelism(4)
@@ -162,19 +277,15 @@ fn test_parallel_batch_executor_runs_tasks_concurrently() {
         .expect("parallel executor should build");
     let active = Arc::new(AtomicUsize::new(0));
     let max_active = Arc::new(AtomicUsize::new(0));
-    let active_for_tasks = Arc::clone(&active);
-    let max_active_for_tasks = Arc::clone(&max_active);
-    let tasks = (0..8).map(move |_| {
-        let active = Arc::clone(&active_for_tasks);
-        let max_active = Arc::clone(&max_active_for_tasks);
-        move || {
-            let current = active.fetch_add(1, Ordering::AcqRel) + 1;
-            update_max(&max_active, current);
-            thread::sleep(Duration::from_millis(30));
-            active.fetch_sub(1, Ordering::AcqRel);
-            Ok::<(), &'static str>(())
-        }
-    });
+    let tasks = (0..8)
+        .map(|_| {
+            TestTask::track_concurrency(
+                Arc::clone(&active),
+                Arc::clone(&max_active),
+                Duration::from_millis(30),
+            )
+        })
+        .collect::<Vec<_>>();
 
     let result = executor
         .execute(tasks, 8)
@@ -193,19 +304,15 @@ fn test_parallel_batch_executor_falls_back_to_sequential_below_threshold() {
         .expect("parallel executor should build");
     let active = Arc::new(AtomicUsize::new(0));
     let max_active = Arc::new(AtomicUsize::new(0));
-    let active_for_tasks = Arc::clone(&active);
-    let max_active_for_tasks = Arc::clone(&max_active);
-    let tasks = (0..4).map(move |_| {
-        let active = Arc::clone(&active_for_tasks);
-        let max_active = Arc::clone(&max_active_for_tasks);
-        move || {
-            let current = active.fetch_add(1, Ordering::AcqRel) + 1;
-            update_max(&max_active, current);
-            thread::sleep(Duration::from_millis(10));
-            active.fetch_sub(1, Ordering::AcqRel);
-            Ok::<(), &'static str>(())
-        }
-    });
+    let tasks = (0..4)
+        .map(|_| {
+            TestTask::track_concurrency(
+                Arc::clone(&active),
+                Arc::clone(&max_active),
+                Duration::from_millis(10),
+            )
+        })
+        .collect::<Vec<_>>();
 
     let result = executor.execute(tasks, 4).expect("batch should succeed");
 
@@ -223,12 +330,9 @@ fn test_parallel_batch_executor_reports_progress() {
         .reporter_arc(reporter.clone())
         .build()
         .expect("parallel executor should build");
-    let tasks = (0..4).map(|_| {
-        || {
-            thread::sleep(Duration::from_millis(60));
-            Ok::<(), &'static str>(())
-        }
-    });
+    let tasks = (0..4)
+        .map(|_| TestTask::sleep_success(Duration::from_millis(60)))
+        .collect::<Vec<_>>();
 
     let result = executor.execute(tasks, 4).expect("batch should succeed");
     let events = reporter.events();
@@ -250,14 +354,4 @@ fn test_parallel_batch_executor_reports_progress() {
         events.last(),
         Some(ProgressEvent::Finish { total_count: 4, .. })
     ));
-}
-
-fn update_max(max_active: &AtomicUsize, current: usize) {
-    let mut observed = max_active.load(Ordering::Acquire);
-    while current > observed {
-        match max_active.compare_exchange(observed, current, Ordering::AcqRel, Ordering::Acquire) {
-            Ok(_) => return,
-            Err(value) => observed = value,
-        }
-    }
 }

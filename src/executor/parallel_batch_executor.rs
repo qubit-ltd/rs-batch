@@ -313,27 +313,21 @@ impl BatchExecutor for ParallelBatchExecutor {
         });
 
         let mut actual_count = 0usize;
-        let mut buffered_tasks = Vec::with_capacity(count.saturating_add(1));
-        for task in tasks {
-            if actual_count == count {
-                actual_count += 1;
-                break;
-            }
-            buffered_tasks.push(task);
-            actual_count += 1;
-        }
-
-        self.pool.install(|| {
-            rayon::scope_fifo(|scope| {
-                for (index, task) in buffered_tasks.into_iter().enumerate() {
-                    progress_state.submitted_count.inc();
-                    let task_progress_state = Arc::clone(&progress_state);
-                    let task_result_state = Arc::clone(&result_state);
-                    scope.spawn_fifo(move |_| {
-                        run_parallel_task(task_progress_state, task_result_state, index, task);
-                    });
+        self.pool.in_place_scope_fifo(|scope| {
+            for task in tasks {
+                if actual_count == count {
+                    actual_count += 1;
+                    break;
                 }
-            });
+                let index = actual_count;
+                actual_count += 1;
+                progress_state.submitted_count.inc();
+                let task_progress_state = Arc::clone(&progress_state);
+                let task_result_state = Arc::clone(&result_state);
+                scope.spawn_fifo(move |_| {
+                    run_parallel_task(task_progress_state, task_result_state, index, task);
+                });
+            }
         });
 
         stop_sender

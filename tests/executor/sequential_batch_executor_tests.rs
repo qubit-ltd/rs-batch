@@ -16,7 +16,6 @@ use std::{
             Ordering,
         },
     },
-    thread,
     time::Duration,
 };
 
@@ -29,20 +28,18 @@ use qubit_batch::{
 use crate::support::{
     ProgressEvent,
     RecordingProgressReporter,
+    TestTask,
 };
 
 #[test]
 fn test_sequential_batch_executor_executes_successfully() {
     let executor = SequentialBatchExecutor::new();
     let counter = Arc::new(AtomicUsize::new(0));
-    let counter_for_tasks = Arc::clone(&counter);
-    let tasks = (0..3).map(move |_| {
-        let counter = Arc::clone(&counter_for_tasks);
-        move || {
-            counter.fetch_add(1, Ordering::AcqRel);
-            Ok::<(), &'static str>(())
-        }
-    });
+    let tasks = vec![
+        TestTask::count_success(Arc::clone(&counter)),
+        TestTask::count_success(Arc::clone(&counter)),
+        TestTask::count_success(Arc::clone(&counter)),
+    ];
 
     let result = executor
         .execute(tasks, 3)
@@ -55,15 +52,23 @@ fn test_sequential_batch_executor_executes_successfully() {
 }
 
 #[test]
+fn test_sequential_batch_executor_accessors_and_value_reporter() {
+    let executor = SequentialBatchExecutor::new()
+        .with_reporter(RecordingProgressReporter::new())
+        .with_report_interval(Duration::from_millis(25));
+
+    assert_eq!(executor.report_interval(), Duration::from_millis(25));
+    executor.reporter().start(1);
+}
+
+#[test]
 fn test_sequential_batch_executor_collects_failures_and_panics() {
     let executor = SequentialBatchExecutor::new();
-    let tasks = (0..3).map(|index| {
-        move || match index {
-            0 => Ok::<(), &'static str>(()),
-            1 => Err("failed"),
-            _ => panic!("panic in sequential batch"),
-        }
-    });
+    let tasks = vec![
+        TestTask::succeed(),
+        TestTask::fail("failed"),
+        TestTask::panic("panic in sequential batch"),
+    ];
 
     let result = executor
         .execute(tasks, 3)
@@ -81,7 +86,7 @@ fn test_sequential_batch_executor_collects_failures_and_panics() {
 #[test]
 fn test_sequential_batch_executor_reports_count_shortfall() {
     let executor = SequentialBatchExecutor::new();
-    let tasks = (0..2).map(|_| || Ok::<(), &'static str>(()));
+    let tasks = vec![TestTask::succeed(), TestTask::succeed()];
 
     let error = executor
         .execute(tasks, 3)
@@ -104,7 +109,7 @@ fn test_sequential_batch_executor_reports_count_shortfall() {
 #[test]
 fn test_sequential_batch_executor_reports_count_exceeded() {
     let executor = SequentialBatchExecutor::new();
-    let tasks = (0..2).map(|_| || Ok::<(), &'static str>(()));
+    let tasks = vec![TestTask::succeed(), TestTask::succeed()];
 
     let error = executor
         .execute(tasks, 1)
@@ -150,12 +155,11 @@ fn test_sequential_batch_executor_reports_progress() {
     let executor = SequentialBatchExecutor::new()
         .with_reporter_arc(reporter.clone())
         .with_report_interval(Duration::from_millis(10));
-    let tasks = (0..3).map(|_| {
-        || {
-            thread::sleep(Duration::from_millis(20));
-            Ok::<(), &'static str>(())
-        }
-    });
+    let tasks = vec![
+        TestTask::sleep_success(Duration::from_millis(20)),
+        TestTask::sleep_success(Duration::from_millis(20)),
+        TestTask::sleep_success(Duration::from_millis(20)),
+    ];
 
     let result = executor
         .execute(tasks, 3)
