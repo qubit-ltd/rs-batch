@@ -18,6 +18,14 @@ use qubit_batch::{
     ProgressReporter,
 };
 
+/// Asserts that constructing an invalid batch execution result panics.
+fn assert_invalid_result_panics<F>(build: F)
+where
+    F: FnOnce() + std::panic::UnwindSafe,
+{
+    assert!(std::panic::catch_unwind(build).is_err());
+}
+
 #[test]
 fn test_batch_execution_result_success_state() {
     let result: BatchExecutionResult<&'static str> =
@@ -51,8 +59,9 @@ fn test_batch_execution_result_failure_details() {
 
 #[test]
 fn test_batch_execution_result_display_summary() {
+    let failures = vec![BatchTaskFailure::new(1, BatchTaskError::Failed("bad"))];
     let result: BatchExecutionResult<&'static str> =
-        BatchExecutionResult::new(3, 2, 1, 1, 0, Duration::from_millis(15), Vec::new());
+        BatchExecutionResult::new(3, 2, 1, 1, 0, Duration::from_millis(15), failures);
 
     let text = result.to_string();
 
@@ -73,6 +82,103 @@ fn test_batch_execution_result_into_failures() {
 
     assert_eq!(failures.len(), 1);
     assert_eq!(failures[0].index(), 4);
+}
+
+#[test]
+fn test_batch_execution_result_sorts_failure_details() {
+    let failures = vec![
+        BatchTaskFailure::new(2, BatchTaskError::Panicked),
+        BatchTaskFailure::new(1, BatchTaskError::Failed("bad")),
+    ];
+
+    let result = BatchExecutionResult::new(3, 3, 1, 1, 1, Duration::from_millis(25), failures);
+
+    assert_eq!(result.failures()[0].index(), 1);
+    assert!(result.failures()[0].error().is_failed());
+    assert_eq!(result.failures()[1].index(), 2);
+    assert!(result.failures()[1].error().is_panicked());
+}
+
+#[test]
+fn test_batch_execution_result_rejects_completed_count_above_task_count() {
+    assert_invalid_result_panics(|| {
+        let _: BatchExecutionResult<&'static str> =
+            BatchExecutionResult::new(1, 2, 2, 0, 0, Duration::from_millis(1), Vec::new());
+    });
+}
+
+#[test]
+fn test_batch_execution_result_rejects_terminal_count_mismatch() {
+    assert_invalid_result_panics(|| {
+        let _: BatchExecutionResult<&'static str> =
+            BatchExecutionResult::new(2, 2, 1, 0, 0, Duration::from_millis(1), Vec::new());
+    });
+}
+
+#[test]
+fn test_batch_execution_result_rejects_failure_detail_count_mismatch() {
+    assert_invalid_result_panics(|| {
+        let _: BatchExecutionResult<&'static str> =
+            BatchExecutionResult::new(2, 2, 1, 1, 0, Duration::from_millis(1), Vec::new());
+    });
+}
+
+#[test]
+fn test_batch_execution_result_rejects_failed_detail_variant_mismatch() {
+    let failures: Vec<BatchTaskFailure<&'static str>> =
+        vec![BatchTaskFailure::new(1, BatchTaskError::Panicked)];
+
+    assert_invalid_result_panics(|| {
+        BatchExecutionResult::new(2, 2, 1, 1, 0, Duration::from_millis(1), failures);
+    });
+}
+
+#[test]
+fn test_batch_execution_result_rejects_panicked_detail_variant_mismatch() {
+    let failures = vec![BatchTaskFailure::new(1, BatchTaskError::Failed("bad"))];
+
+    assert_invalid_result_panics(|| {
+        BatchExecutionResult::new(2, 2, 1, 0, 1, Duration::from_millis(1), failures);
+    });
+}
+
+#[test]
+fn test_batch_execution_result_rejects_failure_index_outside_task_range() {
+    let failures = vec![BatchTaskFailure::new(2, BatchTaskError::Failed("bad"))];
+
+    assert_invalid_result_panics(|| {
+        BatchExecutionResult::new(2, 2, 1, 1, 0, Duration::from_millis(1), failures);
+    });
+}
+
+#[test]
+fn test_batch_execution_result_rejects_failure_count_overflow() {
+    assert_invalid_result_panics(|| {
+        let _: BatchExecutionResult<&'static str> = BatchExecutionResult::new(
+            usize::MAX,
+            usize::MAX,
+            0,
+            usize::MAX,
+            1,
+            Duration::from_millis(1),
+            Vec::new(),
+        );
+    });
+}
+
+#[test]
+fn test_batch_execution_result_rejects_terminal_count_overflow() {
+    assert_invalid_result_panics(|| {
+        let _: BatchExecutionResult<&'static str> = BatchExecutionResult::new(
+            usize::MAX,
+            usize::MAX,
+            usize::MAX,
+            1,
+            0,
+            Duration::from_millis(1),
+            Vec::new(),
+        );
+    });
 }
 
 #[test]

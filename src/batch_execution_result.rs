@@ -8,7 +8,10 @@
  ******************************************************************************/
 use std::time::Duration;
 
-use crate::BatchTaskFailure;
+use crate::{
+    BatchTaskError,
+    BatchTaskFailure,
+};
 
 /// Structured result produced by one batch execution.
 ///
@@ -56,7 +59,14 @@ impl<E> BatchExecutionResult<E> {
     ///
     /// # Returns
     ///
-    /// A fully populated batch execution result.
+    /// A fully populated batch execution result with failures sorted by task
+    /// index.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the supplied counters are inconsistent, when the detailed
+    /// failure list does not match `failed_count` and `panicked_count`, or when
+    /// any failure index is outside `0..task_count`.
     #[inline]
     pub fn new(
         task_count: usize,
@@ -67,6 +77,16 @@ impl<E> BatchExecutionResult<E> {
         elapsed: Duration,
         failures: Vec<BatchTaskFailure<E>>,
     ) -> Self {
+        validate_result_invariants(
+            task_count,
+            completed_count,
+            succeeded_count,
+            failed_count,
+            panicked_count,
+            &failures,
+        );
+        let mut failures = failures;
+        failures.sort_by_key(|failure| failure.index());
         Self {
             task_count,
             completed_count,
@@ -179,4 +199,91 @@ impl<E> BatchExecutionResult<E> {
     pub fn into_failures(self) -> Vec<BatchTaskFailure<E>> {
         self.failures
     }
+}
+
+/// Validates all counters and failure details for a batch result.
+///
+/// # Parameters
+///
+/// * `task_count` - Declared batch task count.
+/// * `completed_count` - Number of completed tasks.
+/// * `succeeded_count` - Number of successful tasks.
+/// * `failed_count` - Number of failed tasks.
+/// * `panicked_count` - Number of panicked tasks.
+/// * `failures` - Detailed failure records to validate.
+///
+/// # Panics
+///
+/// Panics when the aggregate counters, detailed failure counts, or failure
+/// indexes are inconsistent.
+fn validate_result_invariants<E>(
+    task_count: usize,
+    completed_count: usize,
+    succeeded_count: usize,
+    failed_count: usize,
+    panicked_count: usize,
+    failures: &[BatchTaskFailure<E>],
+) {
+    let failure_count = failed_count
+        .checked_add(panicked_count)
+        .expect("failed and panicked task counts must not overflow");
+    let terminal_count = succeeded_count
+        .checked_add(failure_count)
+        .expect("terminal task counts must not overflow");
+
+    assert!(
+        completed_count <= task_count,
+        "completed task count must not exceed declared task count"
+    );
+    assert_eq!(
+        terminal_count, completed_count,
+        "completed task count must equal succeeded + failed + panicked counts"
+    );
+    assert_eq!(
+        failures.len(),
+        failure_count,
+        "failure detail count must equal failed + panicked counts"
+    );
+    validate_failure_details(task_count, failed_count, panicked_count, failures);
+}
+
+/// Validates detailed failure records against their aggregate counters.
+///
+/// # Parameters
+///
+/// * `task_count` - Declared batch task count.
+/// * `failed_count` - Expected number of task errors.
+/// * `panicked_count` - Expected number of task panics.
+/// * `failures` - Detailed failure records to inspect.
+///
+/// # Panics
+///
+/// Panics when a failure index is outside the batch range or when the observed
+/// failure variants do not match the aggregate counters.
+fn validate_failure_details<E>(
+    task_count: usize,
+    failed_count: usize,
+    panicked_count: usize,
+    failures: &[BatchTaskFailure<E>],
+) {
+    let mut observed_failed_count = 0usize;
+    let mut observed_panicked_count = 0usize;
+    for failure in failures {
+        assert!(
+            failure.index() < task_count,
+            "failure index must be less than declared task count"
+        );
+        match failure.error() {
+            BatchTaskError::Failed(_) => observed_failed_count += 1,
+            BatchTaskError::Panicked => observed_panicked_count += 1,
+        }
+    }
+    assert_eq!(
+        observed_failed_count, failed_count,
+        "failed detail count must match failed_count"
+    );
+    assert_eq!(
+        observed_panicked_count, panicked_count,
+        "panicked detail count must match panicked_count"
+    );
 }
