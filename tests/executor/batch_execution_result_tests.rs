@@ -8,7 +8,11 @@
  ******************************************************************************/
 //! Tests for [`BatchExecutionResult`](qubit_batch::BatchExecutionResult).
 
-use std::time::Duration;
+use std::{
+    error::Error,
+    fmt,
+    time::Duration,
+};
 
 use qubit_batch::{
     BatchExecutionResult,
@@ -211,6 +215,56 @@ fn test_batch_task_error_display_and_failure_into_error() {
     assert!(!panicked.is_failed());
     assert!(panicked.is_panicked());
     assert!(failure.into_error().is_failed());
+}
+
+#[derive(Debug)]
+struct SourceError;
+
+impl fmt::Display for SourceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("source error")
+    }
+}
+
+impl Error for SourceError {}
+
+#[derive(Debug)]
+struct WrappedError {
+    source: SourceError,
+}
+
+impl fmt::Display for WrappedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("wrapped error")
+    }
+}
+
+impl Error for WrappedError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        Some(&self.source)
+    }
+}
+
+#[test]
+fn test_batch_task_error_source_preserves_failed_error() {
+    let failed = BatchTaskError::Failed(WrappedError {
+        source: SourceError,
+    });
+    let panicked: BatchTaskError<WrappedError> = BatchTaskError::panicked("boom");
+
+    let source = failed
+        .source()
+        .expect("failed task error should expose wrapped error as source");
+
+    assert_eq!(source.to_string(), "wrapped error");
+    assert_eq!(
+        source
+            .source()
+            .expect("wrapped error should preserve its own source")
+            .to_string(),
+        "source error"
+    );
+    assert!(panicked.source().is_none());
 }
 
 #[test]
