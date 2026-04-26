@@ -6,8 +6,6 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-use std::fmt;
-
 use thiserror::Error;
 
 use crate::BatchExecutionResult;
@@ -96,32 +94,5 @@ impl<E> BatchExecutionError<E> {
     #[inline]
     pub const fn is_count_exceeded(&self) -> bool {
         matches!(self, Self::CountExceeded { .. })
-    }
-}
-
-impl<E> fmt::Display for BatchExecutionResult<E>
-where
-    E: fmt::Debug,
-{
-    /// Formats a concise summary of this batch execution result.
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - Formatter receiving the summary text.
-    ///
-    /// # Returns
-    ///
-    /// The formatting result produced by `write!`.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "BatchExecutionResult {{ task_count: {}, completed_count: {}, succeeded_count: {}, failed_count: {}, panicked_count: {}, elapsed: {:?} }}",
-            self.task_count(),
-            self.completed_count(),
-            self.succeeded_count(),
-            self.failed_count(),
-            self.panicked_count(),
-            self.elapsed(),
-        )
     }
 }

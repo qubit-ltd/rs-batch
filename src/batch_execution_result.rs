@@ -6,7 +6,10 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-use std::time::Duration;
+use std::{
+    fmt,
+    time::Duration,
+};
 
 use crate::{
     BatchTaskError,
@@ -198,6 +201,30 @@ impl<E> BatchExecutionResult<E> {
     #[inline]
     pub fn into_failures(self) -> Vec<BatchTaskFailure<E>> {
         self.failures
+    }
+}
+
+impl<E> fmt::Display for BatchExecutionResult<E> {
+    /// Formats a concise summary of this batch execution result.
+    ///
+    /// # Parameters
+    ///
+    /// * `f` - Formatter receiving the summary text.
+    ///
+    /// # Returns
+    ///
+    /// The formatting result produced by `write!`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "BatchExecutionResult {{ task_count: {}, completed_count: {}, succeeded_count: {}, failed_count: {}, panicked_count: {}, elapsed: {:?} }}",
+            self.task_count(),
+            self.completed_count(),
+            self.succeeded_count(),
+            self.failed_count(),
+            self.panicked_count(),
+            self.elapsed(),
+        )
     }
 }
 
