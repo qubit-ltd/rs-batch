@@ -1,0 +1,30 @@
+[package]
+name = "qubit-batch"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94"
+authors = ["Haixing Hu <starfish.hu@gmail.com>"]
+license = "Apache-2.0"
+repository = "https://github.com/qubit-ltd/rs-batch"
+description = "Batch task execution library providing sequential and Rayon-backed parallel batch executors with progress reporting"
+homepage = "https://github.com/qubit-ltd/rs-batch"
+documentation = "https://docs.rs/qubit-batch"
+readme = "README.md"
+keywords = ["batch", "parallel", "rayon", "progress", "executor"]
+categories = ["concurrency", "development-tools"]
+exclude = [
+    "coverage.sh",
+    ".circleci/*",
+    "align-ci.sh",
+    "ci-check.sh",
+]
+
+[lib]
+name = "qubit_batch"
+doctest = true
+
+[dependencies]
+qubit-atomic = "0.10"
+qubit-function = "0.10"
+rayon = "1.12"
+thiserror = "2.0"
