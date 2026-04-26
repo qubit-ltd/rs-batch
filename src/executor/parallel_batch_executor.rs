@@ -321,7 +321,6 @@ impl BatchExecutor for ParallelBatchExecutor {
                 }
                 let index = actual_count;
                 actual_count += 1;
-                progress_state.submitted_count.inc();
                 let task_progress_state = Arc::clone(&progress_state);
                 let task_result_state = Arc::clone(&result_state);
                 scope.spawn_fifo(move |_| {
@@ -362,8 +361,8 @@ impl BatchExecutor for ParallelBatchExecutor {
 
 /// Shared progress counters for a running parallel batch.
 struct ParallelBatchProgressState {
-    /// Number of submitted tasks.
-    submitted_count: AtomicCount,
+    /// Number of tasks currently running on worker threads.
+    active_count: AtomicCount,
     /// Number of completed tasks.
     completed_count: AtomicCount,
 }
@@ -376,7 +375,7 @@ impl ParallelBatchProgressState {
     /// Shared state with zeroed counters.
     fn new() -> Self {
         Self {
-            submitted_count: AtomicCount::zero(),
+            active_count: AtomicCount::zero(),
             completed_count: AtomicCount::zero(),
         }
     }
@@ -457,7 +456,10 @@ fn run_parallel_task<T, E>(
     T: Runnable<E>,
     E: Send,
 {
-    match catch_unwind(AssertUnwindSafe(|| task.run())) {
+    progress_state.active_count.inc();
+    let outcome = catch_unwind(AssertUnwindSafe(|| task.run()));
+    progress_state.active_count.dec();
+    match outcome {
         Ok(Ok(())) => {
             progress_state.completed_count.inc();
             result_state.succeeded_count.inc();
@@ -499,8 +501,7 @@ fn run_progress_loop(
             Ok(()) | Err(RecvTimeoutError::Disconnected) => break,
             Err(RecvTimeoutError::Timeout) => {
                 let completed_count = state.completed_count.get();
-                let submitted_count = state.submitted_count.get();
-                let active_count = submitted_count.saturating_sub(completed_count);
+                let active_count = state.active_count.get();
                 reporter.process(total_count, active_count, completed_count, start.elapsed());
             }
         }

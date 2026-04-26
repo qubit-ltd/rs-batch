@@ -350,6 +350,10 @@ fn test_parallel_batch_executor_reports_progress() {
             ..
         } if *active_count > 0
     )));
+    assert!(events.iter().all(|event| match event {
+        ProgressEvent::Process { active_count, .. } => *active_count <= 2,
+        _ => true,
+    }));
     assert!(matches!(
         events.last(),
         Some(ProgressEvent::Finish { total_count: 4, .. })
