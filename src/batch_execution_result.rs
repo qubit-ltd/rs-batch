@@ -25,6 +25,7 @@ use crate::{
 ///
 /// Haixing Hu
 #[derive(Debug, Error, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum BatchExecutionResultBuildError {
     /// The completed task count is greater than the declared task count.
     #[error(
@@ -223,6 +224,7 @@ impl<E> BatchExecutionResult<E> {
     /// Panics when [`Self::try_new`] returns
     /// [`BatchExecutionResultBuildError`].
     #[inline]
+    #[track_caller]
     pub fn new(
         task_count: usize,
         completed_count: usize,

@@ -22,6 +22,7 @@ use std::{
 ///
 /// Haixing Hu
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum BatchTaskError<E> {
     /// The task returned its own business error.
     Failed(E),
