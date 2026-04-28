@@ -20,7 +20,7 @@ use crate::BatchTaskError;
 /// # Author
 ///
 /// Haixing Hu
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BatchTaskFailure<E> {
     /// Zero-based task index within the batch.
     index: usize,

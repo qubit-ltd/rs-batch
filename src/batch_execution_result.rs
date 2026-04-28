@@ -24,8 +24,7 @@ use crate::{
 /// # Author
 ///
 /// Haixing Hu
-#[derive(Debug, Error, PartialEq, Eq)]
-#[non_exhaustive]
+#[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum BatchExecutionResultBuildError {
     /// The completed task count is greater than the declared task count.
     #[error(
@@ -129,7 +128,7 @@ pub enum BatchExecutionResultBuildError {
 /// # Author
 ///
 /// Haixing Hu
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BatchExecutionResult<E> {
     /// Declared task count for this batch.
     task_count: usize,
@@ -202,7 +201,7 @@ impl<E> BatchExecutionResult<E> {
         })
     }
 
-    /// Creates a new batch execution result.
+    /// Creates a new batch execution result for executor-internal use.
     ///
     /// # Parameters
     ///
@@ -221,11 +220,12 @@ impl<E> BatchExecutionResult<E> {
     ///
     /// # Panics
     ///
-    /// Panics when [`Self::try_new`] returns
-    /// [`BatchExecutionResultBuildError`].
+    /// Panics when the executor supplies counters that violate
+    /// [`BatchExecutionResultBuildError`] invariants. Public callers should
+    /// use [`Self::try_new`] instead.
     #[inline]
     #[track_caller]
-    pub fn new(
+    pub(crate) fn from_validated_parts(
         task_count: usize,
         completed_count: usize,
         succeeded_count: usize,
