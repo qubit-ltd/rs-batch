@@ -6,13 +6,7 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! # Batch Module Tests
-//!
-//! Tests for batch executors, results, and documentation consistency.
+//! Processor tests.
 
-mod docs;
-mod error;
-mod executor;
-mod processor;
-mod progress;
-mod support;
+mod batch_process_result_tests;
+mod chunked_batch_processor_tests;

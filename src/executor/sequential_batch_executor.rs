@@ -325,7 +325,7 @@ fn maybe_report_progress(
 /// * `succeeded_count` - Number of successful tasks.
 /// * `failed_count` - Number of failed tasks.
 /// * `panicked_count` - Number of panicked tasks.
-/// * `elapsed` - Total elapsed wall-clock time.
+/// * `elapsed` - Total monotonic elapsed duration.
 /// * `failures` - Detailed failure list.
 ///
 /// # Returns

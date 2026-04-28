@@ -20,6 +20,7 @@
 
 pub mod error;
 pub mod executor;
+pub mod processor;
 pub mod progress;
 
 pub use error::{
@@ -30,10 +31,20 @@ pub use error::{
     BatchTaskFailure,
 };
 pub use executor::{
+    BatchCallResult,
     BatchExecutor,
     SequentialBatchExecutor,
 };
+pub use processor::{
+    BatchProcessResult,
+    BatchProcessor,
+    ChunkedBatchProcessError,
+    ChunkedBatchProcessor,
+};
 pub use progress::{
+    ConsoleProgressReporter,
+    LoggerProgressReporter,
     NoOpProgressReporter,
     ProgressReporter,
+    WriterProgressReporter,
 };

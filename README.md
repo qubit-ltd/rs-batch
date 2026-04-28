@@ -30,12 +30,20 @@ Qubit Batch focuses on one-shot execution of whole task batches instead of
 single-task submission. The crate provides:
 
 - `BatchExecutor`: trait for executing a batch of fallible runnable tasks.
+- `BatchExecutor::call`: convenience API for executing fallible callables and
+  collecting successful return values by index.
+- `BatchProcessor`: trait for processing data items directly, without first
+  wrapping each item as a task.
+- `ChunkedBatchProcessor`: processor adapter that submits fixed-size chunks to a
+  delegate processor.
 - `SequentialBatchExecutor`: deterministic, in-order execution on the caller
   thread.
 - `ProgressReporter`: pluggable progress callbacks for start, in-flight
   progress, and finish notifications.
+- `ConsoleProgressReporter` and `LoggerProgressReporter`: concrete reporters
+  for stdout and the `log` crate.
 - `BatchExecutionResult`: structured batch outcome with failure aggregation and
-  elapsed-time reporting.
+  monotonic elapsed-duration reporting.
 
 Rayon-backed parallel batch execution lives in the companion
 `qubit-rayon-batch` crate.
@@ -190,6 +198,58 @@ qubit-batch = "0.3.0"
 qubit-function = "0.11"
 ```
 
+### Process data in fixed-size chunks
+
+Implement `BatchProcessor` for the real batch target, such as a SQL insert
+operation. Wrap it with `ChunkedBatchProcessor` when the logical batch must be
+submitted in smaller chunks.
+
+```rust
+use std::{
+    num::NonZeroUsize,
+    time::Duration,
+};
+
+use qubit_batch::{
+    BatchProcessResult,
+    BatchProcessor,
+    ChunkedBatchProcessor,
+};
+
+struct InsertRows;
+
+impl BatchProcessor<i32> for InsertRows {
+    type Error = &'static str;
+
+    fn process<I>(&mut self, rows: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+    where
+        I: IntoIterator<Item = i32>,
+    {
+        let processed = rows.into_iter().count();
+        Ok(BatchProcessResult::new(
+            count,
+            processed,
+            processed,
+            1,
+            Duration::ZERO,
+        ))
+    }
+}
+
+let mut processor = ChunkedBatchProcessor::new(
+    InsertRows,
+    NonZeroUsize::new(2).expect("chunk size is non-zero"),
+);
+
+let result = processor
+    .process([1, 2, 3, 4, 5], 5)
+    .expect("the iterator yielded exactly five items");
+
+assert_eq!(result.completed_count(), 5);
+assert_eq!(result.processed_count(), 5);
+assert_eq!(result.chunk_count(), 3);
+```
+
 ## Progress Reporting
 
 `SequentialBatchExecutor` uses `NoOpProgressReporter` by default. You can attach
@@ -301,14 +361,25 @@ Important result semantics:
 
 - `BatchExecutor`: trait for executing a declared batch of fallible runnable
   tasks.
+- `BatchCallResult<R, E>`: callable batch result containing the execution
+  summary and indexed success values.
 - `SequentialBatchExecutor`: default executor that runs tasks sequentially on the
   caller thread.
+- `BatchProcessor`: trait for processing a declared batch of data items.
+- `BatchProcessResult`: aggregate result containing item, processed, chunk, and
+  monotonic elapsed-duration counters.
+- `ChunkedBatchProcessor`: processor wrapper that splits a logical batch into
+  fixed-size chunks and delegates each chunk.
+- `ChunkedBatchProcessError<E>`: chunked processor error for source count
+  mismatches or delegate failures, carrying the partial process result.
 - `ProgressReporter`: lifecycle callback trait for batch start, periodic
   progress, and finish notifications.
 - `NoOpProgressReporter`: default reporter that accepts callbacks without doing
   any work.
-- `BatchExecutionResult<E>`: aggregate result containing task counts, elapsed
-  time, and detailed task failures.
+- `WriterProgressReporter`, `ConsoleProgressReporter`, and
+  `LoggerProgressReporter`: concrete reporters for writers, stdout, and `log`.
+- `BatchExecutionResult<E>`: aggregate result containing task counts, monotonic
+  elapsed duration, and detailed task failures.
 - `BatchExecutionError<E>`: batch-level contract error for declared count
   shortfall or overflow, carrying the partial result collected so far.
 - `BatchTaskFailure<E>`: one failed or panicked task with its stable zero-based
@@ -321,9 +392,15 @@ Important result semantics:
 - `src/executor`: executor traits and the sequential executor implementation.
 - `src/error`: batch execution results, count mismatch errors, task failures,
   and task panic conversion.
-- `src/progress`: progress reporter traits and the no-op reporter.
+- `src/processor`: data-item batch processor traits, results, and the chunked
+  processor.
+- `src/progress`: progress reporter traits and no-op, stdout, writer, and logger
+  reporters.
 - `tests/executor`: behavior tests for sequential execution, progress callbacks,
   failures, panics, and count mismatches.
+- `tests/processor`: behavior tests for chunking, delegate errors, and progress
+  callbacks.
+- `tests/progress`: behavior tests for concrete progress reporters.
 - `tests/error`: tests for result invariants and error helper methods.
 - `tests/docs`: README consistency checks.
 

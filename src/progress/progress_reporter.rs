@@ -40,7 +40,7 @@ pub trait ProgressReporter: Send + Sync {
     /// * `total_count` - Declared task count for the batch.
     /// * `active_count` - Number of tasks that are currently in flight.
     /// * `completed_count` - Number of tasks that have completed.
-    /// * `elapsed` - Elapsed wall-clock time since batch start.
+    /// * `elapsed` - Monotonic elapsed duration since batch start.
     ///
     /// # Panics
     ///
@@ -58,7 +58,7 @@ pub trait ProgressReporter: Send + Sync {
     /// # Parameters
     ///
     /// * `total_count` - Declared task count for the batch.
-    /// * `elapsed` - Total elapsed wall-clock time.
+    /// * `elapsed` - Total monotonic elapsed duration.
     ///
     /// # Panics
     ///
