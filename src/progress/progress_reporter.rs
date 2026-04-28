@@ -14,6 +14,10 @@ use std::time::Duration;
 /// `ParallelExecutor`, while adapting the time type to Rust's
 /// [`Duration`](std::time::Duration).
 ///
+/// Reporter callbacks are intentionally outside task failure aggregation. If a
+/// reporter callback panics, the executor propagates that panic to the caller
+/// instead of converting it into a [`crate::BatchTaskError`].
+///
 /// # Author
 ///
 /// Haixing Hu
@@ -23,6 +27,10 @@ pub trait ProgressReporter: Send + Sync {
     /// # Parameters
     ///
     /// * `total_count` - Declared task count for the batch.
+    ///
+    /// # Panics
+    ///
+    /// Any panic from this callback is propagated by the executor.
     fn start(&self, total_count: usize);
 
     /// Reports batch execution progress.
@@ -33,6 +41,10 @@ pub trait ProgressReporter: Send + Sync {
     /// * `active_count` - Number of tasks that are currently in flight.
     /// * `completed_count` - Number of tasks that have completed.
     /// * `elapsed` - Elapsed wall-clock time since batch start.
+    ///
+    /// # Panics
+    ///
+    /// Any panic from this callback is propagated by the executor.
     fn process(
         &self,
         total_count: usize,
@@ -47,5 +59,9 @@ pub trait ProgressReporter: Send + Sync {
     ///
     /// * `total_count` - Declared task count for the batch.
     /// * `elapsed` - Total elapsed wall-clock time.
+    ///
+    /// # Panics
+    ///
+    /// Any panic from this callback is propagated by the executor.
     fn finish(&self, total_count: usize, elapsed: Duration);
 }

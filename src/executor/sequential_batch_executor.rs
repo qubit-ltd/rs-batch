@@ -164,6 +164,11 @@ impl BatchExecutor for SequentialBatchExecutor {
     ///
     /// Returns [`BatchExecutionError`] when `tasks` yields fewer or more tasks
     /// than `count`.
+    ///
+    /// # Panics
+    ///
+    /// Panics from tasks are captured in the result. Panics from the configured
+    /// progress reporter are propagated to the caller.
     fn execute<T, E, I>(
         &self,
         tasks: I,
@@ -335,7 +340,7 @@ fn build_result<E>(
     elapsed: Duration,
     failures: Vec<BatchTaskFailure<E>>,
 ) -> BatchExecutionResult<E> {
-    BatchExecutionResult::new(
+    BatchExecutionResult::from_validated_parts(
         task_count,
         completed_count,
         succeeded_count,

@@ -21,8 +21,7 @@ use std::{
 /// # Author
 ///
 /// Haixing Hu
-#[derive(Debug)]
-#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BatchTaskError<E> {
     /// The task returned its own business error.
     Failed(E),

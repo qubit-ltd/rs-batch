@@ -9,7 +9,6 @@
 //! Tests for [`ParallelBatchExecutor`](qubit_batch::ParallelBatchExecutor).
 
 use std::{
-    any::Any,
     panic::{
         AssertUnwindSafe,
         catch_unwind,
@@ -29,41 +28,16 @@ use qubit_batch::{
     BatchExecutor,
     ParallelBatchExecutor,
     ParallelBatchExecutorBuildError,
-    ProgressReporter,
 };
 
 use crate::support::{
+    PanickingProgressReporter,
     ProgressEvent,
+    ProgressPanicPhase,
     RecordingProgressReporter,
     TestTask,
+    panic_payload_message,
 };
-
-#[derive(Debug)]
-struct PanickingProgressReporter;
-
-impl ProgressReporter for PanickingProgressReporter {
-    fn start(&self, _total_count: usize) {}
-
-    fn process(
-        &self,
-        _total_count: usize,
-        _active_count: usize,
-        _completed_count: usize,
-        _elapsed: Duration,
-    ) {
-        panic!("progress reporter panic");
-    }
-
-    fn finish(&self, _total_count: usize, _elapsed: Duration) {}
-}
-
-fn panic_payload_message(payload: &(dyn Any + Send)) -> Option<&str> {
-    if let Some(message) = payload.downcast_ref::<&'static str>() {
-        Some(*message)
-    } else {
-        payload.downcast_ref::<String>().map(String::as_str)
-    }
-}
 
 #[test]
 fn test_parallel_batch_executor_build_rejects_invalid_parallelism() {
@@ -435,11 +409,15 @@ fn test_parallel_batch_executor_reports_progress() {
 
 #[test]
 fn test_parallel_batch_executor_preserves_progress_reporter_panic() {
+    const PANIC_MESSAGE: &str = "progress reporter process panic";
     let executor = ParallelBatchExecutor::builder()
         .parallelism(2)
         .parallel_threshold(1)
         .report_interval(Duration::from_millis(1))
-        .reporter(PanickingProgressReporter)
+        .reporter(PanickingProgressReporter::new(
+            ProgressPanicPhase::Process,
+            PANIC_MESSAGE,
+        ))
         .build()
         .expect("parallel executor should build");
     let tasks = (0..2)
@@ -449,8 +427,45 @@ fn test_parallel_batch_executor_preserves_progress_reporter_panic() {
     let payload = catch_unwind(AssertUnwindSafe(|| executor.execute(tasks, 2)))
         .expect_err("progress reporter panic should be propagated");
 
-    assert_eq!(
-        panic_payload_message(payload.as_ref()),
-        Some("progress reporter panic")
-    );
+    assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
+}
+
+#[test]
+fn test_parallel_batch_executor_propagates_progress_reporter_start_panic() {
+    const PANIC_MESSAGE: &str = "progress reporter start panic";
+    let executor = ParallelBatchExecutor::builder()
+        .parallelism(2)
+        .parallel_threshold(1)
+        .reporter(PanickingProgressReporter::new(
+            ProgressPanicPhase::Start,
+            PANIC_MESSAGE,
+        ))
+        .build()
+        .expect("parallel executor should build");
+    let tasks = vec![TestTask::succeed(), TestTask::succeed()];
+
+    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute(tasks, 2)))
+        .expect_err("progress reporter start panic should be propagated");
+
+    assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
+}
+
+#[test]
+fn test_parallel_batch_executor_propagates_progress_reporter_finish_panic() {
+    const PANIC_MESSAGE: &str = "progress reporter finish panic";
+    let executor = ParallelBatchExecutor::builder()
+        .parallelism(2)
+        .parallel_threshold(1)
+        .reporter(PanickingProgressReporter::new(
+            ProgressPanicPhase::Finish,
+            PANIC_MESSAGE,
+        ))
+        .build()
+        .expect("parallel executor should build");
+    let tasks = vec![TestTask::succeed(), TestTask::succeed()];
+
+    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute(tasks, 2)))
+        .expect_err("progress reporter finish panic should be propagated");
+
+    assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }

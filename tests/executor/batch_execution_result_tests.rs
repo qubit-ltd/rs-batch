@@ -23,18 +23,46 @@ use qubit_batch::{
     ProgressReporter,
 };
 
-/// Asserts that constructing an invalid batch execution result panics.
-fn assert_invalid_result_panics<F>(build: F)
-where
-    F: FnOnce() + std::panic::UnwindSafe,
-{
-    assert!(std::panic::catch_unwind(build).is_err());
+/// Builds a valid batch execution result for tests.
+///
+/// # Parameters
+///
+/// * `task_count` - Declared task count.
+/// * `completed_count` - Completed task count.
+/// * `succeeded_count` - Successful task count.
+/// * `failed_count` - Failed task count.
+/// * `panicked_count` - Panicked task count.
+/// * `elapsed` - Elapsed batch duration.
+/// * `failures` - Detailed task failures.
+///
+/// # Returns
+///
+/// A valid batch execution result.
+fn build_result<E>(
+    task_count: usize,
+    completed_count: usize,
+    succeeded_count: usize,
+    failed_count: usize,
+    panicked_count: usize,
+    elapsed: Duration,
+    failures: Vec<BatchTaskFailure<E>>,
+) -> BatchExecutionResult<E> {
+    BatchExecutionResult::try_new(
+        task_count,
+        completed_count,
+        succeeded_count,
+        failed_count,
+        panicked_count,
+        elapsed,
+        failures,
+    )
+    .expect("test result should satisfy batch execution result invariants")
 }
 
 #[test]
 fn test_batch_execution_result_success_state() {
     let result: BatchExecutionResult<&'static str> =
-        BatchExecutionResult::new(3, 3, 3, 0, 0, Duration::from_millis(10), Vec::new());
+        build_result(3, 3, 3, 0, 0, Duration::from_millis(10), Vec::new());
 
     assert_eq!(result.task_count(), 3);
     assert_eq!(result.completed_count(), 3);
@@ -51,7 +79,7 @@ fn test_batch_execution_result_failure_details() {
         BatchTaskFailure::new(1, BatchTaskError::Failed("bad")),
         BatchTaskFailure::new(2, BatchTaskError::panicked("panic")),
     ];
-    let result = BatchExecutionResult::new(3, 3, 1, 1, 1, Duration::from_millis(25), failures);
+    let result = build_result(3, 3, 1, 1, 1, Duration::from_millis(25), failures);
 
     assert_eq!(result.failure_count(), 2);
     assert_eq!(result.failures().len(), 2);
@@ -63,10 +91,28 @@ fn test_batch_execution_result_failure_details() {
 }
 
 #[test]
+fn test_batch_execution_result_clone_and_equality() {
+    let failures = vec![
+        BatchTaskFailure::new(1, BatchTaskError::Failed("bad")),
+        BatchTaskFailure::new(2, BatchTaskError::panicked("panic")),
+    ];
+    let result = build_result(3, 3, 1, 1, 1, Duration::from_millis(25), failures);
+
+    let cloned = result.clone();
+
+    assert_eq!(cloned, result);
+    assert_eq!(cloned.failures()[0].clone(), result.failures()[0]);
+    assert_eq!(
+        cloned.failures()[1].error().clone(),
+        result.failures()[1].error().clone()
+    );
+}
+
+#[test]
 fn test_batch_execution_result_display_summary() {
     let failures = vec![BatchTaskFailure::new(1, BatchTaskError::Failed("bad"))];
     let result: BatchExecutionResult<&'static str> =
-        BatchExecutionResult::new(3, 2, 1, 1, 0, Duration::from_millis(15), failures);
+        build_result(3, 2, 1, 1, 0, Duration::from_millis(15), failures);
 
     let text = result.to_string();
 
@@ -82,7 +128,7 @@ fn test_batch_execution_result_display_summary() {
 fn test_batch_execution_result_display_does_not_require_debug_error() {
     struct NonDebugError;
     let result: BatchExecutionResult<NonDebugError> =
-        BatchExecutionResult::new(1, 1, 1, 0, 0, Duration::from_millis(1), Vec::new());
+        build_result(1, 1, 1, 0, 0, Duration::from_millis(1), Vec::new());
 
     let text = result.to_string();
 
@@ -93,7 +139,7 @@ fn test_batch_execution_result_display_does_not_require_debug_error() {
 #[test]
 fn test_batch_execution_result_into_failures() {
     let failures = vec![BatchTaskFailure::new(4, BatchTaskError::Failed("bad"))];
-    let result = BatchExecutionResult::new(5, 1, 0, 1, 0, Duration::from_millis(1), failures);
+    let result = build_result(5, 1, 0, 1, 0, Duration::from_millis(1), failures);
 
     let failures = result.into_failures();
 
@@ -108,7 +154,7 @@ fn test_batch_execution_result_sorts_failure_details() {
         BatchTaskFailure::new(1, BatchTaskError::Failed("bad")),
     ];
 
-    let result = BatchExecutionResult::new(3, 3, 1, 1, 1, Duration::from_millis(25), failures);
+    let result = build_result(3, 3, 1, 1, 1, Duration::from_millis(25), failures);
 
     assert_eq!(result.failures()[0].index(), 1);
     assert!(result.failures()[0].error().is_failed());
@@ -253,85 +299,46 @@ fn test_batch_execution_result_try_new_reports_invalid_inputs() {
 }
 
 #[test]
-fn test_batch_execution_result_rejects_completed_count_above_task_count() {
-    assert_invalid_result_panics(|| {
-        let _: BatchExecutionResult<&'static str> =
-            BatchExecutionResult::new(1, 2, 2, 0, 0, Duration::from_millis(1), Vec::new());
-    });
-}
+fn test_batch_execution_result_build_error_clone_and_equality() {
+    let errors = [
+        BatchExecutionResultBuildError::CompletedCountExceeded {
+            task_count: 1,
+            completed_count: 2,
+        },
+        BatchExecutionResultBuildError::FailureCountOverflow {
+            failed_count: usize::MAX,
+            panicked_count: 1,
+        },
+        BatchExecutionResultBuildError::TerminalCountOverflow {
+            succeeded_count: usize::MAX,
+            failure_count: 1,
+        },
+        BatchExecutionResultBuildError::TerminalCountMismatch {
+            completed_count: 2,
+            terminal_count: 1,
+            succeeded_count: 1,
+            failed_count: 0,
+            panicked_count: 0,
+        },
+        BatchExecutionResultBuildError::FailureDetailCountMismatch {
+            expected: 1,
+            actual: 0,
+        },
+        BatchExecutionResultBuildError::FailureIndexOutOfRange {
+            index: 2,
+            task_count: 2,
+        },
+        BatchExecutionResultBuildError::FailureVariantCountMismatch {
+            expected_failed: 1,
+            actual_failed: 0,
+            expected_panicked: 0,
+            actual_panicked: 1,
+        },
+    ];
 
-#[test]
-fn test_batch_execution_result_rejects_terminal_count_mismatch() {
-    assert_invalid_result_panics(|| {
-        let _: BatchExecutionResult<&'static str> =
-            BatchExecutionResult::new(2, 2, 1, 0, 0, Duration::from_millis(1), Vec::new());
-    });
-}
-
-#[test]
-fn test_batch_execution_result_rejects_failure_detail_count_mismatch() {
-    assert_invalid_result_panics(|| {
-        let _: BatchExecutionResult<&'static str> =
-            BatchExecutionResult::new(2, 2, 1, 1, 0, Duration::from_millis(1), Vec::new());
-    });
-}
-
-#[test]
-fn test_batch_execution_result_rejects_failed_detail_variant_mismatch() {
-    let failures: Vec<BatchTaskFailure<&'static str>> =
-        vec![BatchTaskFailure::new(1, BatchTaskError::panicked("panic"))];
-
-    assert_invalid_result_panics(|| {
-        BatchExecutionResult::new(2, 2, 1, 1, 0, Duration::from_millis(1), failures);
-    });
-}
-
-#[test]
-fn test_batch_execution_result_rejects_panicked_detail_variant_mismatch() {
-    let failures = vec![BatchTaskFailure::new(1, BatchTaskError::Failed("bad"))];
-
-    assert_invalid_result_panics(|| {
-        BatchExecutionResult::new(2, 2, 1, 0, 1, Duration::from_millis(1), failures);
-    });
-}
-
-#[test]
-fn test_batch_execution_result_rejects_failure_index_outside_task_range() {
-    let failures = vec![BatchTaskFailure::new(2, BatchTaskError::Failed("bad"))];
-
-    assert_invalid_result_panics(|| {
-        BatchExecutionResult::new(2, 2, 1, 1, 0, Duration::from_millis(1), failures);
-    });
-}
-
-#[test]
-fn test_batch_execution_result_rejects_failure_count_overflow() {
-    assert_invalid_result_panics(|| {
-        let _: BatchExecutionResult<&'static str> = BatchExecutionResult::new(
-            usize::MAX,
-            usize::MAX,
-            0,
-            usize::MAX,
-            1,
-            Duration::from_millis(1),
-            Vec::new(),
-        );
-    });
-}
-
-#[test]
-fn test_batch_execution_result_rejects_terminal_count_overflow() {
-    assert_invalid_result_panics(|| {
-        let _: BatchExecutionResult<&'static str> = BatchExecutionResult::new(
-            usize::MAX,
-            usize::MAX,
-            usize::MAX,
-            1,
-            0,
-            Duration::from_millis(1),
-            Vec::new(),
-        );
-    });
+    for error in errors {
+        assert_eq!(error.clone(), error);
+    }
 }
 
 #[test]

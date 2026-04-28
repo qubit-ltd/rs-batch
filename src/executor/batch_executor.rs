@@ -38,6 +38,12 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// Returns [`BatchExecutionError`] when the source task count does not
     /// match `count`.
+    ///
+    /// # Panics
+    ///
+    /// Panics from individual tasks are captured in [`BatchExecutionResult`].
+    /// Panics from the configured [`crate::ProgressReporter`] are propagated to
+    /// the caller.
     fn execute<T, E, I>(
         &self,
         tasks: I,
