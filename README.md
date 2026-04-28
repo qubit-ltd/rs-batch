@@ -38,7 +38,7 @@ single-task submission. The crate provides:
 
 ```toml
 [dependencies]
-qubit-batch = "0.1.0"
+qubit-batch = "0.2.0"
 ```
 
 ## Quick Start
