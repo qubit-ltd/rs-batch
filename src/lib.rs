@@ -31,9 +31,6 @@ pub use error::{
 };
 pub use executor::{
     BatchExecutor,
-    ParallelBatchExecutor,
-    ParallelBatchExecutorBuildError,
-    ParallelBatchExecutorBuilder,
     SequentialBatchExecutor,
 };
 pub use progress::{

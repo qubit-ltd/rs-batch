@@ -7,7 +7,8 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
-Batch-oriented task execution utilities for the Qubit Rust libraries.
+Batch-oriented task execution abstractions and sequential utilities for the
+Qubit Rust libraries.
 
 ## Overview
 
@@ -17,12 +18,13 @@ single-task submission. The crate provides:
 - `BatchExecutor`: trait for executing a batch of fallible runnable tasks.
 - `SequentialBatchExecutor`: deterministic, in-order execution on the caller
   thread.
-- `ParallelBatchExecutor`: Rayon-backed parallel execution with configurable
-  parallelism and threshold-based sequential fallback.
 - `ProgressReporter`: pluggable progress callbacks for start, in-flight
   progress, and finish notifications.
 - `BatchExecutionResult`: structured batch outcome with failure aggregation and
   elapsed-time reporting.
+
+Rayon-backed parallel batch execution lives in the companion
+`qubit-rayon-batch` crate.
 
 ## Features
 
@@ -31,14 +33,13 @@ single-task submission. The crate provides:
   tasks.
 - Record per-task failures with stable batch indexes and readable panic
   messages.
-- Use Rayon for CPU-oriented parallel execution.
-- Fall back to sequential execution for small batches.
+- Keep the core API free of runtime-specific dependencies.
 
 ## Installation
 
 ```toml
 [dependencies]
-qubit-batch = "0.2.0"
+qubit-batch = "0.3.0"
 ```
 
 ## Quick Start
@@ -61,25 +62,4 @@ let result = executor.execute(tasks, 2).expect("batch should succeed");
 assert_eq!(result.task_count(), 2);
 assert_eq!(result.completed_count(), 2);
 assert_eq!(result.succeeded_count(), 2);
-```
-
-### Parallel execution
-
-```rust
-use qubit_batch::{
-    BatchExecutor,
-    ParallelBatchExecutor,
-};
-
-let executor = ParallelBatchExecutor::builder()
-    .parallelism(4)
-    .parallel_threshold(1)
-    .build()
-    .expect("parallel executor should be created");
-
-let tasks = (0..8).map(|_| || Ok::<(), &'static str>(()));
-let result = executor.execute(tasks, 8).expect("batch should succeed");
-
-assert_eq!(result.completed_count(), 8);
-assert_eq!(result.failure_count(), 0);
 ```
