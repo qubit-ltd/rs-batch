@@ -24,6 +24,7 @@ use crate::BatchExecutionResult;
 ///
 /// Haixing Hu
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum BatchExecutionError<E> {
     /// The task source ended before the declared task count was reached.
     #[error("batch task count shortfall: expected {expected}, actual {actual}")]

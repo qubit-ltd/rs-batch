@@ -10,6 +10,7 @@ use std::{
     panic::{
         AssertUnwindSafe,
         catch_unwind,
+        resume_unwind,
     },
     sync::{
         Arc,
@@ -62,6 +63,7 @@ const DEFAULT_THREAD_NAME_PREFIX: &str = "qubit-parallel-batch";
 ///
 /// Haixing Hu
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum ParallelBatchExecutorBuildError {
     /// The configured parallelism is zero.
     #[error("parallel batch executor parallelism must be greater than zero")]
@@ -330,12 +332,10 @@ impl BatchExecutor for ParallelBatchExecutor {
             }
         });
 
-        stop_sender
-            .send(())
-            .expect("parallel batch progress thread should accept stop signal");
-        progress_thread
-            .join()
-            .expect("parallel batch progress thread should join successfully");
+        let _ = stop_sender.send(());
+        if let Err(payload) = progress_thread.join() {
+            resume_unwind(payload);
+        }
 
         let completed_count = progress_state.completed_count.get();
         let result = Arc::into_inner(result_state)

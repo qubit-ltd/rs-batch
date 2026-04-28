@@ -9,6 +9,11 @@
 //! Tests for [`ParallelBatchExecutor`](qubit_batch::ParallelBatchExecutor).
 
 use std::{
+    any::Any,
+    panic::{
+        AssertUnwindSafe,
+        catch_unwind,
+    },
     sync::{
         Arc,
         atomic::{
@@ -24,6 +29,7 @@ use qubit_batch::{
     BatchExecutor,
     ParallelBatchExecutor,
     ParallelBatchExecutorBuildError,
+    ProgressReporter,
 };
 
 use crate::support::{
@@ -31,6 +37,33 @@ use crate::support::{
     RecordingProgressReporter,
     TestTask,
 };
+
+#[derive(Debug)]
+struct PanickingProgressReporter;
+
+impl ProgressReporter for PanickingProgressReporter {
+    fn start(&self, _total_count: usize) {}
+
+    fn process(
+        &self,
+        _total_count: usize,
+        _active_count: usize,
+        _completed_count: usize,
+        _elapsed: Duration,
+    ) {
+        panic!("progress reporter panic");
+    }
+
+    fn finish(&self, _total_count: usize, _elapsed: Duration) {}
+}
+
+fn panic_payload_message(payload: &(dyn Any + Send)) -> Option<&str> {
+    if let Some(message) = payload.downcast_ref::<&'static str>() {
+        Some(*message)
+    } else {
+        payload.downcast_ref::<String>().map(String::as_str)
+    }
+}
 
 #[test]
 fn test_parallel_batch_executor_build_rejects_invalid_parallelism() {
@@ -398,4 +431,26 @@ fn test_parallel_batch_executor_reports_progress() {
         events.last(),
         Some(ProgressEvent::Finish { total_count: 4, .. })
     ));
+}
+
+#[test]
+fn test_parallel_batch_executor_preserves_progress_reporter_panic() {
+    let executor = ParallelBatchExecutor::builder()
+        .parallelism(2)
+        .parallel_threshold(1)
+        .report_interval(Duration::from_millis(1))
+        .reporter(PanickingProgressReporter)
+        .build()
+        .expect("parallel executor should build");
+    let tasks = (0..2)
+        .map(|_| TestTask::sleep_success(Duration::from_millis(50)))
+        .collect::<Vec<_>>();
+
+    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute(tasks, 2)))
+        .expect_err("progress reporter panic should be propagated");
+
+    assert_eq!(
+        panic_payload_message(payload.as_ref()),
+        Some("progress reporter panic")
+    );
 }
