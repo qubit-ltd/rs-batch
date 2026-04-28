@@ -18,20 +18,17 @@
 #![deny(missing_docs)]
 #![deny(unsafe_op_in_unsafe_fn)]
 
-mod batch_execution_error;
-mod batch_execution_result;
-mod batch_task_error;
-mod batch_task_failure;
+pub mod error;
 pub mod executor;
 pub mod progress;
 
-pub use batch_execution_error::BatchExecutionError;
-pub use batch_execution_result::{
+pub use error::{
+    BatchExecutionError,
     BatchExecutionResult,
     BatchExecutionResultBuildError,
+    BatchTaskError,
+    BatchTaskFailure,
 };
-pub use batch_task_error::BatchTaskError;
-pub use batch_task_failure::BatchTaskFailure;
 pub use executor::{
     BatchExecutor,
     ParallelBatchExecutor,
