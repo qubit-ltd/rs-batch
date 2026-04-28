@@ -25,5 +25,6 @@ name = "qubit_batch"
 doctest = true
 
 [dependencies]
-qubit-function = "0.10"
 thiserror = "2.0"
+
+qubit-function = "0.11"
