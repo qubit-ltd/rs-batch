@@ -42,7 +42,7 @@ pub struct BatchExecutionResult<E> {
     failed_count: usize,
     /// Number of tasks that panicked.
     panicked_count: usize,
-    /// Total elapsed wall-clock time for the batch.
+    /// Total monotonic elapsed duration for the batch.
     elapsed: Duration,
     /// Detailed failure records sorted by task index.
     failures: Vec<BatchTaskFailure<E>>,
@@ -58,7 +58,7 @@ impl<E> BatchExecutionResult<E> {
     /// * `succeeded_count` - Number of tasks that succeeded.
     /// * `failed_count` - Number of tasks that returned their own error.
     /// * `panicked_count` - Number of tasks that panicked.
-    /// * `elapsed` - Total elapsed wall-clock time.
+    /// * `elapsed` - Total monotonic elapsed duration.
     /// * `failures` - Detailed task failure records.
     ///
     /// # Returns
@@ -112,7 +112,7 @@ impl<E> BatchExecutionResult<E> {
     /// * `succeeded_count` - Number of tasks that succeeded.
     /// * `failed_count` - Number of tasks that returned their own error.
     /// * `panicked_count` - Number of tasks that panicked.
-    /// * `elapsed` - Total elapsed wall-clock time.
+    /// * `elapsed` - Total monotonic elapsed duration.
     /// * `failures` - Detailed task failure records.
     ///
     /// # Returns
@@ -208,7 +208,7 @@ impl<E> BatchExecutionResult<E> {
         self.failed_count + self.panicked_count
     }
 
-    /// Returns the total elapsed wall-clock time.
+    /// Returns the total monotonic elapsed duration.
     ///
     /// # Returns
     ///

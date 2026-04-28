@@ -12,8 +12,10 @@
 //!
 //! Haixing Hu
 
+mod batch_call_result;
 mod batch_executor;
 mod sequential_batch_executor;
 
+pub use batch_call_result::BatchCallResult;
 pub use batch_executor::BatchExecutor;
 pub use sequential_batch_executor::SequentialBatchExecutor;

@@ -25,7 +25,7 @@ use qubit_batch::{
 /// * `succeeded_count` - Successful task count.
 /// * `failed_count` - Failed task count.
 /// * `panicked_count` - Panicked task count.
-/// * `elapsed` - Elapsed batch duration.
+/// * `elapsed` - Monotonic elapsed batch duration.
 /// * `failures` - Detailed task failures.
 ///
 /// # Returns

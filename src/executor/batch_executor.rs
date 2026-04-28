@@ -6,14 +6,22 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    Mutex,
+};
 
-use qubit_function::Runnable;
+use qubit_function::{
+    Callable,
+    Runnable,
+};
 
 use crate::{
     BatchExecutionError,
     BatchExecutionResult,
 };
+
+use super::BatchCallResult;
 
 /// Executes batches of fallible runnable tasks.
 ///
@@ -53,6 +61,53 @@ pub trait BatchExecutor: Send + Sync {
         I: IntoIterator<Item = T>,
         T: Runnable<E> + Send,
         E: Send;
+
+    /// Executes a batch of callable tasks and collects success values by index.
+    ///
+    /// # Parameters
+    ///
+    /// * `tasks` - Callable task source for the batch.
+    /// * `count` - Declared number of callables expected from `tasks`.
+    ///
+    /// # Returns
+    ///
+    /// A [`BatchCallResult`] containing the normal execution summary plus
+    /// optional success values indexed by callable position.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BatchExecutionError`] when the source callable count does not
+    /// match `count`.
+    ///
+    /// # Panics
+    ///
+    /// Panics from individual callables are captured in the execution result.
+    /// Panics from the configured [`crate::ProgressReporter`] are propagated to
+    /// the caller.
+    fn call<C, R, E, I>(
+        &self,
+        tasks: I,
+        count: usize,
+    ) -> Result<BatchCallResult<R, E>, BatchExecutionError<E>>
+    where
+        I: IntoIterator<Item = C>,
+        C: Callable<R, E> + Send,
+        R: Send,
+        E: Send,
+    {
+        let outputs = Arc::new(
+            (0..count)
+                .map(|_| Mutex::new(None))
+                .collect::<Vec<Mutex<Option<R>>>>(),
+        );
+        let runnable_tasks = tasks.into_iter().enumerate().map({
+            let outputs = Arc::clone(&outputs);
+            move |(index, callable)| CallableTask::new(callable, index, Arc::clone(&outputs))
+        });
+        let execution_result = self.execute(runnable_tasks, count)?;
+        let values = collect_call_outputs(outputs);
+        Ok(BatchCallResult::new(execution_result, values))
+    }
 
     /// Applies `action` to every `item` by executing a derived task batch.
     ///
@@ -99,6 +154,96 @@ where
     item: Option<Item>,
     /// Shared action applied to each derived task item.
     action: Arc<F>,
+}
+
+/// Runnable wrapper used by [`BatchExecutor::call`].
+struct CallableTask<C, R> {
+    /// Callable consumed and executed exactly once.
+    callable: Option<C>,
+    /// Zero-based callable index within the batch.
+    index: usize,
+    /// Shared success-value slots indexed by callable position.
+    outputs: Arc<Vec<Mutex<Option<R>>>>,
+}
+
+impl<C, R> CallableTask<C, R> {
+    /// Creates a runnable wrapper for one callable.
+    ///
+    /// # Parameters
+    ///
+    /// * `callable` - Callable to execute.
+    /// * `index` - Zero-based callable index within the batch.
+    /// * `outputs` - Shared success-value slots.
+    ///
+    /// # Returns
+    ///
+    /// A runnable wrapper that stores successful output at `index`.
+    fn new(callable: C, index: usize, outputs: Arc<Vec<Mutex<Option<R>>>>) -> Self {
+        Self {
+            callable: Some(callable),
+            index,
+            outputs,
+        }
+    }
+}
+
+impl<C, R, E> Runnable<E> for CallableTask<C, R>
+where
+    C: Callable<R, E>,
+{
+    /// Executes the wrapped callable and stores its success value.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the callable succeeds, or the callable error when it
+    /// fails.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this wrapper is run more than once or if an executor runs a
+    /// callable whose index is outside the declared batch size.
+    fn run(&mut self) -> Result<(), E> {
+        let mut callable = self
+            .callable
+            .take()
+            .expect("callable task may only run once");
+        let value = callable.call()?;
+        let mut slot = self
+            .outputs
+            .get(self.index)
+            .expect("callable index must be within the declared count")
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *slot = Some(value);
+        Ok(())
+    }
+}
+
+/// Consumes shared callable output slots into an indexed value vector.
+///
+/// # Parameters
+///
+/// * `outputs` - Shared output slots filled by callable wrappers.
+///
+/// # Returns
+///
+/// Optional success values indexed by callable position.
+///
+/// # Panics
+///
+/// Panics if callable wrappers still hold references to `outputs`.
+fn collect_call_outputs<R>(outputs: Arc<Vec<Mutex<Option<R>>>>) -> Vec<Option<R>> {
+    let slots = match Arc::try_unwrap(outputs) {
+        Ok(slots) => slots,
+        Err(_) => panic!("callable output slots should have a single owner after execution"),
+    };
+    slots
+        .into_iter()
+        .map(|slot| {
+            slot.into_inner()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+        })
+        .collect()
 }
 
 impl<Item, E, F> ForEachTask<Item, E, F>

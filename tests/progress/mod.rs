@@ -6,13 +6,6 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! # Batch Module Tests
-//!
-//! Tests for batch executors, results, and documentation consistency.
+//! Progress reporter tests.
 
-mod docs;
-mod error;
-mod executor;
-mod processor;
-mod progress;
-mod support;
+mod progress_reporter_tests;

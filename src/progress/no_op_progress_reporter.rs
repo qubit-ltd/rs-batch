@@ -33,7 +33,7 @@ impl ProgressReporter for NoOpProgressReporter {
     /// * `_total_count` - Declared task count for the batch.
     /// * `_active_count` - Number of tasks currently in flight.
     /// * `_completed_count` - Number of tasks that have completed.
-    /// * `_elapsed` - Elapsed wall-clock time since batch start.
+    /// * `_elapsed` - Monotonic elapsed duration since batch start.
     fn process(
         &self,
         _total_count: usize,
@@ -48,6 +48,6 @@ impl ProgressReporter for NoOpProgressReporter {
     /// # Parameters
     ///
     /// * `_total_count` - Declared task count for the batch.
-    /// * `_elapsed` - Total elapsed wall-clock time.
+    /// * `_elapsed` - Total monotonic elapsed duration.
     fn finish(&self, _total_count: usize, _elapsed: Duration) {}
 }
