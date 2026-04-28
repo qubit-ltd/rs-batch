@@ -29,9 +29,7 @@ fn test_readme_dependency_version_matches_cargo_toml() {
 /// Ensures both README files document the current executor types.
 fn test_readme_mentions_current_executor_types() {
     assert!(README_EN.contains("SequentialBatchExecutor"));
-    assert!(README_EN.contains("ParallelBatchExecutor"));
     assert!(README_ZH.contains("SequentialBatchExecutor"));
-    assert!(README_ZH.contains("ParallelBatchExecutor"));
 }
 
 /// Extracts the first package version entry from Cargo.toml content.

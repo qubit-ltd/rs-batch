@@ -227,20 +227,8 @@ pub enum TestTaskAction {
         /// Error returned by the task.
         error: &'static str,
     },
-    /// Sleep for the supplied duration, then return a task error.
-    FailAfterSleep {
-        /// Error returned by the task.
-        error: &'static str,
-        /// Sleep duration.
-        duration: Duration,
-    },
     /// Panic while running.
     Panic {
-        /// Panic message.
-        message: &'static str,
-    },
-    /// Panic with an owned string payload while running.
-    PanicString {
         /// Panic message.
         message: &'static str,
     },
@@ -251,15 +239,6 @@ pub enum TestTaskAction {
     },
     /// Sleep for the supplied duration, then succeed.
     SleepSuccess {
-        /// Sleep duration.
-        duration: Duration,
-    },
-    /// Track active concurrency while sleeping, then succeed.
-    TrackConcurrency {
-        /// Active task counter.
-        active: Arc<AtomicUsize>,
-        /// Maximum observed active task count.
-        max_active: Arc<AtomicUsize>,
         /// Sleep duration.
         duration: Duration,
     },
@@ -314,22 +293,6 @@ impl TestTask {
         }
     }
 
-    /// Creates a task that sleeps before failing with `error`.
-    ///
-    /// # Parameters
-    ///
-    /// * `error` - Error returned by the task.
-    /// * `duration` - Sleep duration before returning the error.
-    ///
-    /// # Returns
-    ///
-    /// A delayed failing test task.
-    pub const fn fail_after_sleep(error: &'static str, duration: Duration) -> Self {
-        Self {
-            action: TestTaskAction::FailAfterSleep { error, duration },
-        }
-    }
-
     /// Creates a task that panics with `message`.
     ///
     /// # Parameters
@@ -342,21 +305,6 @@ impl TestTask {
     pub const fn panic(message: &'static str) -> Self {
         Self {
             action: TestTaskAction::Panic { message },
-        }
-    }
-
-    /// Creates a task that panics with an owned `String` payload.
-    ///
-    /// # Parameters
-    ///
-    /// * `message` - Panic message.
-    ///
-    /// # Returns
-    ///
-    /// A panicking test task.
-    pub const fn panic_string(message: &'static str) -> Self {
-        Self {
-            action: TestTaskAction::PanicString { message },
         }
     }
 
@@ -389,31 +337,6 @@ impl TestTask {
             action: TestTaskAction::SleepSuccess { duration },
         }
     }
-
-    /// Creates a task that tracks active concurrency while sleeping.
-    ///
-    /// # Parameters
-    ///
-    /// * `active` - Active task counter.
-    /// * `max_active` - Maximum active task counter.
-    /// * `duration` - Sleep duration.
-    ///
-    /// # Returns
-    ///
-    /// A concurrency-tracking successful task.
-    pub fn track_concurrency(
-        active: Arc<AtomicUsize>,
-        max_active: Arc<AtomicUsize>,
-        duration: Duration,
-    ) -> Self {
-        Self {
-            action: TestTaskAction::TrackConcurrency {
-                active,
-                max_active,
-                duration,
-            },
-        }
-    }
 }
 
 impl Runnable<&'static str> for TestTask {
@@ -435,44 +358,12 @@ impl Runnable<&'static str> for TestTask {
                 Ok(())
             }
             TestTaskAction::Fail { error } => Err(*error),
-            TestTaskAction::FailAfterSleep { error, duration } => {
-                thread::sleep(*duration);
-                Err(*error)
-            }
             TestTaskAction::Panic { message } => panic_any(*message),
-            TestTaskAction::PanicString { message } => panic_any((*message).to_owned()),
             TestTaskAction::PanicUsize { payload } => panic_any(*payload),
             TestTaskAction::SleepSuccess { duration } => {
                 thread::sleep(*duration);
                 Ok(())
             }
-            TestTaskAction::TrackConcurrency {
-                active,
-                max_active,
-                duration,
-            } => {
-                let current = active.fetch_add(1, Ordering::AcqRel) + 1;
-                update_max(max_active, current);
-                thread::sleep(*duration);
-                active.fetch_sub(1, Ordering::AcqRel);
-                Ok(())
-            }
-        }
-    }
-}
-
-/// Updates `max_active` when `current` is greater than the stored value.
-///
-/// # Parameters
-///
-/// * `max_active` - Atomic maximum value to update.
-/// * `current` - Candidate active count.
-fn update_max(max_active: &AtomicUsize, current: usize) {
-    let mut observed = max_active.load(Ordering::Acquire);
-    while current > observed {
-        match max_active.compare_exchange(observed, current, Ordering::AcqRel, Ordering::Acquire) {
-            Ok(_) => return,
-            Err(value) => observed = value,
         }
     }
 }
