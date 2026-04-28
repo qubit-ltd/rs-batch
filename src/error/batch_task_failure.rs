@@ -6,7 +6,7 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-use crate::BatchTaskError;
+use super::batch_task_error::BatchTaskError;
 
 /// Failure record for one task inside a batch.
 ///

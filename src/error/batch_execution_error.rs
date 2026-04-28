@@ -8,7 +8,7 @@
  ******************************************************************************/
 use thiserror::Error;
 
-use crate::BatchExecutionResult;
+use super::batch_execution_result::BatchExecutionResult;
 
 /// Batch-level error returned when the batch contract is violated.
 ///

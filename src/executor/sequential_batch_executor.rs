@@ -25,7 +25,7 @@ use crate::{
     BatchExecutionResult,
     BatchTaskError,
     BatchTaskFailure,
-    batch_task_error::panic_payload_to_error,
+    error::panic_payload_to_error,
     progress::{
         NoOpProgressReporter,
         ProgressReporter,

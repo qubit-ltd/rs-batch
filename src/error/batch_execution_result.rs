@@ -13,9 +13,9 @@ use std::{
 
 use thiserror::Error;
 
-use crate::{
-    BatchTaskError,
-    BatchTaskFailure,
+use super::{
+    batch_task_error::BatchTaskError,
+    batch_task_failure::BatchTaskFailure,
 };
 
 /// Error returned when constructing a batch execution result with invalid
