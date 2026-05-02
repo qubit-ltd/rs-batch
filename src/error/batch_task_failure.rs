@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 use super::batch_task_error::BatchTaskError;
@@ -17,9 +18,6 @@ use super::batch_task_error::BatchTaskError;
 ///
 /// * `E` - The task-specific error type.
 ///
-/// # Author
-///
-/// Haixing Hu
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BatchTaskFailure<E> {
     /// Zero-based task index within the batch.

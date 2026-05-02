@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 use std::{
@@ -18,9 +19,6 @@ use super::{
 
 /// Progress reporter that writes to standard output.
 ///
-/// # Author
-///
-/// Haixing Hu
 #[derive(Debug)]
 pub struct ConsoleProgressReporter {
     /// Writer-backed reporter using standard output.

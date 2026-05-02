@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 use thiserror::Error;
@@ -20,9 +21,6 @@ use super::batch_execution_result::BatchExecutionResult;
 ///
 /// * `E` - The task-specific error type stored inside the attached result.
 ///
-/// # Author
-///
-/// Haixing Hu
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum BatchExecutionError<E> {
     /// The task source ended before the declared task count was reached.
