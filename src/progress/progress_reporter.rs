@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 use std::time::Duration;
@@ -18,9 +19,6 @@ use std::time::Duration;
 /// reporter callback panics, the executor propagates that panic to the caller
 /// instead of converting it into a [`crate::BatchTaskError`].
 ///
-/// # Author
-///
-/// Haixing Hu
 pub trait ProgressReporter: Send + Sync {
     /// Reports that a batch execution has started.
     ///

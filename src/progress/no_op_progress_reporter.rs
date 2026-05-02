@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 use std::time::Duration;
@@ -12,9 +13,6 @@ use super::ProgressReporter;
 
 /// Progress reporter that intentionally does nothing.
 ///
-/// # Author
-///
-/// Haixing Hu
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct NoOpProgressReporter;
 

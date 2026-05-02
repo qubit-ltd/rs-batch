@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 use std::{
@@ -18,9 +19,6 @@ use std::{
 /// database rows, that differs from the number of input items whose chunk
 /// returned.
 ///
-/// # Author
-///
-/// Haixing Hu
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BatchProcessResult {
     /// Declared item count for the batch.

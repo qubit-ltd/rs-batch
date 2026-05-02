@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 use thiserror::Error;
@@ -11,9 +12,6 @@ use thiserror::Error;
 /// Error returned when constructing a batch execution result with invalid
 /// counters or failure details.
 ///
-/// # Author
-///
-/// Haixing Hu
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum BatchExecutionResultBuildError {
     /// The completed task count is greater than the declared task count.
