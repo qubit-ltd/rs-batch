@@ -65,7 +65,7 @@ Rayon-backed parallel batch execution lives in the companion
 
 ```toml
 [dependencies]
-qubit-batch = "0.3.0"
+qubit-batch = "0.3.1"
 ```
 
 ## Quick Start
@@ -194,7 +194,7 @@ dependency too:
 
 ```toml
 [dependencies]
-qubit-batch = "0.3.0"
+qubit-batch = "0.3.1"
 qubit-function = "0.11"
 ```
 
