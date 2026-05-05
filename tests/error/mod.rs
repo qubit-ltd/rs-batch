@@ -9,5 +9,4 @@
  ******************************************************************************/
 //! Tests for batch error types and execution results.
 
-mod batch_execution_error_tests;
-mod batch_execution_result_tests;
+mod batch_outcome_tests;

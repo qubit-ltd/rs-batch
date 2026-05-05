@@ -7,10 +7,7 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{
-    error::Error,
-    fmt,
-};
+use thiserror::Error;
 
 use super::BatchProcessResult;
 
@@ -20,9 +17,10 @@ use super::BatchProcessResult;
 ///
 /// * `E` - Error type returned by the delegate processor.
 ///
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum ChunkedBatchProcessError<E> {
     /// The input source ended before the declared item count was reached.
+    #[error("batch item count shortfall: expected {expected}, actual {actual}")]
     CountShortfall {
         /// Declared item count.
         expected: usize,
@@ -33,6 +31,9 @@ pub enum ChunkedBatchProcessError<E> {
     },
 
     /// The input source yielded more items than the declared item count.
+    #[error(
+        "batch item count exceeded: expected {expected}, observed at least {observed_at_least}"
+    )]
     CountExceeded {
         /// Declared item count.
         expected: usize,
@@ -43,6 +44,7 @@ pub enum ChunkedBatchProcessError<E> {
     },
 
     /// The delegate processor failed while processing one chunk.
+    #[error("batch chunk {chunk_index} failed at item {start_index} with {chunk_len} items")]
     ChunkFailed {
         /// Zero-based chunk index.
         chunk_index: usize,
@@ -83,63 +85,6 @@ impl<E> ChunkedBatchProcessError<E> {
             Self::CountShortfall { result, .. }
             | Self::CountExceeded { result, .. }
             | Self::ChunkFailed { result, .. } => result,
-        }
-    }
-}
-
-impl<E> fmt::Display for ChunkedBatchProcessError<E> {
-    /// Formats this chunked batch process error.
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - Formatter receiving the error text.
-    ///
-    /// # Returns
-    ///
-    /// The formatter result.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::CountShortfall {
-                expected, actual, ..
-            } => write!(
-                f,
-                "batch item count shortfall: expected {expected}, actual {actual}"
-            ),
-            Self::CountExceeded {
-                expected,
-                observed_at_least,
-                ..
-            } => write!(
-                f,
-                "batch item count exceeded: expected {expected}, observed at least {observed_at_least}"
-            ),
-            Self::ChunkFailed {
-                chunk_index,
-                start_index,
-                chunk_len,
-                ..
-            } => write!(
-                f,
-                "batch chunk {chunk_index} failed at item {start_index} with {chunk_len} items"
-            ),
-        }
-    }
-}
-
-impl<E> Error for ChunkedBatchProcessError<E>
-where
-    E: Error + 'static,
-{
-    /// Returns the delegate processor error when this is a chunk failure.
-    ///
-    /// # Returns
-    ///
-    /// `Some(source)` for [`Self::ChunkFailed`], or `None` for source-count
-    /// mismatch errors.
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::ChunkFailed { source, .. } => Some(source),
-            Self::CountShortfall { .. } | Self::CountExceeded { .. } => None,
         }
     }
 }
