@@ -13,6 +13,9 @@ use std::{
 };
 
 use super::{
+    ProgressCounters,
+    ProgressEvent,
+    ProgressPhase,
     ProgressReporter,
     WriterProgressReporter,
 };
@@ -35,6 +38,28 @@ impl ConsoleProgressReporter {
     pub fn new() -> Self {
         Self::default()
     }
+
+    /// Writes the batch-start message to standard output.
+    pub fn start(&self, total_count: usize) {
+        self.inner.start(total_count);
+    }
+
+    /// Writes a progress snapshot to standard output.
+    pub fn process(
+        &self,
+        total_count: usize,
+        active_count: usize,
+        completed_count: usize,
+        elapsed: Duration,
+    ) {
+        self.inner
+            .process(total_count, active_count, completed_count, elapsed);
+    }
+
+    /// Writes the batch-finish message to standard output.
+    pub fn finish(&self, total_count: usize, elapsed: Duration) {
+        self.inner.finish(total_count, elapsed);
+    }
 }
 
 impl Default for ConsoleProgressReporter {
@@ -51,41 +76,29 @@ impl Default for ConsoleProgressReporter {
 }
 
 impl ProgressReporter for ConsoleProgressReporter {
-    /// Writes the batch-start message to standard output.
+    /// Writes one progress event to standard output.
     ///
     /// # Parameters
     ///
-    /// * `total_count` - Declared item or task count.
-    fn start(&self, total_count: usize) {
-        self.inner.start(total_count);
-    }
-
-    /// Writes a progress snapshot to standard output.
-    ///
-    /// # Parameters
-    ///
-    /// * `total_count` - Declared item or task count.
-    /// * `active_count` - Number of active tasks or chunks.
-    /// * `completed_count` - Number of completed items or tasks.
-    /// * `elapsed` - Monotonic elapsed duration.
-    fn process(
-        &self,
-        total_count: usize,
-        active_count: usize,
-        completed_count: usize,
-        elapsed: Duration,
-    ) {
-        self.inner
-            .process(total_count, active_count, completed_count, elapsed);
-    }
-
-    /// Writes the batch-finish message to standard output.
-    ///
-    /// # Parameters
-    ///
-    /// * `total_count` - Declared item or task count.
-    /// * `elapsed` - Total monotonic elapsed duration.
-    fn finish(&self, total_count: usize, elapsed: Duration) {
-        self.inner.finish(total_count, elapsed);
+    /// * `event` - Progress event to write.
+    fn report(&self, event: &ProgressEvent) {
+        let counters: ProgressCounters = event.counters();
+        let total_count = counters.total_count().unwrap_or(counters.completed_count());
+        match event.phase() {
+            ProgressPhase::Started => self.start(total_count),
+            ProgressPhase::Running => self.process(
+                total_count,
+                counters.active_count(),
+                counters.completed_count(),
+                event.elapsed(),
+            ),
+            ProgressPhase::Finished => self.finish(total_count, event.elapsed()),
+            ProgressPhase::Failed | ProgressPhase::Canceled => self.process(
+                total_count,
+                counters.active_count(),
+                counters.completed_count(),
+                event.elapsed(),
+            ),
+        }
     }
 }

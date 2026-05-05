@@ -15,13 +15,12 @@ use std::{
     time::Duration,
 };
 
-use qubit_batch::{
+use qubit_batch::NoOpProgressReporter;
+use qubit_batch::error::{
     BatchExecutionResult,
     BatchExecutionResultBuildError,
     BatchTaskError,
     BatchTaskFailure,
-    NoOpProgressReporter,
-    ProgressReporter,
 };
 
 /// Builds a valid batch execution result for tests.

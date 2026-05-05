@@ -101,51 +101,6 @@ impl<E> BatchExecutionResult<E> {
         })
     }
 
-    /// Creates a new batch execution result for executor-internal use.
-    ///
-    /// # Parameters
-    ///
-    /// * `task_count` - Declared task count for the batch.
-    /// * `completed_count` - Number of tasks that finished.
-    /// * `succeeded_count` - Number of tasks that succeeded.
-    /// * `failed_count` - Number of tasks that returned their own error.
-    /// * `panicked_count` - Number of tasks that panicked.
-    /// * `elapsed` - Total monotonic elapsed duration.
-    /// * `failures` - Detailed task failure records.
-    ///
-    /// # Returns
-    ///
-    /// A fully populated batch execution result with failures sorted by task
-    /// index.
-    ///
-    /// # Panics
-    ///
-    /// Panics when the executor supplies counters that violate
-    /// [`BatchExecutionResultBuildError`] invariants. Public callers should
-    /// use [`Self::try_new`] instead.
-    #[inline]
-    #[track_caller]
-    pub(crate) fn from_validated_parts(
-        task_count: usize,
-        completed_count: usize,
-        succeeded_count: usize,
-        failed_count: usize,
-        panicked_count: usize,
-        elapsed: Duration,
-        failures: Vec<BatchTaskFailure<E>>,
-    ) -> Self {
-        Self::try_new(
-            task_count,
-            completed_count,
-            succeeded_count,
-            failed_count,
-            panicked_count,
-            elapsed,
-            failures,
-        )
-        .expect("batch execution result invariants must hold")
-    }
-
     /// Returns the declared task count for this batch.
     ///
     /// # Returns
