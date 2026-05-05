@@ -11,12 +11,16 @@
 //!
 
 pub use qubit_progress::{
-    LoggerProgressReporter,
-    NoOpProgressReporter,
-    ProgressCounters,
-    ProgressEvent,
-    ProgressPhase,
-    ProgressReporter,
-    ProgressStage,
-    WriterProgressReporter,
+    model::{
+        ProgressCounters,
+        ProgressEvent,
+        ProgressPhase,
+        ProgressStage,
+    },
+    reporter::{
+        LoggerProgressReporter,
+        NoOpProgressReporter,
+        ProgressReporter,
+        WriterProgressReporter,
+    },
 };
