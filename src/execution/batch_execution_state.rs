@@ -12,7 +12,7 @@ use std::{
     time::Duration,
 };
 
-use qubit_progress::ProgressCounters;
+use qubit_progress::model::ProgressCounters;
 
 use crate::{
     BatchOutcome,

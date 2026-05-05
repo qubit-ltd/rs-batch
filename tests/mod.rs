@@ -13,6 +13,7 @@
 
 mod docs;
 mod error;
+mod execution;
 mod executor;
 mod processor;
 mod progress;
