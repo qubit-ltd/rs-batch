@@ -80,7 +80,7 @@ fn test_chunked_batch_processor_accessors_and_delegate_mutation() {
 
     assert_eq!(processor.chunk_size().get(), 4);
     assert_eq!(processor.report_interval(), Duration::from_millis(10));
-    processor.reporter().start(0);
+    assert!(Arc::strong_count(processor.reporter()) >= 1);
     assert!(Arc::ptr_eq(&processor.delegate().chunks(), &chunks));
     assert!(Arc::ptr_eq(&processor.delegate_mut().chunks(), &chunks));
 

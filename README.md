@@ -40,9 +40,9 @@ single-task submission. The crate provides:
   thread.
 - `ProgressReporter`: pluggable progress callbacks for start, in-flight
   progress, and finish notifications.
-- `ConsoleProgressReporter` and `LoggerProgressReporter`: concrete reporters
+- `WriterProgressReporter` and `LoggerProgressReporter`: concrete reporters
   for stdout and the `log` crate.
-- `BatchExecutionResult`: structured batch outcome with failure aggregation and
+- `BatchOutcome`: structured batch outcome with failure aggregation and
   monotonic elapsed-duration reporting.
 
 Rayon-backed parallel batch execution lives in the companion
@@ -255,13 +255,15 @@ assert_eq!(result.chunk_count(), 3);
 `SequentialBatchExecutor` uses `NoOpProgressReporter` by default. You can attach
 your own reporter and tune the minimum interval between in-flight callbacks.
 Sequential execution emits progress only between tasks, so a single long-running
-task will not produce intermediate `process` callbacks.
+task will not produce intermediate running callbacks.
 
 ```rust
 use std::time::Duration;
 
 use qubit_batch::{
     BatchExecutor,
+    ProgressEvent,
+    ProgressPhase,
     ProgressReporter,
     SequentialBatchExecutor,
 };
@@ -269,24 +271,24 @@ use qubit_batch::{
 struct ConsoleReporter;
 
 impl ProgressReporter for ConsoleReporter {
-    fn start(&self, total_count: usize) {
-        println!("starting {total_count} tasks");
-    }
-
-    fn process(
-        &self,
-        total_count: usize,
-        active_count: usize,
-        completed_count: usize,
-        elapsed: Duration,
-    ) {
-        println!(
-            "completed {completed_count}/{total_count}, active {active_count}, elapsed {elapsed:?}"
-        );
-    }
-
-    fn finish(&self, total_count: usize, elapsed: Duration) {
-        println!("finished {total_count} tasks in {elapsed:?}");
+    fn report(&self, event: &ProgressEvent) {
+        let counters = event.counters();
+        let total = counters.total_count().unwrap_or(counters.completed_count());
+        match event.phase() {
+            ProgressPhase::Started => println!("starting {total} tasks"),
+            ProgressPhase::Running => println!(
+                "completed {}/{total}, active {}, elapsed {:?}",
+                counters.completed_count(),
+                counters.active_count(),
+                event.elapsed(),
+            ),
+            ProgressPhase::Finished => println!("finished {total} tasks in {:?}", event.elapsed()),
+            ProgressPhase::Failed | ProgressPhase::Canceled => println!(
+                "stopped after {}/{total} tasks in {:?}",
+                counters.completed_count(),
+                event.elapsed(),
+            ),
+        }
     }
 }
 
@@ -304,6 +306,8 @@ assert!(result.is_success());
 Panics from task bodies are captured as `BatchTaskError::Panicked`. Panics from
 the reporter itself are not captured as task failures; they propagate to the
 caller because progress reporting is outside the task failure model.
+Progress events contain only phase, counters, optional stage, and elapsed time;
+use logging, metrics, or tracing for non-progress observability.
 
 ## Count Contract
 
@@ -327,11 +331,11 @@ match error {
     BatchExecutionError::CountShortfall {
         expected,
         actual,
-        result,
+        outcome,
     } => {
         assert_eq!(expected, 3);
         assert_eq!(actual, 2);
-        assert_eq!(result.completed_count(), 2);
+        assert_eq!(outcome.completed_count(), 2);
     }
     BatchExecutionError::CountExceeded { .. } => unreachable!(),
 }
@@ -339,18 +343,18 @@ match error {
 
 Important result semantics:
 
-- `Ok(BatchExecutionResult)` does not mean every task succeeded. It means the
+- `Ok(BatchOutcome)` does not mean every task succeeded. It means the
   supplied iterator matched the declared count.
 - `result.is_success()` is the convenience check for “all declared tasks
   completed without task errors or panics.”
 - `Err(BatchExecutionError)` means the iterator produced fewer or more items
-  than declared. The error still carries a partial `BatchExecutionResult`.
+  than declared. The error still carries a partial `BatchOutcome`.
 
 ## API Notes
 
 - `SequentialBatchExecutor::new()` is deterministic and runs tasks on the caller
   thread in iterator order.
-- `BatchExecutionResult::failures()` returns failure records sorted by task
+- `BatchOutcome::failures()` returns failure records sorted by task
   index.
 - `BatchTaskFailure::index()` is zero-based and refers to the task's position in
   the batch.
@@ -372,13 +376,12 @@ Important result semantics:
   fixed-size chunks and delegates each chunk.
 - `ChunkedBatchProcessError<E>`: chunked processor error for source count
   mismatches or delegate failures, carrying the partial process result.
-- `ProgressReporter`: lifecycle callback trait for batch start, periodic
-  progress, and finish notifications.
+- `ProgressReporter`: trait receiving `ProgressEvent` values for batch start,
+  periodic progress, and terminal notifications.
 - `NoOpProgressReporter`: default reporter that accepts callbacks without doing
   any work.
-- `WriterProgressReporter`, `ConsoleProgressReporter`, and
-  `LoggerProgressReporter`: concrete reporters for writers, stdout, and `log`.
-- `BatchExecutionResult<E>`: aggregate result containing task counts, monotonic
+- `WriterProgressReporter` and `LoggerProgressReporter`: concrete reporters for writers, stdout, and `log`.
+- `BatchOutcome<E>`: aggregate result containing task counts, monotonic
   elapsed duration, and detailed task failures.
 - `BatchExecutionError<E>`: batch-level contract error for declared count
   shortfall or overflow, carrying the partial result collected so far.
@@ -394,8 +397,8 @@ Important result semantics:
   and task panic conversion.
 - `src/processor`: data-item batch processor traits, results, and the chunked
   processor.
-- `src/progress`: progress reporter traits and no-op, stdout, writer, and logger
-  reporters.
+- `src/progress`: re-exported progress event and reporter types from
+  `qubit-progress`.
 - `tests/executor`: behavior tests for sequential execution, progress callbacks,
   failures, panics, and count mismatches.
 - `tests/processor`: behavior tests for chunking, delegate errors, and progress

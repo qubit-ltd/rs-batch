@@ -67,7 +67,7 @@ fn test_sequential_batch_executor_accessors_and_value_reporter() {
         .with_report_interval(Duration::from_millis(25));
 
     assert_eq!(executor.report_interval(), Duration::from_millis(25));
-    executor.reporter().start(1);
+    assert!(Arc::strong_count(executor.reporter()) >= 1);
 }
 
 #[test]
@@ -107,18 +107,18 @@ fn test_sequential_batch_executor_calls_callables_and_collects_values() {
 
     let result = executor.call(tasks, 3).expect("call batch should succeed");
 
-    assert_eq!(result.execution_result().completed_count(), 3);
+    assert_eq!(result.outcome().completed_count(), 3);
     assert_eq!(result.values(), &[Some(10), Some(20), Some(30)]);
     assert_eq!(result.into_values(), vec![Some(10), Some(20), Some(30)]);
 
     let tasks = vec![TestCallable::returning(40)];
     let result = executor.call(tasks, 1).expect("call batch should succeed");
-    assert_eq!(result.into_execution_result().completed_count(), 1);
+    assert_eq!(result.into_outcome().completed_count(), 1);
 
     let tasks = vec![TestCallable::returning(50)];
     let result = executor.call(tasks, 1).expect("call batch should succeed");
-    let (execution_result, values) = result.into_parts();
-    assert_eq!(execution_result.completed_count(), 1);
+    let (outcome, values) = result.into_parts();
+    assert_eq!(outcome.completed_count(), 1);
     assert_eq!(values, vec![Some(50)]);
 }
 
@@ -137,10 +137,10 @@ fn test_sequential_batch_executor_call_preserves_failure_indexes() {
         .expect("callable failures should stay in the batch result");
 
     assert_eq!(result.values(), &[Some(10), None, None, Some(40)]);
-    assert_eq!(result.execution_result().failed_count(), 1);
-    assert_eq!(result.execution_result().panicked_count(), 1);
-    assert_eq!(result.execution_result().failures()[0].index(), 1);
-    assert_eq!(result.execution_result().failures()[1].index(), 2);
+    assert_eq!(result.outcome().failed_count(), 1);
+    assert_eq!(result.outcome().panicked_count(), 1);
+    assert_eq!(result.outcome().failures()[0].index(), 1);
+    assert_eq!(result.outcome().failures()[1].index(), 2);
 }
 
 #[test]
@@ -170,11 +170,11 @@ fn test_sequential_batch_executor_reports_count_shortfall() {
         BatchExecutionError::CountShortfall {
             expected,
             actual,
-            result,
+            outcome,
         } => {
             assert_eq!(expected, 3);
             assert_eq!(actual, 2);
-            assert_eq!(result.completed_count(), 2);
+            assert_eq!(outcome.completed_count(), 2);
         }
         other => panic!("unexpected error: {other:?}"),
     }
@@ -193,11 +193,11 @@ fn test_sequential_batch_executor_reports_count_exceeded() {
         BatchExecutionError::CountExceeded {
             expected,
             observed_at_least,
-            result,
+            outcome,
         } => {
             assert_eq!(expected, 1);
             assert_eq!(observed_at_least, 2);
-            assert_eq!(result.completed_count(), 1);
+            assert_eq!(outcome.completed_count(), 1);
         }
         other => panic!("unexpected error: {other:?}"),
     }

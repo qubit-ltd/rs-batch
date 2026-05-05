@@ -13,19 +13,22 @@ use std::{
     any::Any,
     panic::panic_any,
     sync::Mutex,
-    time::Duration,
 };
 
-use qubit_batch::ProgressReporter;
+use qubit_batch::{
+    ProgressEvent as QubitProgressEvent,
+    ProgressPhase,
+    ProgressReporter,
+};
 
 /// Progress callback that should panic during a test.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProgressPanicPhase {
-    /// Panic from [`ProgressReporter::start`].
+    /// Panic from a started progress event.
     Start,
-    /// Panic from [`ProgressReporter::process`].
+    /// Panic from a running progress event.
     Process,
-    /// Panic from [`ProgressReporter::finish`].
+    /// Panic from a terminal progress event.
     Finish,
 }
 
@@ -45,15 +48,13 @@ pub enum ProgressEvent {
         active_count: usize,
         /// Number of completed tasks at callback time.
         completed_count: usize,
-        /// Monotonic elapsed duration since batch start.
-        elapsed: Duration,
     },
     /// Batch finish notification.
     Finish {
         /// Declared task count.
         total_count: usize,
-        /// Total monotonic elapsed duration.
-        elapsed: Duration,
+        /// Number of completed tasks at callback time.
+        completed_count: usize,
     },
 }
 
@@ -89,39 +90,27 @@ impl RecordingProgressReporter {
 }
 
 impl ProgressReporter for RecordingProgressReporter {
-    fn start(&self, total_count: usize) {
-        self.events
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .push(ProgressEvent::Start { total_count });
-    }
-
-    fn process(
-        &self,
-        total_count: usize,
-        active_count: usize,
-        completed_count: usize,
-        elapsed: Duration,
-    ) {
-        self.events
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .push(ProgressEvent::Process {
+    fn report(&self, event: &QubitProgressEvent) {
+        let counters = event.counters();
+        let total_count = counters.total_count().unwrap_or(counters.completed_count());
+        let recorded = match event.phase() {
+            ProgressPhase::Started => ProgressEvent::Start { total_count },
+            ProgressPhase::Running => ProgressEvent::Process {
                 total_count,
-                active_count,
-                completed_count,
-                elapsed,
-            });
-    }
-
-    fn finish(&self, total_count: usize, elapsed: Duration) {
+                active_count: counters.active_count(),
+                completed_count: counters.completed_count(),
+            },
+            ProgressPhase::Finished | ProgressPhase::Failed | ProgressPhase::Canceled => {
+                ProgressEvent::Finish {
+                    total_count,
+                    completed_count: counters.completed_count(),
+                }
+            }
+        };
         self.events
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .push(ProgressEvent::Finish {
-                total_count,
-                elapsed,
-            });
+            .push(recorded);
     }
 }
 
@@ -166,22 +155,14 @@ impl PanickingProgressReporter {
 }
 
 impl ProgressReporter for PanickingProgressReporter {
-    fn start(&self, _total_count: usize) {
-        self.panic_if_configured(ProgressPanicPhase::Start);
-    }
-
-    fn process(
-        &self,
-        _total_count: usize,
-        _active_count: usize,
-        _completed_count: usize,
-        _elapsed: Duration,
-    ) {
-        self.panic_if_configured(ProgressPanicPhase::Process);
-    }
-
-    fn finish(&self, _total_count: usize, _elapsed: Duration) {
-        self.panic_if_configured(ProgressPanicPhase::Finish);
+    fn report(&self, event: &QubitProgressEvent) {
+        match event.phase() {
+            ProgressPhase::Started => self.panic_if_configured(ProgressPanicPhase::Start),
+            ProgressPhase::Running => self.panic_if_configured(ProgressPanicPhase::Process),
+            ProgressPhase::Finished | ProgressPhase::Failed | ProgressPhase::Canceled => {
+                self.panic_if_configured(ProgressPanicPhase::Finish);
+            }
+        }
     }
 }
 

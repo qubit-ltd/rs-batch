@@ -7,11 +7,11 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use crate::BatchExecutionResult;
+use crate::BatchOutcome;
 
 /// Result produced by [`crate::BatchExecutor::call`].
 ///
-/// The execution result contains the same failure aggregation as
+/// The execution outcome contains the same failure aggregation as
 /// [`crate::BatchExecutor::execute`]. The value list is indexed by the original
 /// callable index; successful callables store `Some(value)`, while failed or
 /// panicked callables store `None`.
@@ -23,8 +23,8 @@ use crate::BatchExecutionResult;
 ///
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BatchCallResult<R, E> {
-    /// Execution summary and failures for the callable batch.
-    execution_result: BatchExecutionResult<E>,
+    /// Execution outcome and failures for the callable batch.
+    outcome: BatchOutcome<E>,
     /// Success values indexed by callable position.
     values: Vec<Option<R>>,
 }
@@ -34,28 +34,25 @@ impl<R, E> BatchCallResult<R, E> {
     ///
     /// # Parameters
     ///
-    /// * `execution_result` - Execution summary and failures.
+    /// * `outcome` - Execution outcome and failures.
     /// * `values` - Success values indexed by callable position.
     ///
     /// # Returns
     ///
     /// A callable batch result.
     #[inline]
-    pub fn new(execution_result: BatchExecutionResult<E>, values: Vec<Option<R>>) -> Self {
-        Self {
-            execution_result,
-            values,
-        }
+    pub fn new(outcome: BatchOutcome<E>, values: Vec<Option<R>>) -> Self {
+        Self { outcome, values }
     }
 
-    /// Returns the execution summary for the callable batch.
+    /// Returns the execution outcome for the callable batch.
     ///
     /// # Returns
     ///
-    /// A shared reference to the underlying execution result.
+    /// A shared reference to the underlying execution outcome.
     #[inline]
-    pub const fn execution_result(&self) -> &BatchExecutionResult<E> {
-        &self.execution_result
+    pub const fn outcome(&self) -> &BatchOutcome<E> {
+        &self.outcome
     }
 
     /// Returns success values indexed by callable position.
@@ -68,14 +65,14 @@ impl<R, E> BatchCallResult<R, E> {
         self.values.as_slice()
     }
 
-    /// Consumes this result and returns the execution summary.
+    /// Consumes this result and returns the execution outcome.
     ///
     /// # Returns
     ///
-    /// The underlying execution result.
+    /// The underlying execution outcome.
     #[inline]
-    pub fn into_execution_result(self) -> BatchExecutionResult<E> {
-        self.execution_result
+    pub fn into_outcome(self) -> BatchOutcome<E> {
+        self.outcome
     }
 
     /// Consumes this result and returns success values.
@@ -92,9 +89,9 @@ impl<R, E> BatchCallResult<R, E> {
     ///
     /// # Returns
     ///
-    /// A tuple containing the execution result and indexed success values.
+    /// A tuple containing the execution outcome and indexed success values.
     #[inline]
-    pub fn into_parts(self) -> (BatchExecutionResult<E>, Vec<Option<R>>) {
-        (self.execution_result, self.values)
+    pub fn into_parts(self) -> (BatchOutcome<E>, Vec<Option<R>>) {
+        (self.outcome, self.values)
     }
 }

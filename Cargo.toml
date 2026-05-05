@@ -25,7 +25,7 @@ name = "qubit_batch"
 doctest = true
 
 [dependencies]
-log = "0.4"
 thiserror = "2.0"
 
 qubit-function = "0.11"
+qubit-progress = { path = "../rs-progress", version = "0.1" }

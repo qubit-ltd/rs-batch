@@ -23,12 +23,14 @@ use qubit_function::Runnable;
 
 use crate::{
     BatchExecutionError,
-    BatchExecutionResult,
-    BatchTaskError,
-    BatchTaskFailure,
+    BatchExecutionState,
+    BatchOutcome,
     error::panic_payload_to_error,
     progress::{
         NoOpProgressReporter,
+        ProgressCounters,
+        ProgressEvent,
+        ProgressPhase,
         ProgressReporter,
     },
 };
@@ -171,77 +173,70 @@ impl BatchExecutor for SequentialBatchExecutor {
         &self,
         tasks: I,
         count: usize,
-    ) -> Result<BatchExecutionResult<E>, BatchExecutionError<E>>
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = T>,
         T: Runnable<E> + Send,
-        E: Send,
+        E: Send + std::fmt::Debug,
     {
-        self.reporter.start(count);
+        let mut state = BatchExecutionState::new(count);
+        report_batch_progress(
+            self.reporter.as_ref(),
+            ProgressPhase::Started,
+            state.progress_counters(),
+            Duration::ZERO,
+        );
         let start = Instant::now();
         let mut next_progress = start + self.report_interval;
-        let mut completed_count = 0;
-        let mut succeeded_count = 0;
-        let mut failed_count = 0;
-        let mut panicked_count = 0;
-        let mut failures = Vec::new();
         let mut actual_count = 0;
         for task in tasks {
             if actual_count == count {
-                let result = build_result(
-                    count,
-                    completed_count,
-                    succeeded_count,
-                    failed_count,
-                    panicked_count,
-                    start.elapsed(),
-                    failures,
+                let elapsed = start.elapsed();
+                report_batch_progress(
+                    self.reporter.as_ref(),
+                    ProgressPhase::Failed,
+                    state.progress_counters(),
+                    elapsed,
                 );
-                self.reporter.finish(count, result.elapsed());
+                let outcome = state.into_outcome(elapsed);
                 return Err(BatchExecutionError::CountExceeded {
                     expected: count,
                     observed_at_least: count + 1,
-                    result,
+                    outcome,
                 });
             }
-            execute_one_task(
-                task,
-                actual_count,
-                &mut completed_count,
-                &mut succeeded_count,
-                &mut failed_count,
-                &mut panicked_count,
-                &mut failures,
-            );
+            execute_one_task(task, actual_count, &mut state);
             actual_count += 1;
             maybe_report_progress(
                 self.reporter.as_ref(),
-                count,
-                completed_count,
+                &state,
                 start,
                 self.report_interval,
                 &mut next_progress,
             );
         }
 
-        let result = build_result(
-            count,
-            completed_count,
-            succeeded_count,
-            failed_count,
-            panicked_count,
-            start.elapsed(),
-            failures,
-        );
-        self.reporter.finish(count, result.elapsed());
+        let elapsed = start.elapsed();
         if actual_count < count {
+            report_batch_progress(
+                self.reporter.as_ref(),
+                ProgressPhase::Failed,
+                state.progress_counters(),
+                elapsed,
+            );
             Err(BatchExecutionError::CountShortfall {
                 expected: count,
                 actual: actual_count,
-                result,
+                outcome: state.into_outcome(elapsed),
             })
         } else {
-            Ok(result)
+            report_batch_progress(
+                self.reporter.as_ref(),
+                ProgressPhase::Finished,
+                state.progress_counters(),
+                elapsed,
+            );
+            Ok(state.into_outcome(elapsed))
         }
     }
 }
@@ -257,35 +252,16 @@ impl BatchExecutor for SequentialBatchExecutor {
 /// * `failed_count` - Failed-task counter updated on return.
 /// * `panicked_count` - Panicked-task counter updated on return.
 /// * `failures` - Failure list appended when the task fails or panics.
-fn execute_one_task<T, E>(
-    mut task: T,
-    index: usize,
-    completed_count: &mut usize,
-    succeeded_count: &mut usize,
-    failed_count: &mut usize,
-    panicked_count: &mut usize,
-    failures: &mut Vec<BatchTaskFailure<E>>,
-) where
+fn execute_one_task<T, E>(mut task: T, index: usize, state: &mut BatchExecutionState<E>)
+where
     T: Runnable<E>,
+    E: std::fmt::Debug,
 {
+    state.record_task_started();
     match catch_unwind(AssertUnwindSafe(|| task.run())) {
-        Ok(Ok(())) => {
-            *completed_count += 1;
-            *succeeded_count += 1;
-        }
-        Ok(Err(error)) => {
-            *completed_count += 1;
-            *failed_count += 1;
-            failures.push(BatchTaskFailure::new(index, BatchTaskError::Failed(error)));
-        }
-        Err(payload) => {
-            *completed_count += 1;
-            *panicked_count += 1;
-            failures.push(BatchTaskFailure::new(
-                index,
-                panic_payload_to_error(payload.as_ref()),
-            ));
-        }
+        Ok(Ok(())) => state.record_task_succeeded(),
+        Ok(Err(error)) => state.record_task_failed(index, error),
+        Err(payload) => state.record_task_panicked(index, panic_payload_to_error(payload.as_ref())),
     }
 }
 
@@ -300,8 +276,7 @@ fn execute_one_task<T, E>(
 /// * `next_progress` - Deadline for the next progress callback.
 fn maybe_report_progress(
     reporter: &dyn ProgressReporter,
-    total_count: usize,
-    completed_count: usize,
+    state: &BatchExecutionState<impl std::fmt::Debug>,
     start: Instant,
     report_interval: Duration,
     next_progress: &mut Instant,
@@ -310,41 +285,33 @@ fn maybe_report_progress(
     if now < *next_progress {
         return;
     }
-    reporter.process(total_count, 0, completed_count, now.duration_since(start));
+    report_batch_progress(
+        reporter,
+        ProgressPhase::Running,
+        state.progress_counters(),
+        now.duration_since(start),
+    );
     *next_progress = now + report_interval;
 }
 
-/// Builds a batch execution result from sequential counters.
+/// Emits one batch progress event.
 ///
 /// # Parameters
 ///
-/// * `task_count` - Declared batch task count.
-/// * `completed_count` - Number of completed tasks.
-/// * `succeeded_count` - Number of successful tasks.
-/// * `failed_count` - Number of failed tasks.
-/// * `panicked_count` - Number of panicked tasks.
-/// * `elapsed` - Total monotonic elapsed duration.
-/// * `failures` - Detailed failure list.
-///
-/// # Returns
-///
-/// A structured batch execution result.
-fn build_result<E>(
-    task_count: usize,
-    completed_count: usize,
-    succeeded_count: usize,
-    failed_count: usize,
-    panicked_count: usize,
+/// * `reporter` - Reporter receiving the event.
+/// * `phase` - Progress lifecycle phase.
+/// * `counters` - Generic progress counters to carry in the event.
+/// * `elapsed` - Monotonic elapsed duration to carry in the event.
+fn report_batch_progress(
+    reporter: &dyn ProgressReporter,
+    phase: ProgressPhase,
+    counters: ProgressCounters,
     elapsed: Duration,
-    failures: Vec<BatchTaskFailure<E>>,
-) -> BatchExecutionResult<E> {
-    BatchExecutionResult::from_validated_parts(
-        task_count,
-        completed_count,
-        succeeded_count,
-        failed_count,
-        panicked_count,
-        elapsed,
-        failures,
-    )
+) {
+    let event = ProgressEvent::builder()
+        .phase(phase)
+        .counters(counters)
+        .elapsed(elapsed)
+        .build();
+    reporter.report(&event);
 }

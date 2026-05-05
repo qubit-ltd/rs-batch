@@ -9,17 +9,17 @@
  ******************************************************************************/
 use thiserror::Error;
 
-use super::batch_execution_result::BatchExecutionResult;
+use crate::BatchOutcome;
 
 /// Batch-level error returned when the batch contract is violated.
 ///
-/// Task failures are reported through [`BatchExecutionResult`], not through
+/// Task failures are reported through [`BatchOutcome`], not through
 /// this enum. This error is reserved for situations such as declared task-count
 /// mismatches.
 ///
 /// # Type Parameters
 ///
-/// * `E` - The task-specific error type stored inside the attached result.
+/// * `E` - The task-specific error type stored inside the attached outcome.
 ///
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum BatchExecutionError<E> {
@@ -30,8 +30,8 @@ pub enum BatchExecutionError<E> {
         expected: usize,
         /// Actual number of tasks observed from the source.
         actual: usize,
-        /// Result accumulated from the tasks that did run.
-        result: BatchExecutionResult<E>,
+        /// Outcome accumulated from the tasks that did run.
+        outcome: BatchOutcome<E>,
     },
 
     /// The task source yielded more tasks than the declared task count.
@@ -44,33 +44,33 @@ pub enum BatchExecutionError<E> {
         /// Lower bound of observed tasks. This is typically `expected + 1`
         /// because the executor stops reading once it confirms the overflow.
         observed_at_least: usize,
-        /// Result accumulated from the tasks that did run.
-        result: BatchExecutionResult<E>,
+        /// Outcome accumulated from the tasks that did run.
+        outcome: BatchOutcome<E>,
     },
 }
 
 impl<E> BatchExecutionError<E> {
-    /// Returns the batch result attached to this error.
+    /// Returns the batch outcome attached to this error.
     ///
     /// # Returns
     ///
-    /// A shared reference to the attached batch execution result.
+    /// A shared reference to the attached batch outcome.
     #[inline]
-    pub const fn result(&self) -> &BatchExecutionResult<E> {
+    pub const fn outcome(&self) -> &BatchOutcome<E> {
         match self {
-            Self::CountShortfall { result, .. } | Self::CountExceeded { result, .. } => result,
+            Self::CountShortfall { outcome, .. } | Self::CountExceeded { outcome, .. } => outcome,
         }
     }
 
-    /// Consumes this error and returns the attached batch result.
+    /// Consumes this error and returns the attached batch outcome.
     ///
     /// # Returns
     ///
-    /// The batch execution result accumulated before this error was reported.
+    /// The batch outcome accumulated before this error was reported.
     #[inline]
-    pub fn into_result(self) -> BatchExecutionResult<E> {
+    pub fn into_outcome(self) -> BatchOutcome<E> {
         match self {
-            Self::CountShortfall { result, .. } | Self::CountExceeded { result, .. } => result,
+            Self::CountShortfall { outcome, .. } | Self::CountExceeded { outcome, .. } => outcome,
         }
     }
 

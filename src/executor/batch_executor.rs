@@ -19,7 +19,7 @@ use qubit_function::{
 
 use crate::{
     BatchExecutionError,
-    BatchExecutionResult,
+    BatchOutcome,
 };
 
 use super::BatchCallResult;
@@ -36,7 +36,7 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// # Returns
     ///
-    /// `Ok(BatchExecutionResult)` when the declared task count matches the
+    /// `Ok(BatchOutcome)` when the declared task count matches the
     /// source, or `Err(BatchExecutionError)` when the source yields fewer or
     /// more tasks than declared.
     ///
@@ -47,18 +47,18 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// # Panics
     ///
-    /// Panics from individual tasks are captured in [`BatchExecutionResult`].
+    /// Panics from individual tasks are captured in [`BatchOutcome`].
     /// Panics from the configured [`crate::ProgressReporter`] are propagated to
     /// the caller.
     fn execute<T, E, I>(
         &self,
         tasks: I,
         count: usize,
-    ) -> Result<BatchExecutionResult<E>, BatchExecutionError<E>>
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = T>,
         T: Runnable<E> + Send,
-        E: Send;
+        E: Send + std::fmt::Debug;
 
     /// Executes a batch of callable tasks and collects success values by index.
     ///
@@ -91,7 +91,7 @@ pub trait BatchExecutor: Send + Sync {
         I: IntoIterator<Item = C>,
         C: Callable<R, E> + Send,
         R: Send,
-        E: Send,
+        E: Send + std::fmt::Debug,
     {
         let outputs = Arc::new(
             (0..count)
@@ -102,9 +102,9 @@ pub trait BatchExecutor: Send + Sync {
             let outputs = Arc::clone(&outputs);
             move |(index, callable)| CallableTask::new(callable, index, Arc::clone(&outputs))
         });
-        let execution_result = self.execute(runnable_tasks, count)?;
+        let outcome = self.execute(runnable_tasks, count)?;
         let values = collect_call_outputs(outputs);
-        Ok(BatchCallResult::new(execution_result, values))
+        Ok(BatchCallResult::new(outcome, values))
     }
 
     /// Applies `action` to every `item` by executing a derived task batch.
@@ -128,12 +128,12 @@ pub trait BatchExecutor: Send + Sync {
         items: I,
         count: usize,
         action: F,
-    ) -> Result<BatchExecutionResult<E>, BatchExecutionError<E>>
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = Item>,
         Item: Send,
         F: Fn(Item) -> Result<(), E> + Send + Sync,
-        E: Send,
+        E: Send + std::fmt::Debug,
     {
         let action = Arc::new(action);
         let tasks = items

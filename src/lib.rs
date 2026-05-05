@@ -17,16 +17,20 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 pub mod error;
+pub mod execution;
 pub mod executor;
 pub mod processor;
 pub mod progress;
 
 pub use error::{
     BatchExecutionError,
-    BatchExecutionResult,
-    BatchExecutionResultBuildError,
     BatchTaskError,
     BatchTaskFailure,
+};
+pub use execution::{
+    BatchExecutionState,
+    BatchOutcome,
+    BatchOutcomeBuildError,
 };
 pub use executor::{
     BatchCallResult,
@@ -40,9 +44,12 @@ pub use processor::{
     ChunkedBatchProcessor,
 };
 pub use progress::{
-    ConsoleProgressReporter,
     LoggerProgressReporter,
     NoOpProgressReporter,
+    ProgressCounters,
+    ProgressEvent,
+    ProgressPhase,
     ProgressReporter,
+    ProgressStage,
     WriterProgressReporter,
 };
