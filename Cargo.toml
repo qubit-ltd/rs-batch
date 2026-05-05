@@ -28,4 +28,4 @@ doctest = true
 thiserror = "2.0"
 
 qubit-function = "0.11"
-qubit-progress = { path = "../rs-progress", version = "0.1" }
+qubit-progress = "0.1"
