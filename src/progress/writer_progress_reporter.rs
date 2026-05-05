@@ -17,6 +17,9 @@ use std::{
 };
 
 use super::{
+    ProgressCounters,
+    ProgressEvent,
+    ProgressPhase,
     ProgressReporter,
     progress_format::{
         format_duration,
@@ -79,7 +82,7 @@ impl<W> WriterProgressReporter<W> {
     }
 }
 
-impl<W> ProgressReporter for WriterProgressReporter<W>
+impl<W> WriterProgressReporter<W>
 where
     W: Write + Send,
 {
@@ -92,7 +95,7 @@ where
     /// # Panics
     ///
     /// Panics when writing to the configured writer fails.
-    fn start(&self, total_count: usize) {
+    pub fn start(&self, total_count: usize) {
         self.write_line(format_args!("Starting {total_count} tasks..."));
     }
 
@@ -108,7 +111,7 @@ where
     /// # Panics
     ///
     /// Panics when writing to the configured writer fails.
-    fn process(
+    pub fn process(
         &self,
         total_count: usize,
         active_count: usize,
@@ -148,12 +151,47 @@ where
     /// # Panics
     ///
     /// Panics when writing to the configured writer fails.
-    fn finish(&self, total_count: usize, elapsed: Duration) {
+    pub fn finish(&self, total_count: usize, elapsed: Duration) {
         self.write_line(format_args!("All {total_count} tasks are finished."));
         self.write_line(format_args!(
             "Processed {total_count} tasks in {}.",
             format_duration(elapsed)
         ));
+    }
+}
+
+impl<W> ProgressReporter for WriterProgressReporter<W>
+where
+    W: Write + Send,
+{
+    /// Writes a progress event.
+    ///
+    /// # Parameters
+    ///
+    /// * `event` - Progress event to write.
+    ///
+    /// # Panics
+    ///
+    /// Panics when writing to the configured writer fails.
+    fn report(&self, event: &ProgressEvent) {
+        let counters: ProgressCounters = event.counters();
+        let total_count = counters.total_count().unwrap_or(counters.completed_count());
+        match event.phase() {
+            ProgressPhase::Started => self.start(total_count),
+            ProgressPhase::Running => self.process(
+                total_count,
+                counters.active_count(),
+                counters.completed_count(),
+                event.elapsed(),
+            ),
+            ProgressPhase::Finished => self.finish(total_count, event.elapsed()),
+            ProgressPhase::Failed | ProgressPhase::Canceled => self.process(
+                total_count,
+                counters.active_count(),
+                counters.completed_count(),
+                event.elapsed(),
+            ),
+        }
     }
 }
 

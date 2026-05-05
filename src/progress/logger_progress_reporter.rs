@@ -10,6 +10,9 @@
 use std::time::Duration;
 
 use super::{
+    ProgressCounters,
+    ProgressEvent,
+    ProgressPhase,
     ProgressReporter,
     progress_format::{
         format_duration,
@@ -79,6 +82,48 @@ impl LoggerProgressReporter {
         self.level
     }
 
+    /// Logs the batch-start message.
+    pub fn start(&self, total_count: usize) {
+        self.log_line(format!("Starting {total_count} tasks..."));
+    }
+
+    /// Logs a progress snapshot.
+    pub fn process(
+        &self,
+        total_count: usize,
+        active_count: usize,
+        completed_count: usize,
+        elapsed: Duration,
+    ) {
+        self.log_line("--------------------------------------------------".to_owned());
+        self.log_line("Waiting for all batch tasks to finish...".to_owned());
+        self.log_line(format!("Total tasks: {total_count}"));
+        self.log_line(format!("Current active tasks: {active_count}"));
+        self.log_line(format!("Current completed tasks: {completed_count}"));
+        self.log_line(format!(
+            "Current tasks in queue: {}",
+            total_count.saturating_sub(completed_count + active_count)
+        ));
+        self.log_line(format!(
+            "Progress: {:.2}%",
+            progress_percent(completed_count, total_count)
+        ));
+        self.log_process_speed(
+            completed_count,
+            total_count.saturating_sub(completed_count),
+            elapsed,
+        );
+    }
+
+    /// Logs the batch-finish message.
+    pub fn finish(&self, total_count: usize, elapsed: Duration) {
+        self.log_line(format!("All {total_count} tasks are finished."));
+        self.log_line(format!(
+            "Processed {total_count} tasks in {}.",
+            format_duration(elapsed)
+        ));
+    }
+
     /// Emits one message through the `log` crate.
     ///
     /// # Parameters
@@ -127,61 +172,29 @@ impl Default for LoggerProgressReporter {
 }
 
 impl ProgressReporter for LoggerProgressReporter {
-    /// Logs the batch-start message.
+    /// Logs one progress event.
     ///
     /// # Parameters
     ///
-    /// * `total_count` - Declared item or task count.
-    fn start(&self, total_count: usize) {
-        self.log_line(format!("Starting {total_count} tasks..."));
-    }
-
-    /// Logs a progress snapshot.
-    ///
-    /// # Parameters
-    ///
-    /// * `total_count` - Declared item or task count.
-    /// * `active_count` - Number of active tasks or chunks.
-    /// * `completed_count` - Number of completed items or tasks.
-    /// * `elapsed` - Monotonic elapsed duration.
-    fn process(
-        &self,
-        total_count: usize,
-        active_count: usize,
-        completed_count: usize,
-        elapsed: Duration,
-    ) {
-        self.log_line("--------------------------------------------------".to_owned());
-        self.log_line("Waiting for all batch tasks to finish...".to_owned());
-        self.log_line(format!("Total tasks: {total_count}"));
-        self.log_line(format!("Current active tasks: {active_count}"));
-        self.log_line(format!("Current completed tasks: {completed_count}"));
-        self.log_line(format!(
-            "Current tasks in queue: {}",
-            total_count.saturating_sub(completed_count + active_count)
-        ));
-        self.log_line(format!(
-            "Progress: {:.2}%",
-            progress_percent(completed_count, total_count)
-        ));
-        self.log_process_speed(
-            completed_count,
-            total_count.saturating_sub(completed_count),
-            elapsed,
-        );
-    }
-
-    /// Logs the batch-finish message.
-    ///
-    /// # Parameters
-    ///
-    /// * `total_count` - Declared item or task count.
-    /// * `elapsed` - Total monotonic elapsed duration.
-    fn finish(&self, total_count: usize, elapsed: Duration) {
-        self.log_line(format!("All {total_count} tasks are finished."));
-        self.log_line(format!(
-            "Processed {total_count} tasks in {}.",
-            format_duration(elapsed)
-        ));
+    /// * `event` - Progress event to log.
+    fn report(&self, event: &ProgressEvent) {
+        let counters: ProgressCounters = event.counters();
+        let total_count = counters.total_count().unwrap_or(counters.completed_count());
+        match event.phase() {
+            ProgressPhase::Started => self.start(total_count),
+            ProgressPhase::Running => self.process(
+                total_count,
+                counters.active_count(),
+                counters.completed_count(),
+                event.elapsed(),
+            ),
+            ProgressPhase::Finished => self.finish(total_count, event.elapsed()),
+            ProgressPhase::Failed | ProgressPhase::Canceled => self.process(
+                total_count,
+                counters.active_count(),
+                counters.completed_count(),
+                event.elapsed(),
+            ),
+        }
     }
 }

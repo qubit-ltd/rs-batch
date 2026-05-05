@@ -9,20 +9,23 @@
  ******************************************************************************/
 use std::time::Duration;
 
-use super::ProgressReporter;
+use super::{
+    ProgressEvent,
+    ProgressReporter,
+};
 
 /// Progress reporter that intentionally does nothing.
 ///
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct NoOpProgressReporter;
 
-impl ProgressReporter for NoOpProgressReporter {
+impl NoOpProgressReporter {
     /// Ignores the batch-start notification.
     ///
     /// # Parameters
     ///
     /// * `_total_count` - Declared task count for the batch.
-    fn start(&self, _total_count: usize) {}
+    pub fn start(&self, _total_count: usize) {}
 
     /// Ignores the batch-progress notification.
     ///
@@ -32,7 +35,7 @@ impl ProgressReporter for NoOpProgressReporter {
     /// * `_active_count` - Number of tasks currently in flight.
     /// * `_completed_count` - Number of tasks that have completed.
     /// * `_elapsed` - Monotonic elapsed duration since batch start.
-    fn process(
+    pub fn process(
         &self,
         _total_count: usize,
         _active_count: usize,
@@ -47,5 +50,14 @@ impl ProgressReporter for NoOpProgressReporter {
     ///
     /// * `_total_count` - Declared task count for the batch.
     /// * `_elapsed` - Total monotonic elapsed duration.
-    fn finish(&self, _total_count: usize, _elapsed: Duration) {}
+    pub fn finish(&self, _total_count: usize, _elapsed: Duration) {}
+}
+
+impl ProgressReporter for NoOpProgressReporter {
+    /// Ignores one progress event.
+    ///
+    /// # Parameters
+    ///
+    /// * `_event` - Progress event to ignore.
+    fn report(&self, _event: &ProgressEvent) {}
 }
