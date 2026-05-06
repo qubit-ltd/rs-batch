@@ -20,7 +20,6 @@ pub mod error;
 pub mod execution;
 pub mod executor;
 pub mod processor;
-pub mod progress;
 
 pub use error::{
     BatchExecutionError,
@@ -43,13 +42,17 @@ pub use processor::{
     ChunkedBatchProcessError,
     ChunkedBatchProcessor,
 };
-pub use progress::{
-    LoggerProgressReporter,
-    NoOpProgressReporter,
-    ProgressCounters,
-    ProgressEvent,
-    ProgressPhase,
-    ProgressReporter,
-    ProgressStage,
-    WriterProgressReporter,
+pub use qubit_progress::{
+    model::{
+        ProgressCounters,
+        ProgressEvent,
+        ProgressPhase,
+        ProgressStage,
+    },
+    reporter::{
+        LoggerProgressReporter,
+        NoOpProgressReporter,
+        ProgressReporter,
+        WriterProgressReporter,
+    },
 };
