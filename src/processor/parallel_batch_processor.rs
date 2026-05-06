@@ -11,17 +11,28 @@ use std::{
     num::NonZeroUsize,
     panic::resume_unwind,
     sync::{
-        Arc, Mutex,
-        atomic::{AtomicUsize, Ordering},
+        Arc,
+        Mutex,
         mpsc,
     },
     thread,
-    time::{Duration, Instant},
+    time::{
+        Duration,
+        Instant,
+    },
 };
 
-use qubit_function::{ArcConsumer, Consumer};
+use qubit_atomic::ArcAtomicCount;
+use qubit_function::{
+    ArcConsumer,
+    Consumer,
+};
 
-use super::{BatchProcessError, BatchProcessResult, BatchProcessor};
+use super::{
+    BatchProcessError,
+    BatchProcessResult,
+    BatchProcessor,
+};
 
 /// Processes batch items in parallel on scoped standard threads.
 ///
@@ -154,20 +165,15 @@ where
     {
         let start = Instant::now();
         let mut actual_count = 0usize;
-        let processed_count = Arc::new(AtomicUsize::new(0));
+        let processed_count = ArcAtomicCount::zero();
 
         if count > 0 {
-            self.process_non_empty(
-                items,
-                count,
-                &mut actual_count,
-                Arc::clone(&processed_count),
-            );
+            self.process_non_empty(items, count, &mut actual_count, processed_count.clone());
         } else {
             actual_count = observe_zero_count_input(items);
         }
 
-        let processed_count = processed_count.load(Ordering::Acquire);
+        let processed_count = processed_count.get();
         let result = process_result(count, processed_count, start.elapsed());
         if actual_count < count {
             Err(BatchProcessError::CountShortfall {
@@ -208,7 +214,7 @@ where
         items: I,
         count: usize,
         actual_count: &mut usize,
-        processed_count: Arc<AtomicUsize>,
+        processed_count: ArcAtomicCount,
     ) where
         I: IntoIterator<Item = Item>,
     {
@@ -220,7 +226,7 @@ where
             for _ in 0..worker_count {
                 let worker_receiver = Arc::clone(&task_receiver);
                 let worker_consumer = self.consumer.clone();
-                let worker_processed_count = Arc::clone(&processed_count);
+                let worker_processed_count = processed_count.clone();
                 worker_handles.push(scope.spawn(move || {
                     run_parallel_processor_worker(
                         worker_receiver,
@@ -266,7 +272,7 @@ where
 fn run_parallel_processor_worker<Item>(
     task_receiver: Arc<Mutex<mpsc::Receiver<Item>>>,
     consumer: ArcConsumer<Item>,
-    processed_count: Arc<AtomicUsize>,
+    processed_count: ArcAtomicCount,
 ) {
     loop {
         let received = task_receiver
@@ -277,7 +283,7 @@ fn run_parallel_processor_worker<Item>(
             break;
         };
         consumer.accept(&item);
-        processed_count.fetch_add(1, Ordering::AcqRel);
+        processed_count.inc();
     }
 }
 

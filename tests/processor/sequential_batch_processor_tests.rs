@@ -9,11 +9,18 @@
  ******************************************************************************/
 //! Tests for [`SequentialBatchProcessor`](qubit_batch::SequentialBatchProcessor).
 
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc,
+    Mutex,
+};
 
 use qubit_function::Consumer;
 
-use qubit_batch::{BatchProcessError, BatchProcessor, SequentialBatchProcessor};
+use qubit_batch::{
+    BatchProcessError,
+    BatchProcessor,
+    SequentialBatchProcessor,
+};
 
 #[test]
 fn test_sequential_batch_processor_consumer_accessors() {

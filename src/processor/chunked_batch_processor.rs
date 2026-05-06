@@ -7,13 +7,27 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{cmp, num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{
+    cmp,
+    num::NonZeroUsize,
+    sync::Arc,
+    time::Duration,
+};
 
 use qubit_progress::Progress;
 
-use crate::{NoOpProgressReporter, ProgressCounters, ProgressPhase, ProgressReporter};
+use crate::{
+    NoOpProgressReporter,
+    ProgressCounters,
+    ProgressPhase,
+    ProgressReporter,
+};
 
-use super::{BatchProcessResult, BatchProcessor, ChunkedBatchProcessError};
+use super::{
+    BatchProcessResult,
+    BatchProcessor,
+    ChunkedBatchProcessError,
+};
 
 /// Processes input items by submitting fixed-size chunks to a delegate.
 ///

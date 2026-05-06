@@ -8,22 +8,29 @@
  *
  ******************************************************************************/
 use std::sync::{
-    Mutex, MutexGuard,
-    atomic::{AtomicUsize, Ordering},
+    Mutex,
+    MutexGuard,
 };
 
 use std::time::Duration;
 
-use crate::{BatchOutcome, BatchOutcomeBuilder, BatchTaskError, BatchTaskFailure};
+use qubit_atomic::AtomicCount;
+
+use crate::{
+    BatchOutcome,
+    BatchOutcomeBuilder,
+    BatchTaskError,
+    BatchTaskFailure,
+};
 
 /// Shared result counters and failure storage for a running parallel batch.
 pub(crate) struct ParallelBatchResultState<E> {
     /// Number of successful tasks.
-    succeeded_count: AtomicUsize,
+    succeeded_count: AtomicCount,
     /// Number of failed tasks.
-    failed_count: AtomicUsize,
+    failed_count: AtomicCount,
     /// Number of panicked tasks.
-    panicked_count: AtomicUsize,
+    panicked_count: AtomicCount,
     /// Detailed task failure list.
     failures: Mutex<Vec<BatchTaskFailure<E>>>,
 }
@@ -36,16 +43,16 @@ impl<E> ParallelBatchResultState<E> {
     /// Shared state with zeroed counters and no recorded failures.
     pub(crate) fn new() -> Self {
         Self {
-            succeeded_count: AtomicUsize::new(0),
-            failed_count: AtomicUsize::new(0),
-            panicked_count: AtomicUsize::new(0),
+            succeeded_count: AtomicCount::zero(),
+            failed_count: AtomicCount::zero(),
+            panicked_count: AtomicCount::zero(),
             failures: Mutex::new(Vec::new()),
         }
     }
 
     /// Records one successful task.
     pub(crate) fn record_task_succeeded(&self) {
-        self.succeeded_count.fetch_add(1, Ordering::AcqRel);
+        self.succeeded_count.inc();
     }
 
     /// Records one task error.
@@ -55,7 +62,7 @@ impl<E> ParallelBatchResultState<E> {
     /// * `index` - Zero-based task index.
     /// * `error` - Task error returned by the task.
     pub(crate) fn record_task_failed(&self, index: usize, error: E) {
-        self.failed_count.fetch_add(1, Ordering::AcqRel);
+        self.failed_count.inc();
         Self::lock_failures(&self.failures)
             .push(BatchTaskFailure::new(index, BatchTaskError::Failed(error)));
     }
@@ -67,7 +74,7 @@ impl<E> ParallelBatchResultState<E> {
     /// * `index` - Zero-based task index.
     /// * `error` - Captured task panic.
     pub(crate) fn record_task_panicked(&self, index: usize, error: BatchTaskError<E>) {
-        self.panicked_count.fetch_add(1, Ordering::AcqRel);
+        self.panicked_count.inc();
         Self::lock_failures(&self.failures).push(BatchTaskFailure::new(index, error));
     }
 
@@ -94,9 +101,9 @@ impl<E> ParallelBatchResultState<E> {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         BatchOutcomeBuilder::builder(task_count)
             .completed_count(completed_count)
-            .succeeded_count(self.succeeded_count.load(Ordering::Acquire))
-            .failed_count(self.failed_count.load(Ordering::Acquire))
-            .panicked_count(self.panicked_count.load(Ordering::Acquire))
+            .succeeded_count(self.succeeded_count.get())
+            .failed_count(self.failed_count.get())
+            .panicked_count(self.panicked_count.get())
             .elapsed(elapsed)
             .failures(failures)
             .build()

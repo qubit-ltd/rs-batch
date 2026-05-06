@@ -10,7 +10,10 @@
 //! Integration tests for [`BatchExecutor::for_each`](qubit_batch::BatchExecutor::for_each)
 //! and the internal per-item runnable wrapper.
 
-use qubit_batch::{BatchExecutor, SequentialBatchExecutor};
+use qubit_batch::{
+    BatchExecutor,
+    SequentialBatchExecutor,
+};
 
 #[test]
 fn test_sequential_batch_executor_for_each_maps_items() {

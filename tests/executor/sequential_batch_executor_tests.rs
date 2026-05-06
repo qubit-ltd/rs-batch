@@ -10,36 +10,45 @@
 //! Tests for [`SequentialBatchExecutor`](qubit_batch::SequentialBatchExecutor).
 
 use std::{
-    panic::{AssertUnwindSafe, catch_unwind},
-    sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering},
+    panic::{
+        AssertUnwindSafe,
+        catch_unwind,
     },
+    sync::Arc,
     time::Duration,
 };
 
-use qubit_batch::{BatchExecutionError, BatchExecutor, SequentialBatchExecutor};
+use qubit_atomic::ArcAtomicCount;
+use qubit_batch::{
+    BatchExecutionError,
+    BatchExecutor,
+    SequentialBatchExecutor,
+};
 
 use crate::support::{
-    PanickingProgressReporter, ProgressEvent, ProgressPanicPhase, RecordingProgressReporter,
-    TestTask, panic_payload_message,
+    PanickingProgressReporter,
+    ProgressEvent,
+    ProgressPanicPhase,
+    RecordingProgressReporter,
+    TestTask,
+    panic_payload_message,
 };
 
 #[test]
 fn test_sequential_batch_executor_executes_successfully() {
     let executor = SequentialBatchExecutor::new();
-    let counter = Arc::new(AtomicUsize::new(0));
+    let counter = ArcAtomicCount::zero();
     let tasks = vec![
-        TestTask::count_success(Arc::clone(&counter)),
-        TestTask::count_success(Arc::clone(&counter)),
-        TestTask::count_success(Arc::clone(&counter)),
+        TestTask::count_success(counter.clone()),
+        TestTask::count_success(counter.clone()),
+        TestTask::count_success(counter.clone()),
     ];
 
     let result = executor
         .execute(tasks, 3)
         .expect("sequential batch should succeed");
 
-    assert_eq!(counter.load(Ordering::Acquire), 3);
+    assert_eq!(counter.get(), 3);
     assert_eq!(result.completed_count(), 3);
     assert_eq!(result.succeeded_count(), 3);
     assert_eq!(result.failure_count(), 0);

@@ -8,7 +8,12 @@
  *
  ******************************************************************************/
 
-use qubit_batch::{BatchCallResult, BatchOutcomeBuilder, BatchTaskError, BatchTaskFailure};
+use qubit_batch::{
+    BatchCallResult,
+    BatchOutcomeBuilder,
+    BatchTaskError,
+    BatchTaskFailure,
+};
 
 #[test]
 fn test_batch_call_result_accessors_and_parts() {

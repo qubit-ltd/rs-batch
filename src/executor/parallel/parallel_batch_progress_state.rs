@@ -9,27 +9,37 @@
  ******************************************************************************/
 use std::sync::{
     Arc,
-    atomic::{AtomicUsize, Ordering},
-    mpsc::{self, RecvTimeoutError},
+    mpsc::{
+        self,
+        RecvTimeoutError,
+    },
 };
-use std::time::{Duration, Instant};
+use std::time::{
+    Duration,
+    Instant,
+};
 
+use qubit_atomic::AtomicCount;
 use qubit_progress::Progress;
 
-use crate::{ProgressCounters, ProgressPhase, ProgressReporter};
+use crate::{
+    ProgressCounters,
+    ProgressPhase,
+    ProgressReporter,
+};
 
 /// Shared progress counters for a running parallel batch.
 pub(crate) struct ParallelBatchProgressState {
     /// Number of tasks currently running.
-    active_count: AtomicUsize,
+    active_count: AtomicCount,
     /// Number of tasks that reached a terminal outcome.
-    completed_count: AtomicUsize,
+    completed_count: AtomicCount,
     /// Number of successful tasks.
-    succeeded_count: AtomicUsize,
+    succeeded_count: AtomicCount,
     /// Number of failed tasks.
-    failed_count: AtomicUsize,
+    failed_count: AtomicCount,
     /// Number of panicked tasks.
-    panicked_count: AtomicUsize,
+    panicked_count: AtomicCount,
 }
 
 impl ParallelBatchProgressState {
@@ -40,11 +50,11 @@ impl ParallelBatchProgressState {
     /// Shared state with zeroed counters.
     pub(crate) fn new() -> Self {
         Self {
-            active_count: AtomicUsize::new(0),
-            completed_count: AtomicUsize::new(0),
-            succeeded_count: AtomicUsize::new(0),
-            failed_count: AtomicUsize::new(0),
-            panicked_count: AtomicUsize::new(0),
+            active_count: AtomicCount::zero(),
+            completed_count: AtomicCount::zero(),
+            succeeded_count: AtomicCount::zero(),
+            failed_count: AtomicCount::zero(),
+            panicked_count: AtomicCount::zero(),
         }
     }
 
@@ -54,7 +64,7 @@ impl ParallelBatchProgressState {
     ///
     /// The completed task counter.
     pub(crate) fn completed_count(&self) -> usize {
-        self.completed_count.load(Ordering::Acquire)
+        self.completed_count.get()
     }
 
     /// Builds generic progress counters from current state.
@@ -68,39 +78,36 @@ impl ParallelBatchProgressState {
     /// Progress counters suitable for reporter events.
     pub(crate) fn progress_counters(&self, total_count: usize) -> ProgressCounters {
         ProgressCounters::new(Some(total_count))
-            .with_active_count(self.active_count.load(Ordering::Acquire))
-            .with_completed_count(self.completed_count.load(Ordering::Acquire))
-            .with_succeeded_count(self.succeeded_count.load(Ordering::Acquire))
-            .with_failed_count(
-                self.failed_count.load(Ordering::Acquire)
-                    + self.panicked_count.load(Ordering::Acquire),
-            )
+            .with_active_count(self.active_count.get())
+            .with_completed_count(self.completed_count.get())
+            .with_succeeded_count(self.succeeded_count.get())
+            .with_failed_count(self.failed_count.get() + self.panicked_count.get())
     }
 
     /// Records that one task has started.
     pub(crate) fn record_task_started(&self) {
-        self.active_count.fetch_add(1, Ordering::AcqRel);
+        self.active_count.inc();
     }
 
     /// Records one successful task completion.
     pub(crate) fn record_task_succeeded(&self) {
-        self.active_count.fetch_sub(1, Ordering::AcqRel);
-        self.completed_count.fetch_add(1, Ordering::AcqRel);
-        self.succeeded_count.fetch_add(1, Ordering::AcqRel);
+        self.active_count.dec();
+        self.completed_count.inc();
+        self.succeeded_count.inc();
     }
 
     /// Records one task error.
     pub(crate) fn record_task_failed(&self) {
-        self.active_count.fetch_sub(1, Ordering::AcqRel);
-        self.completed_count.fetch_add(1, Ordering::AcqRel);
-        self.failed_count.fetch_add(1, Ordering::AcqRel);
+        self.active_count.dec();
+        self.completed_count.inc();
+        self.failed_count.inc();
     }
 
     /// Records one task panic.
     pub(crate) fn record_task_panicked(&self) {
-        self.active_count.fetch_sub(1, Ordering::AcqRel);
-        self.completed_count.fetch_add(1, Ordering::AcqRel);
-        self.panicked_count.fetch_add(1, Ordering::AcqRel);
+        self.active_count.dec();
+        self.completed_count.inc();
+        self.panicked_count.inc();
     }
 }
 

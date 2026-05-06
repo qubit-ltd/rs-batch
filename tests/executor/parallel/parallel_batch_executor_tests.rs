@@ -11,23 +11,35 @@
 
 use std::{
     fmt,
-    panic::{AssertUnwindSafe, catch_unwind},
-    sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering},
+    panic::{
+        AssertUnwindSafe,
+        catch_unwind,
     },
+    sync::Arc,
     thread,
     time::Duration,
 };
 
+use qubit_atomic::{
+    ArcAtomic,
+    ArcAtomicCount,
+    AtomicCount,
+};
 use qubit_batch::{
-    BatchExecutionError, BatchExecutor, ParallelBatchExecutor, ParallelBatchExecutorBuildError,
+    BatchExecutionError,
+    BatchExecutor,
+    ParallelBatchExecutor,
+    ParallelBatchExecutorBuildError,
 };
 use qubit_function::Runnable;
 
 use crate::support::{
-    PanickingProgressReporter, ProgressEvent, ProgressPanicPhase, RecordingProgressReporter,
-    TestTask, panic_payload_message,
+    PanickingProgressReporter,
+    ProgressEvent,
+    ProgressPanicPhase,
+    RecordingProgressReporter,
+    TestTask,
+    panic_payload_message,
 };
 
 #[test]
@@ -78,13 +90,13 @@ fn test_parallel_batch_executor_executes_with_configured_parallelism() {
         .sequential_threshold(1)
         .build()
         .expect("parallel executor should build");
-    let active_count = Arc::new(AtomicUsize::new(0));
-    let max_active_count = Arc::new(AtomicUsize::new(0));
+    let active_count = ArcAtomicCount::zero();
+    let max_active_count = ArcAtomic::new(0usize);
     let tasks = (0..6)
         .map(|_| {
             ActiveTrackingTask::new(
-                Arc::clone(&active_count),
-                Arc::clone(&max_active_count),
+                active_count.clone(),
+                max_active_count.clone(),
                 Duration::from_millis(20),
             )
         })
@@ -97,8 +109,8 @@ fn test_parallel_batch_executor_executes_with_configured_parallelism() {
     assert_eq!(result.completed_count(), 6);
     assert_eq!(result.succeeded_count(), 6);
     assert_eq!(result.failure_count(), 0);
-    assert!(max_active_count.load(Ordering::Acquire) > 1);
-    assert!(max_active_count.load(Ordering::Acquire) <= 2);
+    assert!(max_active_count.load() > 1);
+    assert!(max_active_count.load() <= 2);
 }
 
 #[test]
@@ -108,13 +120,13 @@ fn test_parallel_batch_executor_uses_sequential_threshold() {
         .sequential_threshold(8)
         .build()
         .expect("parallel executor should build");
-    let active_count = Arc::new(AtomicUsize::new(0));
-    let max_active_count = Arc::new(AtomicUsize::new(0));
+    let active_count = ArcAtomicCount::zero();
+    let max_active_count = ArcAtomic::new(0usize);
     let tasks = (0..4)
         .map(|_| {
             ActiveTrackingTask::new(
-                Arc::clone(&active_count),
-                Arc::clone(&max_active_count),
+                active_count.clone(),
+                max_active_count.clone(),
                 Duration::from_millis(1),
             )
         })
@@ -125,7 +137,7 @@ fn test_parallel_batch_executor_uses_sequential_threshold() {
         .expect("threshold fallback should succeed");
 
     assert_eq!(result.completed_count(), 4);
-    assert_eq!(max_active_count.load(Ordering::Acquire), 1);
+    assert_eq!(max_active_count.load(), 1);
 }
 
 #[test]
@@ -135,8 +147,8 @@ fn test_parallel_batch_executor_supports_non_static_tasks() {
         .sequential_threshold(1)
         .build()
         .expect("parallel executor should build");
-    let first = AtomicUsize::new(0);
-    let second = AtomicUsize::new(0);
+    let first = AtomicCount::zero();
+    let second = AtomicCount::zero();
     let tasks = vec![
         BorrowingTask { counter: &first },
         BorrowingTask { counter: &second },
@@ -147,8 +159,8 @@ fn test_parallel_batch_executor_supports_non_static_tasks() {
         .expect("borrowed tasks should execute");
 
     assert_eq!(result.succeeded_count(), 2);
-    assert_eq!(first.load(Ordering::Acquire), 1);
-    assert_eq!(second.load(Ordering::Acquire), 1);
+    assert_eq!(first.get(), 1);
+    assert_eq!(second.get(), 1);
 }
 
 #[test]
@@ -327,9 +339,9 @@ fn test_parallel_batch_executor_propagates_progress_reporter_process_panic() {
 #[derive(Debug)]
 struct ActiveTrackingTask {
     /// Shared count of currently running tasks.
-    active_count: Arc<AtomicUsize>,
+    active_count: ArcAtomicCount,
     /// Shared maximum active count observed by any task.
-    max_active_count: Arc<AtomicUsize>,
+    max_active_count: ArcAtomic<usize>,
     /// Time to keep the task active.
     duration: Duration,
 }
@@ -347,8 +359,8 @@ impl ActiveTrackingTask {
     ///
     /// A task configured with the supplied counters.
     fn new(
-        active_count: Arc<AtomicUsize>,
-        max_active_count: Arc<AtomicUsize>,
+        active_count: ArcAtomicCount,
+        max_active_count: ArcAtomic<usize>,
         duration: Duration,
     ) -> Self {
         Self {
@@ -366,34 +378,18 @@ impl Runnable<&'static str> for ActiveTrackingTask {
     ///
     /// Always returns `Ok(())`.
     fn run(&mut self) -> Result<(), &'static str> {
-        let active = self.active_count.fetch_add(1, Ordering::AcqRel) + 1;
-        update_max(&self.max_active_count, active);
+        let active = self.active_count.inc();
+        self.max_active_count.fetch_max(active);
         thread::sleep(self.duration);
-        self.active_count.fetch_sub(1, Ordering::AcqRel);
+        self.active_count.dec();
         Ok(())
-    }
-}
-
-/// Updates `max_value` if `candidate` is larger.
-///
-/// # Parameters
-///
-/// * `max_value` - Atomic maximum to update.
-/// * `candidate` - Candidate maximum value.
-fn update_max(max_value: &AtomicUsize, candidate: usize) {
-    let mut current = max_value.load(Ordering::Acquire);
-    while candidate > current {
-        match max_value.compare_exchange(current, candidate, Ordering::AcqRel, Ordering::Acquire) {
-            Ok(_) => return,
-            Err(observed) => current = observed,
-        }
     }
 }
 
 /// Task that borrows a counter from the caller's stack.
 struct BorrowingTask<'a> {
     /// Borrowed counter incremented by this task.
-    counter: &'a AtomicUsize,
+    counter: &'a AtomicCount,
 }
 
 impl fmt::Debug for BorrowingTask<'_> {
@@ -410,7 +406,7 @@ impl Runnable<&'static str> for BorrowingTask<'_> {
     ///
     /// Always returns `Ok(())`.
     fn run(&mut self) -> Result<(), &'static str> {
-        self.counter.fetch_add(1, Ordering::AcqRel);
+        self.counter.inc();
         Ok(())
     }
 }

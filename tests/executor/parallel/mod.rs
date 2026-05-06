@@ -9,6 +9,9 @@
  ******************************************************************************/
 //! Tests for parallel batch executor.
 
+mod indexed_task_tests;
 mod parallel_batch_executor_build_error_tests;
 mod parallel_batch_executor_builder_tests;
 mod parallel_batch_executor_tests;
+mod parallel_batch_progress_state_tests;
+mod parallel_batch_result_state_tests;

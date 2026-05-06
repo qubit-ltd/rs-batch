@@ -7,11 +7,21 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::time::{Duration, Instant};
+use std::time::{
+    Duration,
+    Instant,
+};
 
-use qubit_function::{BoxConsumer, Consumer};
+use qubit_function::{
+    BoxConsumer,
+    Consumer,
+};
 
-use super::{BatchProcessError, BatchProcessResult, BatchProcessor};
+use super::{
+    BatchProcessError,
+    BatchProcessResult,
+    BatchProcessor,
+};
 
 /// Processes batch items sequentially by invoking a [`Consumer`] per item.
 ///

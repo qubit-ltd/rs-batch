@@ -9,9 +9,17 @@
  ******************************************************************************/
 //! Test progress reporters and panic payload helpers.
 
-use std::{any::Any, panic::panic_any, sync::Mutex};
+use std::{
+    any::Any,
+    panic::panic_any,
+    sync::Mutex,
+};
 
-use qubit_batch::{ProgressEvent as QubitProgressEvent, ProgressPhase, ProgressReporter};
+use qubit_batch::{
+    ProgressEvent as QubitProgressEvent,
+    ProgressPhase,
+    ProgressReporter,
+};
 
 /// Progress callback that should panic during a test.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

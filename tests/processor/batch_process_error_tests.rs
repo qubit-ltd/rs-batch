@@ -11,7 +11,10 @@
 
 use std::time::Duration;
 
-use qubit_batch::{BatchProcessError, BatchProcessResult};
+use qubit_batch::{
+    BatchProcessError,
+    BatchProcessResult,
+};
 
 #[test]
 fn test_batch_process_error_helpers_and_display() {
