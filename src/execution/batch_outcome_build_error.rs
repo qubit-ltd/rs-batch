@@ -84,6 +84,13 @@ pub enum BatchOutcomeBuildError {
         task_count: usize,
     },
 
+    /// Multiple failure details refer to the same task index.
+    #[error("failure index must be unique: index {index}")]
+    DuplicateFailureIndex {
+        /// Duplicate failure index.
+        index: usize,
+    },
+
     /// Detailed failure variants do not match failed and panicked counters.
     #[error(
         "failure detail variants must match failed_count and panicked_count: expected_failed {expected_failed}, actual_failed {actual_failed}, expected_panicked {expected_panicked}, actual_panicked {actual_panicked}"

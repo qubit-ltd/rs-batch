@@ -21,12 +21,12 @@ use qubit_progress::Progress;
 
 use crate::{
     BatchExecutionError,
-    BatchExecutionState,
     BatchOutcome,
     NoOpProgressReporter,
     ProgressPhase,
     ProgressReporter,
     error::panic_payload_to_error,
+    execution::BatchExecutionState,
 };
 
 use super::BatchExecutor;

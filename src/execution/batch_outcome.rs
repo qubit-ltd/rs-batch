@@ -18,6 +18,19 @@ use crate::{
 };
 
 /// Final or partial outcome produced by one batch execution.
+///
+/// Create outcomes through [`BatchOutcomeBuilder::build`] so counters and
+/// failure details are validated before the outcome exists.
+///
+/// ```compile_fail
+/// use qubit_batch::{
+///     BatchOutcome,
+///     BatchOutcomeBuilder,
+/// };
+///
+/// let builder = BatchOutcomeBuilder::<&'static str>::builder(1);
+/// let _outcome = BatchOutcome::new(builder);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BatchOutcome<E> {
     /// Declared task count for this batch.
@@ -47,7 +60,7 @@ impl<E> BatchOutcome<E> {
     ///
     /// A fully populated batch outcome.
     #[inline]
-    pub fn new(builder: BatchOutcomeBuilder<E>) -> Self {
+    pub(crate) fn new(builder: BatchOutcomeBuilder<E>) -> Self {
         Self {
             task_count: builder.task_count,
             completed_count: builder.completed_count,

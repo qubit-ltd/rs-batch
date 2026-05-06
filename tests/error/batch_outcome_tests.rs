@@ -17,8 +17,6 @@ use std::{
 
 use qubit_batch::{
     BatchExecutionError,
-    BatchExecutionState,
-    BatchOutcome,
     BatchOutcomeBuildError,
     BatchOutcomeBuilder,
     BatchTaskError,
@@ -31,17 +29,15 @@ fn test_batch_outcome_builder_builds_valid_outcome() {
         BatchTaskFailure::new(2, BatchTaskError::panicked("panic")),
         BatchTaskFailure::new(1, BatchTaskError::Failed("failed")),
     ];
-    let builder = BatchOutcomeBuilder::builder(3)
+    let outcome = BatchOutcomeBuilder::builder(3)
         .completed_count(3)
         .succeeded_count(1)
         .failed_count(1)
         .panicked_count(1)
         .elapsed(Duration::from_millis(5))
         .failures(failures)
-        .validate()
+        .build()
         .expect("builder should validate consistent counters");
-
-    let outcome = BatchOutcome::new(builder);
 
     assert_eq!(outcome.task_count(), 3);
     assert_eq!(outcome.completed_count(), 3);
@@ -167,40 +163,6 @@ fn test_batch_outcome_into_failures_and_success_state() {
         .expect("success outcome should be valid");
     assert!(outcome.is_success());
     assert!(outcome.into_failures().is_empty());
-}
-
-#[test]
-fn test_batch_execution_state_builds_progress_counters_and_outcome() {
-    let mut state = BatchExecutionState::new(2);
-    state.record_task_started();
-    state.record_task_succeeded();
-    state.record_task_started();
-    state.record_task_failed(1, "failed");
-
-    let counters = state.progress_counters();
-    assert_eq!(counters.total_count(), Some(2));
-    assert_eq!(counters.active_count(), 0);
-    assert_eq!(counters.completed_count(), 2);
-    assert_eq!(counters.succeeded_count(), 1);
-    assert_eq!(counters.failed_count(), 1);
-
-    let outcome = state.into_outcome(Duration::from_millis(12));
-    assert_eq!(outcome.failure_count(), 1);
-    assert_eq!(outcome.failures()[0].index(), 1);
-}
-
-#[test]
-fn test_batch_execution_state_folds_panics_into_progress_failures() {
-    let mut state = BatchExecutionState::<&'static str>::new(1);
-    assert_eq!(state.task_count(), 1);
-    assert_eq!(state.completed_count(), 0);
-
-    state.record_task_started();
-    state.record_task_panicked(0, BatchTaskError::panicked("boom"));
-
-    let counters = state.progress_counters();
-    assert_eq!(counters.completed_count(), 1);
-    assert_eq!(counters.failed_count(), 1);
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

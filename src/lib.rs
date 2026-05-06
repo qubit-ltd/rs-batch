@@ -12,6 +12,13 @@
 //! This crate focuses on one-shot execution of whole task batches rather than
 //! single-task submission services.
 //!
+//! Executor state machines are internal implementation details and are not
+//! part of the public crate-root API.
+//!
+//! ```compile_fail
+//! use qubit_batch::BatchExecutionState;
+//! ```
+//!
 
 #![deny(missing_docs)]
 #![deny(unsafe_op_in_unsafe_fn)]
@@ -27,7 +34,6 @@ pub use error::{
     BatchTaskFailure,
 };
 pub use execution::{
-    BatchExecutionState,
     BatchOutcome,
     BatchOutcomeBuildError,
     BatchOutcomeBuilder,

@@ -7,10 +7,7 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{
-    fmt,
-    time::Duration,
-};
+use std::time::Duration;
 
 use qubit_progress::model::ProgressCounters;
 
@@ -23,7 +20,7 @@ use crate::{
 
 /// Mutable state collected while a batch execution is running.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BatchExecutionState<E> {
+pub(crate) struct BatchExecutionState<E> {
     /// Declared task count for this batch.
     task_count: usize,
     /// Number of tasks currently in flight.
@@ -51,7 +48,7 @@ impl<E> BatchExecutionState<E> {
     ///
     /// Empty execution state.
     #[inline]
-    pub const fn new(task_count: usize) -> Self {
+    pub(crate) const fn new(task_count: usize) -> Self {
         Self {
             task_count,
             active_count: 0,
@@ -65,13 +62,13 @@ impl<E> BatchExecutionState<E> {
 
     /// Records that one task has started.
     #[inline]
-    pub fn record_task_started(&mut self) {
+    pub(crate) fn record_task_started(&mut self) {
         self.active_count += 1;
     }
 
     /// Records one successful task completion.
     #[inline]
-    pub fn record_task_succeeded(&mut self) {
+    pub(crate) fn record_task_succeeded(&mut self) {
         self.active_count = self.active_count.saturating_sub(1);
         self.completed_count += 1;
         self.succeeded_count += 1;
@@ -84,10 +81,7 @@ impl<E> BatchExecutionState<E> {
     /// * `index` - Zero-based task index.
     /// * `error` - Task error returned by the task.
     #[inline]
-    pub fn record_task_failed(&mut self, index: usize, error: E)
-    where
-        E: fmt::Debug,
-    {
+    pub(crate) fn record_task_failed(&mut self, index: usize, error: E) {
         self.active_count = self.active_count.saturating_sub(1);
         self.completed_count += 1;
         self.failed_count += 1;
@@ -102,7 +96,7 @@ impl<E> BatchExecutionState<E> {
     /// * `index` - Zero-based task index.
     /// * `error` - Captured task panic.
     #[inline]
-    pub fn record_task_panicked(&mut self, index: usize, error: BatchTaskError<E>) {
+    pub(crate) fn record_task_panicked(&mut self, index: usize, error: BatchTaskError<E>) {
         self.active_count = self.active_count.saturating_sub(1);
         self.completed_count += 1;
         self.panicked_count += 1;
@@ -117,7 +111,7 @@ impl<E> BatchExecutionState<E> {
     /// the generic failed counter because panic is a batch-domain failure
     /// reason, not a separate progress dimension.
     #[inline]
-    pub const fn progress_counters(&self) -> ProgressCounters {
+    pub(crate) const fn progress_counters(&self) -> ProgressCounters {
         ProgressCounters::new(Some(self.task_count))
             .with_active_count(self.active_count)
             .with_completed_count(self.completed_count)
@@ -135,7 +129,7 @@ impl<E> BatchExecutionState<E> {
     ///
     /// The final or partial outcome represented by this state.
     #[inline]
-    pub fn into_outcome(self, elapsed: Duration) -> BatchOutcome<E> {
+    pub(crate) fn into_outcome(self, elapsed: Duration) -> BatchOutcome<E> {
         BatchOutcomeBuilder::builder(self.task_count)
             .completed_count(self.completed_count)
             .succeeded_count(self.succeeded_count)
@@ -145,17 +139,5 @@ impl<E> BatchExecutionState<E> {
             .failures(self.failures)
             .build()
             .expect("batch execution state should collect consistent counters")
-    }
-
-    /// Returns the declared task count.
-    #[inline]
-    pub const fn task_count(&self) -> usize {
-        self.task_count
-    }
-
-    /// Returns the completed task count.
-    #[inline]
-    pub const fn completed_count(&self) -> usize {
-        self.completed_count
     }
 }

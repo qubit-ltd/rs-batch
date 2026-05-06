@@ -9,48 +9,28 @@
  ******************************************************************************/
 //! Tests for [`BatchExecutionError`](qubit_batch::BatchExecutionError).
 
-use std::time::Duration;
-
 use qubit_batch::{
     BatchExecutionError,
-    BatchExecutionResult,
-    BatchTaskFailure,
+    BatchOutcome,
+    BatchOutcomeBuilder,
 };
 
-/// Builds a valid batch execution result for error helper tests.
+/// Builds a valid batch outcome for error helper tests.
 ///
 /// # Parameters
 ///
 /// * `task_count` - Declared task count.
 /// * `completed_count` - Completed task count.
-/// * `succeeded_count` - Successful task count.
-/// * `failed_count` - Failed task count.
-/// * `panicked_count` - Panicked task count.
-/// * `elapsed` - Monotonic elapsed batch duration.
-/// * `failures` - Detailed task failures.
 ///
 /// # Returns
 ///
-/// A valid batch execution result.
-fn build_result<E>(
-    task_count: usize,
-    completed_count: usize,
-    succeeded_count: usize,
-    failed_count: usize,
-    panicked_count: usize,
-    elapsed: Duration,
-    failures: Vec<BatchTaskFailure<E>>,
-) -> BatchExecutionResult<E> {
-    BatchExecutionResult::try_new(
-        task_count,
-        completed_count,
-        succeeded_count,
-        failed_count,
-        panicked_count,
-        elapsed,
-        failures,
-    )
-    .expect("test result should satisfy batch execution result invariants")
+/// A valid batch outcome.
+fn build_outcome<E>(task_count: usize, completed_count: usize) -> BatchOutcome<E> {
+    BatchOutcomeBuilder::builder(task_count)
+        .completed_count(completed_count)
+        .succeeded_count(completed_count)
+        .build()
+        .expect("test outcome should satisfy batch outcome invariants")
 }
 
 #[test]
@@ -58,16 +38,16 @@ fn test_batch_execution_error_shortfall_helpers() {
     let error: BatchExecutionError<&'static str> = BatchExecutionError::CountShortfall {
         expected: 3,
         actual: 2,
-        result: build_result(3, 2, 2, 0, 0, Duration::from_millis(10), Vec::new()),
+        outcome: build_outcome(3, 2),
     };
 
     assert!(error.is_count_shortfall());
     assert!(!error.is_count_exceeded());
-    assert_eq!(error.result().completed_count(), 2);
+    assert_eq!(error.outcome().completed_count(), 2);
 
-    let result = error.into_result();
+    let outcome = error.into_outcome();
 
-    assert_eq!(result.completed_count(), 2);
+    assert_eq!(outcome.completed_count(), 2);
 }
 
 #[test]
@@ -75,7 +55,7 @@ fn test_batch_execution_error_shortfall_clone_and_equality() {
     let error: BatchExecutionError<&'static str> = BatchExecutionError::CountShortfall {
         expected: 3,
         actual: 2,
-        result: build_result(3, 2, 2, 0, 0, Duration::from_millis(10), Vec::new()),
+        outcome: build_outcome(3, 2),
     };
 
     assert_eq!(error.clone(), error);
@@ -86,13 +66,13 @@ fn test_batch_execution_error_exceeded_helpers() {
     let error: BatchExecutionError<&'static str> = BatchExecutionError::CountExceeded {
         expected: 2,
         observed_at_least: 3,
-        result: build_result(2, 2, 2, 0, 0, Duration::from_millis(10), Vec::new()),
+        outcome: build_outcome(2, 2),
     };
 
     assert!(error.is_count_exceeded());
     assert!(!error.is_count_shortfall());
-    assert_eq!(error.result().task_count(), 2);
-    assert_eq!(error.into_result().task_count(), 2);
+    assert_eq!(error.outcome().task_count(), 2);
+    assert_eq!(error.into_outcome().task_count(), 2);
 }
 
 #[test]
@@ -100,7 +80,7 @@ fn test_batch_execution_error_exceeded_clone_and_equality() {
     let error: BatchExecutionError<&'static str> = BatchExecutionError::CountExceeded {
         expected: 2,
         observed_at_least: 3,
-        result: build_result(2, 2, 2, 0, 0, Duration::from_millis(10), Vec::new()),
+        outcome: build_outcome(2, 2),
     };
 
     assert_eq!(error.clone(), error);

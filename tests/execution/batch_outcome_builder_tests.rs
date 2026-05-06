@@ -11,7 +11,6 @@
 use std::time::Duration;
 
 use qubit_batch::{
-    BatchOutcome,
     BatchOutcomeBuildError,
     BatchOutcomeBuilder,
     BatchTaskError,
@@ -47,14 +46,12 @@ fn test_batch_outcome_builder_builds_valid_outcome() {
 }
 
 #[test]
-fn test_batch_outcome_builder_validates_before_new() {
-    let builder = BatchOutcomeBuilder::<&'static str>::builder(1)
+fn test_batch_outcome_builder_builds_after_validation() {
+    let outcome = BatchOutcomeBuilder::<&'static str>::builder(1)
         .completed_count(1)
         .succeeded_count(1)
-        .validate()
-        .expect("builder should validate consistent counters");
-
-    let outcome = BatchOutcome::new(builder);
+        .build()
+        .expect("builder should validate consistent counters before building");
 
     assert!(outcome.is_success());
     assert_eq!(outcome.task_count(), 1);
@@ -74,5 +71,24 @@ fn test_batch_outcome_builder_rejects_invalid_counters() {
             task_count: 2,
             completed_count: 3,
         }
+    );
+}
+
+#[test]
+fn test_batch_outcome_builder_rejects_duplicate_failure_indexes() {
+    let error = BatchOutcomeBuilder::builder(2)
+        .completed_count(2)
+        .failed_count(1)
+        .panicked_count(1)
+        .failures(vec![
+            BatchTaskFailure::new(0, BatchTaskError::Failed("failed")),
+            BatchTaskFailure::new(0, BatchTaskError::panicked("panic")),
+        ])
+        .build()
+        .expect_err("duplicate failure indexes should be rejected");
+
+    assert_eq!(
+        error,
+        BatchOutcomeBuildError::DuplicateFailureIndex { index: 0 }
     );
 }

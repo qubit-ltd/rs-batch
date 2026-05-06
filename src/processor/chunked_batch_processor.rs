@@ -64,6 +64,15 @@ impl<P> ChunkedBatchProcessor<P> {
     /// # Returns
     ///
     /// A chunked processor using [`NoOpProgressReporter`].
+    ///
+    /// # Type Constraints
+    ///
+    /// This constructor only stores `delegate`; it intentionally does not
+    /// require `P: BatchProcessor<Item>` because the item type is not part of
+    /// construction. That bound is enforced when this wrapper is used as a
+    /// [`BatchProcessor<Item>`], such as when calling [`BatchProcessor::process`].
+    /// Therefore, a value can be constructed with any delegate type, but it can
+    /// only process items for item types that the delegate actually supports.
     #[inline]
     pub fn new(delegate: P, chunk_size: NonZeroUsize) -> Self {
         Self {
