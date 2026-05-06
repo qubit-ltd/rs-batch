@@ -13,5 +13,7 @@ mod batch_call_result_tests;
 mod batch_executor_tests;
 mod callable_task_tests;
 mod for_each_task_tests;
+mod parallel_batch_executor_build_error_tests;
+mod parallel_batch_executor_builder_tests;
 mod parallel_batch_executor_tests;
 mod sequential_batch_executor_tests;
