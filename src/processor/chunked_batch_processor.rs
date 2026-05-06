@@ -348,6 +348,7 @@ impl ChunkedProcessState {
     /// # Returns
     ///
     /// Empty aggregate state.
+    #[inline]
     const fn new(item_count: usize) -> Self {
         Self {
             item_count,
@@ -367,6 +368,7 @@ impl ChunkedProcessState {
     /// # Returns
     ///
     /// A batch process result containing the current counters.
+    #[inline]
     const fn to_result(&self, elapsed: Duration) -> BatchProcessResult {
         BatchProcessResult::new(
             self.item_count,
@@ -382,6 +384,7 @@ impl ChunkedProcessState {
     /// # Returns
     ///
     /// Counters suitable for progress reporting.
+    #[inline]
     fn progress_counters(&self) -> ProgressCounters {
         ProgressCounters::new(Some(self.item_count))
             .with_completed_count(self.completed_count)
@@ -394,6 +397,7 @@ impl ChunkedProcessState {
     ///
     /// Counters matching the previous running-event semantics, where a
     /// successfully accepted chunk marks all of its items as succeeded.
+    #[inline]
     fn running_progress_counters(&self) -> ProgressCounters {
         ProgressCounters::new(Some(self.item_count))
             .with_completed_count(self.completed_count)

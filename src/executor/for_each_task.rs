@@ -36,6 +36,7 @@ where
     /// # Returns
     ///
     /// A runnable wrapper that consumes `item` on its first run.
+    #[inline]
     pub(crate) fn new(item: Item, action: Arc<F>) -> Self {
         Self {
             item: Some(item),

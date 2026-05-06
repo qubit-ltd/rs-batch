@@ -133,6 +133,7 @@ impl Default for SequentialBatchExecutor {
     /// # Returns
     ///
     /// A sequential batch executor using [`NoOpProgressReporter`].
+    #[inline]
     fn default() -> Self {
         Self {
             report_interval: Self::DEFAULT_REPORT_INTERVAL,

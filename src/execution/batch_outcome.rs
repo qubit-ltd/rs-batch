@@ -46,6 +46,7 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// A fully populated batch outcome.
+    #[inline]
     pub fn new(builder: BatchOutcomeBuilder<E>) -> Self {
         Self {
             task_count: builder.task_count,
@@ -63,6 +64,7 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// The expected number of tasks supplied by the caller.
+    #[inline]
     pub const fn task_count(&self) -> usize {
         self.task_count
     }
@@ -72,6 +74,7 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// The number of completed tasks.
+    #[inline]
     pub const fn completed_count(&self) -> usize {
         self.completed_count
     }
@@ -81,6 +84,7 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// The number of successful tasks.
+    #[inline]
     pub const fn succeeded_count(&self) -> usize {
         self.succeeded_count
     }
@@ -90,6 +94,7 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// The number of failed tasks.
+    #[inline]
     pub const fn failed_count(&self) -> usize {
         self.failed_count
     }
@@ -99,6 +104,7 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// The number of panicked tasks.
+    #[inline]
     pub const fn panicked_count(&self) -> usize {
         self.panicked_count
     }
@@ -108,6 +114,7 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// Failed plus panicked task count.
+    #[inline]
     pub const fn failure_count(&self) -> usize {
         self.failed_count + self.panicked_count
     }
@@ -117,6 +124,7 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// The elapsed duration for this batch execution.
+    #[inline]
     pub const fn elapsed(&self) -> Duration {
         self.elapsed
     }
@@ -126,6 +134,7 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// A shared slice of task failure records.
+    #[inline]
     pub fn failures(&self) -> &[BatchTaskFailure<E>] {
         self.failures.as_slice()
     }
@@ -135,6 +144,7 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// `true` if the batch has no failures and every declared task completed.
+    #[inline]
     pub const fn is_success(&self) -> bool {
         self.completed_count == self.task_count
             && self.failed_count == 0
@@ -146,6 +156,7 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// The detailed failure records collected during execution.
+    #[inline]
     pub fn into_failures(self) -> Vec<BatchTaskFailure<E>> {
         self.failures
     }
