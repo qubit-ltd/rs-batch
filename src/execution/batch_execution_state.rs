@@ -11,12 +11,7 @@ use std::time::Duration;
 
 use qubit_progress::model::ProgressCounters;
 
-use crate::{
-    BatchOutcome,
-    BatchOutcomeBuilder,
-    BatchTaskError,
-    BatchTaskFailure,
-};
+use crate::{BatchOutcome, BatchOutcomeBuilder, BatchTaskError, BatchTaskFailure};
 
 /// Mutable state collected while a batch execution is running.
 #[derive(Debug, Clone, PartialEq, Eq)]

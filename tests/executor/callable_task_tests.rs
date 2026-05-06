@@ -10,10 +10,7 @@
 //! Integration tests for [`BatchExecutor::call`](qubit_batch::BatchExecutor::call)
 //! and the internal callable runnable wrapper.
 
-use qubit_batch::{
-    BatchExecutor,
-    SequentialBatchExecutor,
-};
+use qubit_batch::{BatchExecutor, SequentialBatchExecutor};
 
 use crate::support::TestCallable;
 

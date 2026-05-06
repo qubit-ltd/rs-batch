@@ -11,58 +11,47 @@
 
 use std::{
     fmt,
-    panic::{
-        AssertUnwindSafe,
-        catch_unwind,
-    },
+    panic::{AssertUnwindSafe, catch_unwind},
     sync::{
         Arc,
-        atomic::{
-            AtomicUsize,
-            Ordering,
-        },
+        atomic::{AtomicUsize, Ordering},
     },
     thread,
     time::Duration,
 };
 
 use qubit_batch::{
-    BatchExecutionError,
-    BatchExecutor,
-    ParallelBatchExecutor,
-    ParallelBatchExecutorBuildError,
+    BatchExecutionError, BatchExecutor, ParallelBatchExecutor, ParallelBatchExecutorBuildError,
 };
 use qubit_function::Runnable;
 
 use crate::support::{
-    PanickingProgressReporter,
-    ProgressEvent,
-    ProgressPanicPhase,
-    RecordingProgressReporter,
-    TestTask,
-    panic_payload_message,
+    PanickingProgressReporter, ProgressEvent, ProgressPanicPhase, RecordingProgressReporter,
+    TestTask, panic_payload_message,
 };
 
 #[test]
 fn test_parallel_batch_executor_builds_default_and_custom_config() {
     let default_executor = ParallelBatchExecutor::default();
     assert_eq!(
-        default_executor.num_threads(),
-        ParallelBatchExecutor::default_num_threads()
+        default_executor.thread_count(),
+        ParallelBatchExecutor::default_thread_count()
     );
     assert_eq!(
         default_executor.sequential_threshold(),
         ParallelBatchExecutor::DEFAULT_SEQUENTIAL_THRESHOLD
     );
+    let new_executor = ParallelBatchExecutor::new(2).expect("executor should build");
+    assert_eq!(new_executor.thread_count(), 2);
 
     let executor = ParallelBatchExecutor::builder()
-        .num_threads(3)
+        .thread_count(3)
         .sequential_threshold(2)
         .report_interval(Duration::from_millis(25))
         .build()
         .expect("custom executor should build");
 
-    assert_eq!(executor.num_threads(), 3);
+    assert_eq!(executor.thread_count(), 3);
     assert_eq!(executor.sequential_threshold(), 2);
     assert_eq!(executor.report_interval(), Duration::from_millis(25));
     assert!(Arc::strong_count(executor.reporter()) >= 1);
@@ -71,7 +60,7 @@ fn test_parallel_batch_executor_builds_default_and_custom_config() {
 #[test]
 fn test_parallel_batch_executor_rejects_invalid_builder_config() {
     assert!(matches!(
-        ParallelBatchExecutor::builder().num_threads(0).build(),
+        ParallelBatchExecutor::builder().thread_count(0).build(),
         Err(ParallelBatchExecutorBuildError::ZeroThreadCount)
     ));
     assert!(matches!(
@@ -84,7 +73,11 @@ fn test_parallel_batch_executor_rejects_invalid_builder_config() {
 
 #[test]
 fn test_parallel_batch_executor_executes_with_configured_parallelism() {
-    let executor = ParallelBatchExecutor::new(2).expect("parallel executor should build");
+    let executor = ParallelBatchExecutor::builder()
+        .thread_count(2)
+        .sequential_threshold(1)
+        .build()
+        .expect("parallel executor should build");
     let active_count = Arc::new(AtomicUsize::new(0));
     let max_active_count = Arc::new(AtomicUsize::new(0));
     let tasks = (0..6)
@@ -111,7 +104,7 @@ fn test_parallel_batch_executor_executes_with_configured_parallelism() {
 #[test]
 fn test_parallel_batch_executor_uses_sequential_threshold() {
     let executor = ParallelBatchExecutor::builder()
-        .num_threads(4)
+        .thread_count(4)
         .sequential_threshold(8)
         .build()
         .expect("parallel executor should build");
@@ -137,7 +130,11 @@ fn test_parallel_batch_executor_uses_sequential_threshold() {
 
 #[test]
 fn test_parallel_batch_executor_supports_non_static_tasks() {
-    let executor = ParallelBatchExecutor::new(2).expect("parallel executor should build");
+    let executor = ParallelBatchExecutor::builder()
+        .thread_count(2)
+        .sequential_threshold(1)
+        .build()
+        .expect("parallel executor should build");
     let first = AtomicUsize::new(0);
     let second = AtomicUsize::new(0);
     let tasks = vec![
@@ -156,7 +153,11 @@ fn test_parallel_batch_executor_supports_non_static_tasks() {
 
 #[test]
 fn test_parallel_batch_executor_collects_failures_and_panics() {
-    let executor = ParallelBatchExecutor::new(2).expect("parallel executor should build");
+    let executor = ParallelBatchExecutor::builder()
+        .thread_count(2)
+        .sequential_threshold(1)
+        .build()
+        .expect("parallel executor should build");
     let tasks = vec![
         TestTask::succeed(),
         TestTask::fail("failed"),
@@ -182,7 +183,11 @@ fn test_parallel_batch_executor_collects_failures_and_panics() {
 
 #[test]
 fn test_parallel_batch_executor_reports_count_shortfall() {
-    let executor = ParallelBatchExecutor::new(2).expect("parallel executor should build");
+    let executor = ParallelBatchExecutor::builder()
+        .thread_count(2)
+        .sequential_threshold(1)
+        .build()
+        .expect("parallel executor should build");
     let tasks = vec![TestTask::succeed(), TestTask::succeed()];
 
     let error = executor
@@ -205,7 +210,11 @@ fn test_parallel_batch_executor_reports_count_shortfall() {
 
 #[test]
 fn test_parallel_batch_executor_reports_count_exceeded() {
-    let executor = ParallelBatchExecutor::new(2).expect("parallel executor should build");
+    let executor = ParallelBatchExecutor::builder()
+        .thread_count(2)
+        .sequential_threshold(1)
+        .build()
+        .expect("parallel executor should build");
     let tasks = vec![
         TestTask::succeed(),
         TestTask::succeed(),
@@ -234,7 +243,8 @@ fn test_parallel_batch_executor_reports_count_exceeded() {
 fn test_parallel_batch_executor_reports_progress() {
     let reporter = Arc::new(RecordingProgressReporter::new());
     let executor = ParallelBatchExecutor::builder()
-        .num_threads(2)
+        .thread_count(2)
+        .sequential_threshold(1)
         .reporter_arc(reporter.clone())
         .report_interval(Duration::from_millis(10))
         .build()
@@ -273,7 +283,8 @@ fn test_parallel_batch_executor_reports_progress() {
 fn test_parallel_batch_executor_propagates_progress_reporter_finish_panic() {
     const PANIC_MESSAGE: &str = "parallel progress finish panic";
     let executor = ParallelBatchExecutor::builder()
-        .num_threads(2)
+        .thread_count(2)
+        .sequential_threshold(0)
         .reporter(PanickingProgressReporter::new(
             ProgressPanicPhase::Finish,
             PANIC_MESSAGE,
@@ -292,7 +303,8 @@ fn test_parallel_batch_executor_propagates_progress_reporter_finish_panic() {
 fn test_parallel_batch_executor_propagates_progress_reporter_process_panic() {
     const PANIC_MESSAGE: &str = "parallel progress process panic";
     let executor = ParallelBatchExecutor::builder()
-        .num_threads(2)
+        .thread_count(2)
+        .sequential_threshold(1)
         .report_interval(Duration::from_millis(1))
         .reporter(PanickingProgressReporter::new(
             ProgressPanicPhase::Process,

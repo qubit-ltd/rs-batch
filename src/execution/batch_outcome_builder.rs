@@ -7,16 +7,9 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{
-    collections::HashSet,
-    time::Duration,
-};
+use std::{collections::HashSet, time::Duration};
 
-use crate::{
-    BatchOutcomeBuildError,
-    BatchTaskError,
-    BatchTaskFailure,
-};
+use crate::{BatchOutcomeBuildError, BatchTaskError, BatchTaskFailure};
 
 /// Builder carrying validated parts for a [`crate::BatchOutcome`].
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -9,11 +9,7 @@
  ******************************************************************************/
 //! Tests for [`BatchExecutionError`](qubit_batch::BatchExecutionError).
 
-use qubit_batch::{
-    BatchExecutionError,
-    BatchOutcome,
-    BatchOutcomeBuilder,
-};
+use qubit_batch::{BatchExecutionError, BatchOutcome, BatchOutcomeBuilder};
 
 /// Builds a valid batch outcome for error helper tests.
 ///

@@ -11,31 +11,17 @@ use std::{
     num::NonZeroUsize,
     panic::resume_unwind,
     sync::{
-        Arc,
-        Mutex,
-        atomic::{
-            AtomicUsize,
-            Ordering,
-        },
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
         mpsc,
     },
     thread,
-    time::{
-        Duration,
-        Instant,
-    },
+    time::{Duration, Instant},
 };
 
-use qubit_function::{
-    ArcConsumer,
-    Consumer,
-};
+use qubit_function::{ArcConsumer, Consumer};
 
-use super::{
-    BatchProcessError,
-    BatchProcessResult,
-    BatchProcessor,
-};
+use super::{BatchProcessError, BatchProcessResult, BatchProcessor};
 
 /// Processes batch items in parallel on scoped standard threads.
 ///
@@ -51,7 +37,7 @@ pub struct ParallelBatchProcessor<Item> {
     /// Consumer shared by all scoped workers.
     consumer: ArcConsumer<Item>,
     /// Fixed worker-thread count used by each processing call.
-    num_threads: NonZeroUsize,
+    thread_count: NonZeroUsize,
 }
 
 impl<Item> ParallelBatchProcessor<Item> {
@@ -64,7 +50,7 @@ impl<Item> ParallelBatchProcessor<Item> {
     /// # Returns
     ///
     /// A processor storing `consumer` as an [`ArcConsumer`] and using
-    /// [`Self::default_num_threads`] workers.
+    /// [`Self::default_thread_count`] workers.
     #[inline]
     pub fn new<C>(consumer: C) -> Self
     where
@@ -72,7 +58,7 @@ impl<Item> ParallelBatchProcessor<Item> {
     {
         Self {
             consumer: consumer.into_arc(),
-            num_threads: NonZeroUsize::new(Self::default_num_threads())
+            thread_count: NonZeroUsize::new(Self::default_thread_count())
                 .expect("default parallel processor thread count should be non-zero"),
         }
     }
@@ -83,7 +69,7 @@ impl<Item> ParallelBatchProcessor<Item> {
     ///
     /// The available CPU parallelism, or `1` if it cannot be detected.
     #[inline]
-    pub fn default_num_threads() -> usize {
+    pub fn default_thread_count() -> usize {
         thread::available_parallelism()
             .map(usize::from)
             .unwrap_or(1)
@@ -93,14 +79,14 @@ impl<Item> ParallelBatchProcessor<Item> {
     ///
     /// # Parameters
     ///
-    /// * `num_threads` - Non-zero number of scoped worker threads.
+    /// * `thread_count` - Non-zero number of scoped worker threads.
     ///
     /// # Returns
     ///
-    /// This processor configured to use `num_threads` workers per call.
+    /// This processor configured to use `thread_count` workers per call.
     #[inline]
-    pub const fn with_num_threads(mut self, num_threads: NonZeroUsize) -> Self {
-        self.num_threads = num_threads;
+    pub const fn with_thread_count(mut self, thread_count: NonZeroUsize) -> Self {
+        self.thread_count = thread_count;
         self
     }
 
@@ -110,8 +96,8 @@ impl<Item> ParallelBatchProcessor<Item> {
     ///
     /// The maximum number of scoped worker threads used for one batch.
     #[inline]
-    pub const fn num_threads(&self) -> usize {
-        self.num_threads.get()
+    pub const fn thread_count(&self) -> usize {
+        self.thread_count.get()
     }
 
     /// Returns the stored consumer.
@@ -226,7 +212,7 @@ where
     ) where
         I: IntoIterator<Item = Item>,
     {
-        let worker_count = self.num_threads.get().min(count);
+        let worker_count = self.thread_count.get().min(count);
         thread::scope(|scope| {
             let (task_sender, task_receiver) = mpsc::channel();
             let task_receiver = Arc::new(Mutex::new(task_receiver));

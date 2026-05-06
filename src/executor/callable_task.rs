@@ -10,10 +10,7 @@
 use std::sync::Arc;
 
 use crossbeam_queue::SegQueue;
-use qubit_function::{
-    Callable,
-    Runnable,
-};
+use qubit_function::{Callable, Runnable};
 
 /// Runnable wrapper used by [`crate::executor::BatchExecutor::call`].
 pub(crate) struct CallableTask<C, R> {

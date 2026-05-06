@@ -13,10 +13,7 @@ use std::{
     panic::panic_any,
     sync::{
         Arc,
-        atomic::{
-            AtomicUsize,
-            Ordering,
-        },
+        atomic::{AtomicUsize, Ordering},
     },
     thread,
     time::Duration,

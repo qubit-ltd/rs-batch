@@ -9,16 +9,9 @@
  ******************************************************************************/
 //! Tests for [`ParallelBatchExecutorBuilder`](qubit_batch::ParallelBatchExecutorBuilder).
 
-use std::{
-    sync::Arc,
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
-use qubit_batch::{
-    ParallelBatchExecutor,
-    ParallelBatchExecutorBuildError,
-    ProgressReporter,
-};
+use qubit_batch::{ParallelBatchExecutor, ParallelBatchExecutorBuildError, ProgressReporter};
 
 use crate::support::RecordingProgressReporter;
 
@@ -26,14 +19,14 @@ use crate::support::RecordingProgressReporter;
 fn test_parallel_batch_executor_builder_builds_custom_config() {
     let reporter: Arc<dyn ProgressReporter> = Arc::new(RecordingProgressReporter::new());
     let executor = ParallelBatchExecutor::builder()
-        .num_threads(3)
+        .thread_count(3)
         .sequential_threshold(2)
         .report_interval(Duration::from_millis(25))
         .reporter_arc(reporter.clone())
         .build()
         .expect("custom executor should build");
 
-    assert_eq!(executor.num_threads(), 3);
+    assert_eq!(executor.thread_count(), 3);
     assert_eq!(executor.sequential_threshold(), 2);
     assert_eq!(executor.report_interval(), Duration::from_millis(25));
     assert!(Arc::ptr_eq(executor.reporter(), &reporter));
@@ -55,7 +48,7 @@ fn test_parallel_batch_executor_builder_can_disable_reporting() {
 #[test]
 fn test_parallel_batch_executor_builder_rejects_invalid_config() {
     assert!(matches!(
-        ParallelBatchExecutor::builder().num_threads(0).build(),
+        ParallelBatchExecutor::builder().thread_count(0).build(),
         Err(ParallelBatchExecutorBuildError::ZeroThreadCount)
     ));
     assert!(matches!(

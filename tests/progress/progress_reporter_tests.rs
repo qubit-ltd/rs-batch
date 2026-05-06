@@ -11,21 +11,13 @@
 
 use std::{
     io::Cursor,
-    sync::{
-        Arc,
-        Mutex,
-    },
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
 use qubit_batch::{
-    LoggerProgressReporter,
-    NoOpProgressReporter,
-    ProgressCounters,
-    ProgressEvent,
-    ProgressPhase,
-    ProgressReporter,
-    WriterProgressReporter,
+    LoggerProgressReporter, NoOpProgressReporter, ProgressCounters, ProgressEvent, ProgressPhase,
+    ProgressReporter, WriterProgressReporter,
 };
 
 #[test]
