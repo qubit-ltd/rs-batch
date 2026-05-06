@@ -13,10 +13,7 @@ use std::{
         catch_unwind,
     },
     sync::Arc,
-    time::{
-        Duration,
-        Instant,
-    },
+    time::Duration,
 };
 
 use qubit_function::Runnable;
@@ -26,10 +23,9 @@ use crate::{
     BatchExecutionState,
     BatchOutcome,
     NoOpProgressReporter,
-    ProgressCounters,
-    ProgressEvent,
     ProgressPhase,
     ProgressReporter,
+    ProgressRun,
     error::panic_payload_to_error,
 };
 
@@ -178,20 +174,17 @@ impl BatchExecutor for SequentialBatchExecutor {
         E: Send + std::fmt::Debug,
     {
         let mut state = BatchExecutionState::new(count);
-        report_batch_progress(
-            self.reporter.as_ref(),
+        let mut progress = ProgressRun::new(self.reporter.as_ref(), self.report_interval);
+        progress.report_with_elapsed(
             ProgressPhase::Started,
             state.progress_counters(),
             Duration::ZERO,
         );
-        let start = Instant::now();
-        let mut next_progress = start + self.report_interval;
         let mut actual_count = 0;
         for task in tasks {
             if actual_count == count {
-                let elapsed = start.elapsed();
-                report_batch_progress(
-                    self.reporter.as_ref(),
+                let elapsed = progress.elapsed();
+                progress.report_with_elapsed(
                     ProgressPhase::Failed,
                     state.progress_counters(),
                     elapsed,
@@ -205,31 +198,19 @@ impl BatchExecutor for SequentialBatchExecutor {
             }
             execute_one_task(task, actual_count, &mut state);
             actual_count += 1;
-            maybe_report_progress(
-                self.reporter.as_ref(),
-                &state,
-                start,
-                self.report_interval,
-                &mut next_progress,
-            );
+            progress.report_running_if_due(state.progress_counters());
         }
 
-        let elapsed = start.elapsed();
+        let elapsed = progress.elapsed();
         if actual_count < count {
-            report_batch_progress(
-                self.reporter.as_ref(),
-                ProgressPhase::Failed,
-                state.progress_counters(),
-                elapsed,
-            );
+            progress.report_with_elapsed(ProgressPhase::Failed, state.progress_counters(), elapsed);
             Err(BatchExecutionError::CountShortfall {
                 expected: count,
                 actual: actual_count,
                 outcome: state.into_outcome(elapsed),
             })
         } else {
-            report_batch_progress(
-                self.reporter.as_ref(),
+            progress.report_with_elapsed(
                 ProgressPhase::Finished,
                 state.progress_counters(),
                 elapsed,
@@ -261,55 +242,4 @@ where
         Ok(Err(error)) => state.record_task_failed(index, error),
         Err(payload) => state.record_task_panicked(index, panic_payload_to_error(payload.as_ref())),
     }
-}
-
-/// Emits a periodic progress callback for sequential execution.
-///
-/// # Parameters
-///
-/// * `reporter` - Progress reporter receiving the callback.
-/// * `total_count` - Declared batch task count.
-/// * `completed_count` - Number of tasks that have completed.
-/// * `start` - Batch start time.
-/// * `next_progress` - Deadline for the next progress callback.
-fn maybe_report_progress(
-    reporter: &dyn ProgressReporter,
-    state: &BatchExecutionState<impl std::fmt::Debug>,
-    start: Instant,
-    report_interval: Duration,
-    next_progress: &mut Instant,
-) {
-    let now = Instant::now();
-    if now < *next_progress {
-        return;
-    }
-    report_batch_progress(
-        reporter,
-        ProgressPhase::Running,
-        state.progress_counters(),
-        now.duration_since(start),
-    );
-    *next_progress = now + report_interval;
-}
-
-/// Emits one batch progress event.
-///
-/// # Parameters
-///
-/// * `reporter` - Reporter receiving the event.
-/// * `phase` - Progress lifecycle phase.
-/// * `counters` - Generic progress counters to carry in the event.
-/// * `elapsed` - Monotonic elapsed duration to carry in the event.
-fn report_batch_progress(
-    reporter: &dyn ProgressReporter,
-    phase: ProgressPhase,
-    counters: ProgressCounters,
-    elapsed: Duration,
-) {
-    let event = ProgressEvent::builder()
-        .phase(phase)
-        .counters(counters)
-        .elapsed(elapsed)
-        .build();
-    reporter.report(&event);
 }

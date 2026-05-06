@@ -111,9 +111,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-progress"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef16014793017a064513de545ee92e1b16383b941b44738ab66e6c512af9b7b9"
+checksum = "407c242e7d121c9a284a26766f9669f386da23e7a2636d718a9bea0eb4375694"
 dependencies = [
  "log",
 ]

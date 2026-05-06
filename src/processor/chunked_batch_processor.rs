@@ -11,18 +11,15 @@ use std::{
     cmp,
     num::NonZeroUsize,
     sync::Arc,
-    time::{
-        Duration,
-        Instant,
-    },
+    time::Duration,
 };
 
 use crate::{
     NoOpProgressReporter,
     ProgressCounters,
-    ProgressEvent,
     ProgressPhase,
     ProgressReporter,
+    ProgressRun,
 };
 
 use super::{
@@ -210,11 +207,10 @@ where
     where
         I: IntoIterator<Item = Item>,
     {
-        let start = Instant::now();
-        let mut next_progress = start + self.report_interval;
+        let reporter = Arc::clone(&self.reporter);
+        let mut progress = ProgressRun::new(reporter.as_ref(), self.report_interval);
         let mut state = ChunkedProcessState::new(count);
-        report_process_progress(
-            self.reporter.as_ref(),
+        progress.report_with_elapsed(
             ProgressPhase::Started,
             state.progress_counters(),
             Duration::ZERO,
@@ -224,9 +220,8 @@ where
 
         for item in items {
             if state.actual_count == count {
-                let result = state.to_result(start.elapsed());
-                report_process_progress(
-                    self.reporter.as_ref(),
+                let result = state.to_result(progress.elapsed());
+                progress.report_with_elapsed(
                     ProgressPhase::Failed,
                     state.progress_counters(),
                     result.elapsed(),
@@ -240,18 +235,17 @@ where
             chunk.push(item);
             state.actual_count += 1;
             if chunk.len() == self.chunk_size.get() {
-                self.process_chunk(&mut chunk, &mut state, start, &mut next_progress)?;
+                self.process_chunk(&mut chunk, &mut state, &mut progress)?;
             }
         }
 
         if !chunk.is_empty() {
-            self.process_chunk(&mut chunk, &mut state, start, &mut next_progress)?;
+            self.process_chunk(&mut chunk, &mut state, &mut progress)?;
         }
 
-        let result = state.to_result(start.elapsed());
+        let result = state.to_result(progress.elapsed());
         if state.actual_count < count {
-            report_process_progress(
-                self.reporter.as_ref(),
+            progress.report_with_elapsed(
                 ProgressPhase::Failed,
                 state.progress_counters(),
                 result.elapsed(),
@@ -262,8 +256,7 @@ where
                 result,
             })
         } else {
-            report_process_progress(
-                self.reporter.as_ref(),
+            progress.report_with_elapsed(
                 ProgressPhase::Finished,
                 state.progress_counters(),
                 result.elapsed(),
@@ -280,8 +273,7 @@ impl<P> ChunkedBatchProcessor<P> {
     ///
     /// * `chunk` - Buffered items waiting to be submitted.
     /// * `state` - Aggregate counters updated after successful delegation.
-    /// * `start` - Processing start instant used for monotonic elapsed duration.
-    /// * `next_progress` - Next instant at which progress should be reported.
+    /// * `progress` - Progress run used for lifecycle and periodic callbacks.
     ///
     /// # Returns
     ///
@@ -295,8 +287,7 @@ impl<P> ChunkedBatchProcessor<P> {
         &mut self,
         chunk: &mut Vec<Item>,
         state: &mut ChunkedProcessState,
-        start: Instant,
-        next_progress: &mut Instant,
+        progress: &mut ProgressRun<'_>,
     ) -> Result<(), ChunkedBatchProcessError<P::Error>>
     where
         P: BatchProcessor<Item>,
@@ -310,20 +301,12 @@ impl<P> ChunkedBatchProcessor<P> {
                 state.completed_count += chunk_len;
                 state.processed_count += chunk_result.processed_count();
                 state.chunk_count += 1;
-                report_progress_if_due(
-                    self.reporter.as_ref(),
-                    state.item_count,
-                    state.completed_count,
-                    start,
-                    self.report_interval,
-                    next_progress,
-                );
+                progress.report_running_if_due(state.running_progress_counters());
                 Ok(())
             }
             Err(source) => {
-                let result = state.to_result(start.elapsed());
-                report_process_progress(
-                    self.reporter.as_ref(),
+                let result = state.to_result(progress.elapsed());
+                progress.report_with_elapsed(
                     ProgressPhase::Failed,
                     state.progress_counters(),
                     result.elapsed(),
@@ -403,54 +386,16 @@ impl ChunkedProcessState {
             .with_completed_count(self.completed_count)
             .with_succeeded_count(self.processed_count)
     }
-}
 
-/// Reports progress when the configured interval has elapsed.
-///
-/// # Parameters
-///
-/// * `reporter` - Progress reporter receiving the callback.
-/// * `item_count` - Declared item count for the logical batch.
-/// * `completed_count` - Number of items whose chunks have completed.
-/// * `start` - Processing start instant.
-/// * `report_interval` - Minimum time between progress callbacks.
-/// * `next_progress` - Next instant at which progress should be reported.
-fn report_progress_if_due(
-    reporter: &dyn ProgressReporter,
-    item_count: usize,
-    completed_count: usize,
-    start: Instant,
-    report_interval: Duration,
-    next_progress: &mut Instant,
-) {
-    let now = Instant::now();
-    if now >= *next_progress {
-        let counters = ProgressCounters::new(Some(item_count))
-            .with_completed_count(completed_count)
-            .with_succeeded_count(completed_count);
-        report_process_progress(reporter, ProgressPhase::Running, counters, start.elapsed());
-        *next_progress = now + report_interval;
+    /// Returns progress counters for in-flight chunk completion reports.
+    ///
+    /// # Returns
+    ///
+    /// Counters matching the previous running-event semantics, where a
+    /// successfully accepted chunk marks all of its items as succeeded.
+    fn running_progress_counters(&self) -> ProgressCounters {
+        ProgressCounters::new(Some(self.item_count))
+            .with_completed_count(self.completed_count)
+            .with_succeeded_count(self.completed_count)
     }
-}
-
-/// Emits one chunked processor progress event.
-///
-/// # Parameters
-///
-/// * `reporter` - Reporter receiving the event.
-/// * `phase` - Progress lifecycle phase.
-/// * `counters` - Generic progress counters to carry in the event.
-/// * `elapsed` - Monotonic elapsed duration to carry in the event.
-fn report_process_progress(
-    reporter: &dyn ProgressReporter,
-    phase: ProgressPhase,
-    counters: ProgressCounters,
-    elapsed: Duration,
-) {
-    let event = ProgressEvent::builder()
-        .phase(phase)
-        .counters(counters)
-        .elapsed(elapsed)
-        .build();
-    reporter.report(&event);
 }
