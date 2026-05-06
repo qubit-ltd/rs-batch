@@ -50,6 +50,7 @@ impl<E> BatchExecutionState<E> {
     /// # Returns
     ///
     /// Empty execution state.
+    #[inline]
     pub const fn new(task_count: usize) -> Self {
         Self {
             task_count,
@@ -63,11 +64,13 @@ impl<E> BatchExecutionState<E> {
     }
 
     /// Records that one task has started.
+    #[inline]
     pub fn record_task_started(&mut self) {
         self.active_count += 1;
     }
 
     /// Records one successful task completion.
+    #[inline]
     pub fn record_task_succeeded(&mut self) {
         self.active_count = self.active_count.saturating_sub(1);
         self.completed_count += 1;
@@ -80,6 +83,7 @@ impl<E> BatchExecutionState<E> {
     ///
     /// * `index` - Zero-based task index.
     /// * `error` - Task error returned by the task.
+    #[inline]
     pub fn record_task_failed(&mut self, index: usize, error: E)
     where
         E: fmt::Debug,
@@ -97,6 +101,7 @@ impl<E> BatchExecutionState<E> {
     ///
     /// * `index` - Zero-based task index.
     /// * `error` - Captured task panic.
+    #[inline]
     pub fn record_task_panicked(&mut self, index: usize, error: BatchTaskError<E>) {
         self.active_count = self.active_count.saturating_sub(1);
         self.completed_count += 1;
@@ -111,6 +116,7 @@ impl<E> BatchExecutionState<E> {
     /// Counters suitable for progress reporting. Panicked tasks are folded into
     /// the generic failed counter because panic is a batch-domain failure
     /// reason, not a separate progress dimension.
+    #[inline]
     pub const fn progress_counters(&self) -> ProgressCounters {
         ProgressCounters::new(Some(self.task_count))
             .with_active_count(self.active_count)
@@ -128,6 +134,7 @@ impl<E> BatchExecutionState<E> {
     /// # Returns
     ///
     /// The final or partial outcome represented by this state.
+    #[inline]
     pub fn into_outcome(self, elapsed: Duration) -> BatchOutcome<E> {
         BatchOutcomeBuilder::builder(self.task_count)
             .completed_count(self.completed_count)
@@ -141,11 +148,13 @@ impl<E> BatchExecutionState<E> {
     }
 
     /// Returns the declared task count.
+    #[inline]
     pub const fn task_count(&self) -> usize {
         self.task_count
     }
 
     /// Returns the completed task count.
+    #[inline]
     pub const fn completed_count(&self) -> usize {
         self.completed_count
     }

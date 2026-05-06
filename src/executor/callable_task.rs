@@ -37,6 +37,7 @@ impl<C, R> CallableTask<C, R> {
     /// # Returns
     ///
     /// A runnable wrapper that sends successful output with its `index`.
+    #[inline]
     pub(crate) fn new(callable: C, index: usize, outputs: Arc<SegQueue<(usize, R)>>) -> Self {
         Self {
             callable: Some(callable),

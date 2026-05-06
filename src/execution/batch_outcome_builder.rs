@@ -45,6 +45,7 @@ impl<E> BatchOutcomeBuilder<E> {
     ///
     /// A builder initialized with zero counters, zero elapsed time, and no
     /// failures.
+    #[inline]
     pub fn builder(task_count: usize) -> Self {
         Self {
             task_count,
@@ -66,6 +67,7 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
+    #[inline]
     pub const fn completed_count(mut self, completed_count: usize) -> Self {
         self.completed_count = completed_count;
         self
@@ -80,6 +82,7 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
+    #[inline]
     pub const fn succeeded_count(mut self, succeeded_count: usize) -> Self {
         self.succeeded_count = succeeded_count;
         self
@@ -94,6 +97,7 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
+    #[inline]
     pub const fn failed_count(mut self, failed_count: usize) -> Self {
         self.failed_count = failed_count;
         self
@@ -108,6 +112,7 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
+    #[inline]
     pub const fn panicked_count(mut self, panicked_count: usize) -> Self {
         self.panicked_count = panicked_count;
         self
@@ -122,6 +127,7 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
+    #[inline]
     pub const fn elapsed(mut self, elapsed: Duration) -> Self {
         self.elapsed = elapsed;
         self
@@ -136,6 +142,7 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
+    #[inline]
     pub fn failures(mut self, failures: Vec<BatchTaskFailure<E>>) -> Self {
         self.failures = failures;
         self
@@ -151,6 +158,7 @@ impl<E> BatchOutcomeBuilder<E> {
     ///
     /// Returns [`BatchOutcomeBuildError`] when the counters or failure details
     /// are inconsistent.
+    #[inline]
     pub fn validate(mut self) -> Result<Self, BatchOutcomeBuildError> {
         validate_outcome_invariants(
             self.task_count,
@@ -174,6 +182,7 @@ impl<E> BatchOutcomeBuilder<E> {
     ///
     /// Returns [`BatchOutcomeBuildError`] when the counters or failure details
     /// are inconsistent.
+    #[inline]
     pub fn build(self) -> Result<crate::BatchOutcome<E>, BatchOutcomeBuildError> {
         self.validate().map(crate::BatchOutcome::new)
     }
