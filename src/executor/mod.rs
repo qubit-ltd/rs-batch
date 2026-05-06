@@ -12,6 +12,8 @@
 
 mod batch_call_result;
 mod batch_executor;
+mod callable_task;
+mod for_each_task;
 mod sequential_batch_executor;
 
 pub use batch_call_result::BatchCallResult;
