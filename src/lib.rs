@@ -47,10 +47,13 @@ pub use executor::{
     SequentialBatchExecutor,
 };
 pub use processor::{
+    BatchProcessError,
     BatchProcessResult,
     BatchProcessor,
     ChunkedBatchProcessError,
     ChunkedBatchProcessor,
+    ParallelBatchProcessor,
+    SequentialBatchProcessor,
 };
 pub use qubit_progress::{
     model::{
