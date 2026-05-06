@@ -38,10 +38,10 @@ single-task submission. The crate provides:
   delegate processor.
 - `SequentialBatchExecutor`: deterministic, in-order execution on the caller
   thread.
-- `ProgressReporter`: pluggable progress callbacks for start, in-flight
-  progress, and finish notifications.
+- `ProgressReporter`: `qubit-progress` reporter trait receiving structured
+  `ProgressEvent` lifecycle notifications.
 - `WriterProgressReporter` and `LoggerProgressReporter`: concrete reporters
-  for stdout and the `log` crate.
+  re-exported from `qubit-progress` for writers and the `log` crate.
 - `BatchOutcome`: structured batch outcome with failure aggregation and
   monotonic elapsed-duration reporting.
 
@@ -376,11 +376,12 @@ Important result semantics:
   fixed-size chunks and delegates each chunk.
 - `ChunkedBatchProcessError<E>`: chunked processor error for source count
   mismatches or delegate failures, carrying the partial process result.
-- `ProgressReporter`: trait receiving `ProgressEvent` values for batch start,
-  periodic progress, and terminal notifications.
+- `ProgressReporter`: `qubit-progress` trait receiving `ProgressEvent` values
+  for batch start, periodic progress, and terminal notifications.
 - `NoOpProgressReporter`: default reporter that accepts callbacks without doing
   any work.
-- `WriterProgressReporter` and `LoggerProgressReporter`: concrete reporters for writers, stdout, and `log`.
+- `WriterProgressReporter` and `LoggerProgressReporter`: concrete reporters
+  re-exported from `qubit-progress` for writers and `log`.
 - `BatchOutcome<E>`: aggregate result containing task counts, monotonic
   elapsed duration, and detailed task failures.
 - `BatchExecutionError<E>`: batch-level contract error for declared count

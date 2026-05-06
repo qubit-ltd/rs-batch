@@ -9,9 +9,4 @@
  ******************************************************************************/
 //! Progress reporter tests.
 
-mod console_progress_reporter_tests;
-mod logger_progress_reporter_tests;
-mod no_op_progress_reporter_tests;
-mod progress_format_tests;
 mod progress_reporter_tests;
-mod writer_progress_reporter_tests;

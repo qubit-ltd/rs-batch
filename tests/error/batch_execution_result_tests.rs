@@ -15,12 +15,17 @@ use std::{
     time::Duration,
 };
 
-use qubit_batch::NoOpProgressReporter;
 use qubit_batch::error::{
     BatchExecutionResult,
     BatchExecutionResultBuildError,
     BatchTaskError,
     BatchTaskFailure,
+};
+use qubit_batch::{
+    NoOpProgressReporter,
+    ProgressCounters,
+    ProgressEvent,
+    ProgressReporter,
 };
 
 /// Builds a valid batch execution result for tests.
@@ -415,7 +420,18 @@ fn test_batch_task_error_source_preserves_failed_error() {
 fn test_no_op_progress_reporter_accepts_all_callbacks() {
     let reporter = NoOpProgressReporter;
 
-    reporter.start(3);
-    reporter.process(3, 1, 2, Duration::from_millis(5));
-    reporter.finish(3, Duration::from_millis(8));
+    reporter.report(&ProgressEvent::started(
+        ProgressCounters::new(Some(3)),
+        Duration::ZERO,
+    ));
+    reporter.report(&ProgressEvent::running(
+        ProgressCounters::new(Some(3))
+            .with_active_count(1)
+            .with_completed_count(2),
+        Duration::from_millis(5),
+    ));
+    reporter.report(&ProgressEvent::finished(
+        ProgressCounters::new(Some(3)).with_completed_count(3),
+        Duration::from_millis(8),
+    ));
 }
