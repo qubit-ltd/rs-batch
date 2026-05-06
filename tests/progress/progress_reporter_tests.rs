@@ -25,7 +25,6 @@ use qubit_batch::{
     ProgressEvent,
     ProgressPhase,
     ProgressReporter,
-    ProgressRun,
     WriterProgressReporter,
 };
 
@@ -41,15 +40,6 @@ fn test_batch_reexports_progress_reporter_implementations_from_rs_progress() {
     let _: &dyn qubit_progress::reporter::ProgressReporter = &writer;
     let _: &dyn qubit_progress::reporter::ProgressReporter = &logger;
     let _: &dyn qubit_progress::reporter::ProgressReporter = &no_op;
-}
-
-#[test]
-fn test_batch_reexports_progress_run_from_rs_progress() {
-    let reporter = NoOpProgressReporter;
-    let run: qubit_progress::runtime::ProgressRun<'_> =
-        ProgressRun::new(&reporter, Duration::from_secs(1));
-
-    assert_eq!(run.report_interval(), Duration::from_secs(1));
 }
 
 #[test]
