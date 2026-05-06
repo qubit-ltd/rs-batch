@@ -9,5 +9,6 @@
  ******************************************************************************/
 //! Execution state tests.
 
+mod batch_execution_state_tests;
 mod batch_outcome_build_error_tests;
 mod batch_outcome_builder_tests;

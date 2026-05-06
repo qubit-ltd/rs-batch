@@ -35,7 +35,6 @@ use std::{
 
 use qubit_function::Runnable;
 use qubit_progress::Progress;
-use thiserror::Error;
 
 use crate::{
     BatchExecutionError,
@@ -43,7 +42,6 @@ use crate::{
     BatchOutcomeBuilder,
     BatchTaskError,
     BatchTaskFailure,
-    NoOpProgressReporter,
     ProgressCounters,
     ProgressPhase,
     ProgressReporter,
@@ -52,166 +50,10 @@ use crate::{
 
 use super::{
     BatchExecutor,
+    ParallelBatchExecutorBuildError,
+    ParallelBatchExecutorBuilder,
     SequentialBatchExecutor,
 };
-
-/// Error returned when building a [`ParallelBatchExecutor`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
-pub enum ParallelBatchExecutorBuildError {
-    /// The configured worker-thread count is zero.
-    #[error("parallel batch executor thread count must be positive")]
-    ZeroThreadCount,
-
-    /// The configured progress-report interval is zero.
-    #[error("parallel batch executor report interval must be positive")]
-    ZeroReportInterval,
-}
-
-/// Builder for [`ParallelBatchExecutor`].
-pub struct ParallelBatchExecutorBuilder {
-    /// Number of worker threads used for parallel executions.
-    num_threads: usize,
-    /// Maximum batch size that still uses sequential execution.
-    sequential_threshold: usize,
-    /// Minimum interval between progress callbacks.
-    report_interval: Duration,
-    /// Reporter receiving batch lifecycle callbacks.
-    reporter: Arc<dyn ProgressReporter>,
-}
-
-impl ParallelBatchExecutorBuilder {
-    /// Sets the worker-thread count.
-    ///
-    /// # Parameters
-    ///
-    /// * `num_threads` - Number of scoped worker threads to use.
-    ///
-    /// # Returns
-    ///
-    /// This builder for fluent configuration.
-    #[inline]
-    pub const fn num_threads(mut self, num_threads: usize) -> Self {
-        self.num_threads = num_threads;
-        self
-    }
-
-    /// Sets the sequential fallback threshold.
-    ///
-    /// # Parameters
-    ///
-    /// * `sequential_threshold` - Maximum batch size that still runs
-    ///   sequentially.
-    ///
-    /// # Returns
-    ///
-    /// This builder for fluent configuration.
-    #[inline]
-    pub const fn sequential_threshold(mut self, sequential_threshold: usize) -> Self {
-        self.sequential_threshold = sequential_threshold;
-        self
-    }
-
-    /// Sets the progress-report interval.
-    ///
-    /// # Parameters
-    ///
-    /// * `report_interval` - Minimum interval between running progress events.
-    ///
-    /// # Returns
-    ///
-    /// This builder for fluent configuration.
-    #[inline]
-    pub const fn report_interval(mut self, report_interval: Duration) -> Self {
-        self.report_interval = report_interval;
-        self
-    }
-
-    /// Sets the progress reporter used by built executors.
-    ///
-    /// # Parameters
-    ///
-    /// * `reporter` - Reporter receiving batch lifecycle callbacks.
-    ///
-    /// # Returns
-    ///
-    /// This builder for fluent configuration.
-    #[inline]
-    pub fn reporter<R>(mut self, reporter: R) -> Self
-    where
-        R: ProgressReporter + 'static,
-    {
-        self.reporter = Arc::new(reporter);
-        self
-    }
-
-    /// Sets the shared progress reporter used by built executors.
-    ///
-    /// # Parameters
-    ///
-    /// * `reporter` - Shared reporter receiving batch lifecycle callbacks.
-    ///
-    /// # Returns
-    ///
-    /// This builder for fluent configuration.
-    #[inline]
-    pub fn reporter_arc(mut self, reporter: Arc<dyn ProgressReporter>) -> Self {
-        self.reporter = reporter;
-        self
-    }
-
-    /// Disables progress callbacks by using [`NoOpProgressReporter`].
-    ///
-    /// # Returns
-    ///
-    /// This builder for fluent configuration.
-    #[inline]
-    pub fn no_reporter(mut self) -> Self {
-        self.reporter = Arc::new(NoOpProgressReporter);
-        self
-    }
-
-    /// Builds a validated [`ParallelBatchExecutor`].
-    ///
-    /// # Returns
-    ///
-    /// A parallel batch executor when the configuration is valid.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ParallelBatchExecutorBuildError`] when the worker count or
-    /// report interval is zero.
-    pub fn build(self) -> Result<ParallelBatchExecutor, ParallelBatchExecutorBuildError> {
-        if self.num_threads == 0 {
-            return Err(ParallelBatchExecutorBuildError::ZeroThreadCount);
-        }
-        if self.report_interval.is_zero() {
-            return Err(ParallelBatchExecutorBuildError::ZeroReportInterval);
-        }
-        Ok(ParallelBatchExecutor {
-            num_threads: self.num_threads,
-            sequential_threshold: self.sequential_threshold,
-            report_interval: self.report_interval,
-            reporter: self.reporter,
-        })
-    }
-}
-
-impl Default for ParallelBatchExecutorBuilder {
-    /// Creates a builder with default parallel batch settings.
-    ///
-    /// # Returns
-    ///
-    /// A builder using available parallelism, five-second progress intervals,
-    /// sequential fallback for single-item batches, and no-op reporting.
-    fn default() -> Self {
-        Self {
-            num_threads: ParallelBatchExecutor::default_num_threads(),
-            sequential_threshold: ParallelBatchExecutor::DEFAULT_SEQUENTIAL_THRESHOLD,
-            report_interval: ParallelBatchExecutor::DEFAULT_REPORT_INTERVAL,
-            reporter: Arc::new(NoOpProgressReporter),
-        }
-    }
-}
 
 /// Fixed-width parallel batch executor backed by scoped standard threads.
 ///
@@ -222,13 +64,13 @@ impl Default for ParallelBatchExecutorBuilder {
 #[derive(Clone)]
 pub struct ParallelBatchExecutor {
     /// Number of worker threads used for parallel executions.
-    num_threads: usize,
+    pub(crate) num_threads: usize,
     /// Maximum batch size that still uses sequential execution.
-    sequential_threshold: usize,
+    pub(crate) sequential_threshold: usize,
     /// Minimum interval between progress callbacks.
-    report_interval: Duration,
+    pub(crate) report_interval: Duration,
     /// Reporter receiving batch lifecycle callbacks.
-    reporter: Arc<dyn ProgressReporter>,
+    pub(crate) reporter: Arc<dyn ProgressReporter>,
 }
 
 impl ParallelBatchExecutor {
@@ -440,7 +282,7 @@ impl BatchExecutor for ParallelBatchExecutor {
                 actual_count += 1;
                 task_sender
                     .send(IndexedTask { index, task })
-                    .unwrap_or_else(|_| panic!("parallel batch workers should accept tasks"));
+                    .expect("parallel batch workers should accept tasks");
             }
             drop(task_sender);
 

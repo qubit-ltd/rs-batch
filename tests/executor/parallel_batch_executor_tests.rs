@@ -206,10 +206,14 @@ fn test_parallel_batch_executor_reports_count_shortfall() {
 #[test]
 fn test_parallel_batch_executor_reports_count_exceeded() {
     let executor = ParallelBatchExecutor::new(2).expect("parallel executor should build");
-    let tasks = vec![TestTask::succeed(), TestTask::succeed()];
+    let tasks = vec![
+        TestTask::succeed(),
+        TestTask::succeed(),
+        TestTask::succeed(),
+    ];
 
     let error = executor
-        .execute(tasks, 1)
+        .execute(tasks, 2)
         .expect_err("overflow should be reported");
 
     match error {
@@ -218,9 +222,9 @@ fn test_parallel_batch_executor_reports_count_exceeded() {
             observed_at_least,
             outcome,
         } => {
-            assert_eq!(expected, 1);
-            assert_eq!(observed_at_least, 2);
-            assert_eq!(outcome.completed_count(), 1);
+            assert_eq!(expected, 2);
+            assert_eq!(observed_at_least, 3);
+            assert_eq!(outcome.completed_count(), 2);
         }
         other => panic!("unexpected error: {other:?}"),
     }
@@ -280,6 +284,29 @@ fn test_parallel_batch_executor_propagates_progress_reporter_finish_panic() {
 
     let payload = catch_unwind(AssertUnwindSafe(|| executor.execute(tasks, 1)))
         .expect_err("progress reporter finish panic should be propagated");
+
+    assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
+}
+
+#[test]
+fn test_parallel_batch_executor_propagates_progress_reporter_process_panic() {
+    const PANIC_MESSAGE: &str = "parallel progress process panic";
+    let executor = ParallelBatchExecutor::builder()
+        .num_threads(2)
+        .report_interval(Duration::from_millis(1))
+        .reporter(PanickingProgressReporter::new(
+            ProgressPanicPhase::Process,
+            PANIC_MESSAGE,
+        ))
+        .build()
+        .expect("parallel executor should build");
+    let tasks = vec![
+        TestTask::sleep_success(Duration::from_millis(50)),
+        TestTask::sleep_success(Duration::from_millis(50)),
+    ];
+
+    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute(tasks, 2)))
+        .expect_err("progress reporter process panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }
