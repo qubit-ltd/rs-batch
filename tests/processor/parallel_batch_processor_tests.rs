@@ -11,18 +11,29 @@
 
 use std::{
     num::NonZeroUsize,
-    panic::{AssertUnwindSafe, catch_unwind},
+    panic::{
+        AssertUnwindSafe,
+        catch_unwind,
+    },
     sync::{
-        Arc, Mutex,
-        atomic::{AtomicUsize, Ordering},
+        Arc,
+        Mutex,
     },
     thread,
     time::Duration,
 };
 
+use qubit_atomic::{
+    ArcAtomic,
+    ArcAtomicCount,
+    AtomicCount,
+};
+use qubit_batch::{
+    BatchProcessError,
+    BatchProcessor,
+    ParallelBatchProcessor,
+};
 use qubit_function::Consumer;
-
-use qubit_batch::{BatchProcessError, BatchProcessor, ParallelBatchProcessor};
 
 use crate::support::panic_payload_message;
 
@@ -98,15 +109,15 @@ fn test_parallel_batch_processor_accepts_empty_input() {
 
 #[test]
 fn test_parallel_batch_processor_uses_configured_thread_count() {
-    let active_count = Arc::new(AtomicUsize::new(0));
-    let max_active_count = Arc::new(AtomicUsize::new(0));
-    let active_by_consumer = Arc::clone(&active_count);
-    let max_by_consumer = Arc::clone(&max_active_count);
+    let active_count = ArcAtomicCount::zero();
+    let max_active_count = ArcAtomic::new(0usize);
+    let active_by_consumer = active_count.clone();
+    let max_by_consumer = max_active_count.clone();
     let mut processor = ParallelBatchProcessor::new(move |_item: &usize| {
-        let active = active_by_consumer.fetch_add(1, Ordering::AcqRel) + 1;
-        update_max(&max_by_consumer, active);
+        let active = active_by_consumer.inc();
+        max_by_consumer.fetch_max(active);
         thread::sleep(Duration::from_millis(20));
-        active_by_consumer.fetch_sub(1, Ordering::AcqRel);
+        active_by_consumer.dec();
     })
     .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"));
 
@@ -116,16 +127,16 @@ fn test_parallel_batch_processor_uses_configured_thread_count() {
 
     assert_eq!(processor.thread_count(), 2);
     assert_eq!(result.completed_count(), 6);
-    assert!(max_active_count.load(Ordering::Acquire) > 1);
-    assert!(max_active_count.load(Ordering::Acquire) <= 2);
+    assert!(max_active_count.load() > 1);
+    assert!(max_active_count.load() <= 2);
 }
 
 #[test]
 fn test_parallel_batch_processor_supports_non_static_items() {
-    let first = AtomicUsize::new(0);
-    let second = AtomicUsize::new(0);
+    let first = AtomicCount::zero();
+    let second = AtomicCount::zero();
     let mut processor = ParallelBatchProcessor::new(|item: &BorrowedItem<'_>| {
-        item.counter.fetch_add(1, Ordering::AcqRel);
+        item.counter.inc();
     })
     .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"));
     let items = [
@@ -138,8 +149,8 @@ fn test_parallel_batch_processor_supports_non_static_items() {
         .expect("borrowed items should process");
 
     assert_eq!(result.processed_count(), 2);
-    assert_eq!(first.load(Ordering::Acquire), 1);
-    assert_eq!(second.load(Ordering::Acquire), 1);
+    assert_eq!(first.get(), 1);
+    assert_eq!(second.get(), 1);
 }
 
 #[test]
@@ -239,19 +250,8 @@ fn test_parallel_batch_processor_propagates_consumer_panic() {
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }
 
-/// Updates `max_value` when `candidate` is larger.
-fn update_max(max_value: &AtomicUsize, candidate: usize) {
-    let mut current = max_value.load(Ordering::Acquire);
-    while candidate > current {
-        match max_value.compare_exchange(current, candidate, Ordering::AcqRel, Ordering::Acquire) {
-            Ok(_) => return,
-            Err(observed) => current = observed,
-        }
-    }
-}
-
 /// Test item borrowing a stack-owned counter.
 struct BorrowedItem<'a> {
     /// Counter incremented by the processor consumer.
-    counter: &'a AtomicUsize,
+    counter: &'a AtomicCount,
 }

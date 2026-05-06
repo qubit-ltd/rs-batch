@@ -20,6 +20,8 @@ mod sequential_batch_executor;
 pub use batch_call_result::BatchCallResult;
 pub use batch_executor::BatchExecutor;
 pub use parallel::{
-    ParallelBatchExecutor, ParallelBatchExecutorBuildError, ParallelBatchExecutorBuilder,
+    ParallelBatchExecutor,
+    ParallelBatchExecutorBuildError,
+    ParallelBatchExecutorBuilder,
 };
 pub use sequential_batch_executor::SequentialBatchExecutor;

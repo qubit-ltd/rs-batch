@@ -8,8 +8,15 @@
  *
  ******************************************************************************/
 use std::fmt;
-use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::sync::{Arc, Mutex, mpsc};
+use std::panic::{
+    AssertUnwindSafe,
+    catch_unwind,
+};
+use std::sync::{
+    Arc,
+    Mutex,
+    mpsc,
+};
 
 use qubit_function::Runnable;
 

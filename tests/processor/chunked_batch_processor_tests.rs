@@ -13,16 +13,25 @@ use std::{
     error::Error,
     fmt,
     num::NonZeroUsize,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc,
+        Mutex,
+    },
     time::Duration,
 };
 
 use qubit_batch::{
-    BatchProcessResult, BatchProcessor, ChunkedBatchProcessError, ChunkedBatchProcessor,
+    BatchProcessResult,
+    BatchProcessor,
+    ChunkedBatchProcessError,
+    ChunkedBatchProcessor,
     NoOpProgressReporter,
 };
 
-use crate::support::{ProgressEvent, RecordingProgressReporter};
+use crate::support::{
+    ProgressEvent,
+    RecordingProgressReporter,
+};
 
 #[derive(Debug, Default)]
 struct RecordingProcessor {

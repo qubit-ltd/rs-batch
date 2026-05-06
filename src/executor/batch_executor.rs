@@ -11,11 +11,21 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use crossbeam_queue::SegQueue;
-use qubit_function::{Callable, Runnable};
+use qubit_function::{
+    Callable,
+    Runnable,
+};
 
-use crate::{BatchExecutionError, BatchOutcome};
+use crate::{
+    BatchExecutionError,
+    BatchOutcome,
+};
 
-use super::{BatchCallResult, callable_task::CallableTask, for_each_task::ForEachTask};
+use super::{
+    BatchCallResult,
+    callable_task::CallableTask,
+    for_each_task::ForEachTask,
+};
 
 /// Executes batches of fallible runnable tasks.
 ///

@@ -8,7 +8,10 @@
  *
  ******************************************************************************/
 
-use qubit_batch::{BatchExecutor, SequentialBatchExecutor};
+use qubit_batch::{
+    BatchExecutor,
+    SequentialBatchExecutor,
+};
 
 use crate::support::TestTask;
 

@@ -14,7 +14,10 @@ mod test_callable;
 mod test_task;
 
 pub use progress_reporter::{
-    PanickingProgressReporter, ProgressEvent, ProgressPanicPhase, RecordingProgressReporter,
+    PanickingProgressReporter,
+    ProgressEvent,
+    ProgressPanicPhase,
+    RecordingProgressReporter,
     panic_payload_message,
 };
 pub use test_callable::TestCallable;

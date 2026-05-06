@@ -7,7 +7,11 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{any::Any, error::Error, fmt};
+use std::{
+    any::Any,
+    error::Error,
+    fmt,
+};
 
 /// Error recorded for one task inside a batch execution.
 ///

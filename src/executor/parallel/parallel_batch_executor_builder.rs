@@ -7,11 +7,20 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 
-use crate::{NoOpProgressReporter, ProgressReporter};
+use crate::{
+    NoOpProgressReporter,
+    ProgressReporter,
+};
 
-use super::{ParallelBatchExecutor, ParallelBatchExecutorBuildError};
+use super::{
+    ParallelBatchExecutor,
+    ParallelBatchExecutorBuildError,
+};
 
 /// Builder for [`ParallelBatchExecutor`].
 pub struct ParallelBatchExecutorBuilder {

@@ -7,7 +7,10 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{fmt, time::Duration};
+use std::{
+    fmt,
+    time::Duration,
+};
 
 /// Structured result produced by a batch processor.
 ///

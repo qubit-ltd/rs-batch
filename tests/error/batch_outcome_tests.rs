@@ -9,10 +9,17 @@
  ******************************************************************************/
 //! Tests for batch outcomes and execution state.
 
-use std::{error::Error, fmt, time::Duration};
+use std::{
+    error::Error,
+    fmt,
+    time::Duration,
+};
 
 use qubit_batch::{
-    BatchExecutionError, BatchOutcomeBuildError, BatchOutcomeBuilder, BatchTaskError,
+    BatchExecutionError,
+    BatchOutcomeBuildError,
+    BatchOutcomeBuilder,
+    BatchTaskError,
     BatchTaskFailure,
 };
 

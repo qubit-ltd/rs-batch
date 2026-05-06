@@ -8,7 +8,10 @@
  *
  ******************************************************************************/
 use std::{
-    panic::{AssertUnwindSafe, catch_unwind},
+    panic::{
+        AssertUnwindSafe,
+        catch_unwind,
+    },
     sync::Arc,
     time::Duration,
 };
@@ -17,8 +20,13 @@ use qubit_function::Runnable;
 use qubit_progress::Progress;
 
 use crate::{
-    BatchExecutionError, BatchOutcome, NoOpProgressReporter, ProgressPhase, ProgressReporter,
-    error::panic_payload_to_error, execution::BatchExecutionState,
+    BatchExecutionError,
+    BatchOutcome,
+    NoOpProgressReporter,
+    ProgressPhase,
+    ProgressReporter,
+    error::panic_payload_to_error,
+    execution::BatchExecutionState,
 };
 
 use super::BatchExecutor;

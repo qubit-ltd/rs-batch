@@ -11,14 +11,11 @@
 
 use std::{
     panic::panic_any,
-    sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering},
-    },
     thread,
     time::Duration,
 };
 
+use qubit_atomic::ArcAtomicCount;
 use qubit_function::Runnable;
 
 /// Test task behavior used to keep executor coverage in one monomorphization.
@@ -29,7 +26,7 @@ pub enum TestTaskAction {
     /// Increment the supplied counter, then succeed.
     CountSuccess {
         /// Counter incremented by this task.
-        counter: Arc<AtomicUsize>,
+        counter: ArcAtomicCount,
     },
     /// Return a task error.
     Fail {
@@ -81,7 +78,7 @@ impl TestTask {
     /// # Returns
     ///
     /// A counting successful test task.
-    pub fn count_success(counter: Arc<AtomicUsize>) -> Self {
+    pub fn count_success(counter: ArcAtomicCount) -> Self {
         Self {
             action: TestTaskAction::CountSuccess { counter },
         }
@@ -163,7 +160,7 @@ impl Runnable<&'static str> for TestTask {
         match &self.action {
             TestTaskAction::Succeed => Ok(()),
             TestTaskAction::CountSuccess { counter } => {
-                counter.fetch_add(1, Ordering::AcqRel);
+                counter.inc();
                 Ok(())
             }
             TestTaskAction::Fail { error } => Err(*error),

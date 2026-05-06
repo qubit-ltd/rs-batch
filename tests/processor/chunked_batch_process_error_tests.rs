@@ -8,7 +8,10 @@
  *
  ******************************************************************************/
 
-use qubit_batch::{BatchProcessResult, ChunkedBatchProcessError};
+use qubit_batch::{
+    BatchProcessResult,
+    ChunkedBatchProcessError,
+};
 use std::time::Duration;
 
 #[test]
