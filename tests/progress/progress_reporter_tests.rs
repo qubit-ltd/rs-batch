@@ -7,7 +7,7 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-//! Tests for concrete progress reporters.
+//! Tests for progress reporter re-exports.
 
 use std::{
     io::Cursor,
@@ -18,8 +18,9 @@ use std::{
     time::Duration,
 };
 
-use qubit_batch::progress::ConsoleProgressReporter;
 use qubit_batch::{
+    LoggerProgressReporter,
+    NoOpProgressReporter,
     ProgressCounters,
     ProgressEvent,
     ProgressPhase,
@@ -28,15 +29,31 @@ use qubit_batch::{
 };
 
 #[test]
-fn test_writer_progress_reporter_writes_lifecycle_messages() {
+fn test_batch_reexports_progress_reporter_implementations_from_rs_progress() {
+    let output = Arc::new(Mutex::new(Cursor::new(Vec::<u8>::new())));
+    let writer: qubit_progress::reporter::WriterProgressReporter<Cursor<Vec<u8>>> =
+        WriterProgressReporter::new(output);
+    let logger: qubit_progress::reporter::LoggerProgressReporter =
+        LoggerProgressReporter::new("qubit_batch_progress_reexport");
+    let no_op: qubit_progress::reporter::NoOpProgressReporter = NoOpProgressReporter;
+
+    let _: &dyn qubit_progress::reporter::ProgressReporter = &writer;
+    let _: &dyn qubit_progress::reporter::ProgressReporter = &logger;
+    let _: &dyn qubit_progress::reporter::ProgressReporter = &no_op;
+}
+
+#[test]
+fn test_writer_progress_reporter_reports_rs_progress_events() {
     let output = Arc::new(Mutex::new(Cursor::new(Vec::new())));
     let reporter = WriterProgressReporter::new(output.clone());
     assert!(Arc::ptr_eq(reporter.writer(), &output));
 
-    reporter.start(3);
-    reporter.process(3, 1, 2, Duration::from_millis(250));
-    reporter.process(0, 0, 0, Duration::from_millis(250));
-    reporter.finish(3, Duration::from_secs(2));
+    reporter.report(&ProgressEvent::running(
+        ProgressCounters::new(Some(4))
+            .with_active_count(1)
+            .with_completed_count(2),
+        Duration::from_millis(250),
+    ));
 
     let bytes = output
         .lock()
@@ -44,21 +61,20 @@ fn test_writer_progress_reporter_writes_lifecycle_messages() {
         .get_ref()
         .clone();
     let text = String::from_utf8(bytes).expect("progress output should be UTF-8");
-    assert!(text.contains("Starting 3 tasks..."));
-    assert!(text.contains("Current active tasks: 1"));
-    assert!(text.contains("Current completed tasks: 2"));
-    assert!(text.contains("Progress: 100.00%"));
-    assert!(text.contains("No task processed."));
-    assert!(text.contains("All 3 tasks are finished."));
-    assert!(text.contains("Processed 3 tasks in 2.00s."));
+    assert!(text.contains("running"));
+    assert!(text.contains("2/4"));
+    assert!(text.contains("50.00%"));
+    assert!(text.contains("active 1"));
 }
 
 #[test]
-fn test_writer_progress_reporter_from_writer_writes_lifecycle_messages() {
+fn test_writer_progress_reporter_from_writer_reports_rs_progress_events() {
     let reporter = WriterProgressReporter::from_writer(Cursor::new(Vec::new()));
 
-    reporter.start(1);
-    reporter.finish(1, Duration::from_millis(1));
+    reporter.report(&ProgressEvent::finished(
+        ProgressCounters::new(Some(1)).with_completed_count(1),
+        Duration::from_millis(1),
+    ));
 
     let bytes = reporter
         .writer()
@@ -67,29 +83,17 @@ fn test_writer_progress_reporter_from_writer_writes_lifecycle_messages() {
         .get_ref()
         .clone();
     let text = String::from_utf8(bytes).expect("progress output should be UTF-8");
-    assert!(text.contains("Starting 1 tasks..."));
-    assert!(text.contains("Processed 1 tasks in 1ms."));
+    assert!(text.contains("finished"));
+    assert!(text.contains("1/1"));
 }
 
 #[test]
-fn test_console_progress_reporter_can_be_created() {
-    let reporter = ConsoleProgressReporter::new();
-    reporter.start(0);
-    reporter.process(0, 0, 0, Duration::ZERO);
-    reporter.finish(0, Duration::ZERO);
-
-    let reporter = ConsoleProgressReporter::default();
-    reporter.start(1);
-    reporter.finish(1, Duration::from_secs(1));
-}
-
-#[test]
-fn test_console_progress_reporter_reports_all_event_phases() {
-    let reporter = ConsoleProgressReporter::new();
-
+fn test_no_op_progress_reporter_reports_all_event_phases() {
+    let reporter = NoOpProgressReporter;
     for event in lifecycle_events() {
         reporter.report(&event);
     }
+    assert_eq!(reporter, NoOpProgressReporter);
 }
 
 #[test]
@@ -107,9 +111,12 @@ fn test_writer_progress_reporter_reports_all_event_phases() {
         .get_ref()
         .clone();
     let text = String::from_utf8(bytes).expect("progress output should be UTF-8");
-    assert!(text.contains("Starting 4 tasks..."));
-    assert!(text.contains("Progress: 50.00%"));
-    assert!(text.contains("All 4 tasks are finished."));
+    assert!(text.contains("started"));
+    assert!(text.contains("running"));
+    assert!(text.contains("finished"));
+    assert!(text.contains("failed"));
+    assert!(text.contains("canceled"));
+    assert!(text.contains("2/4"));
 }
 
 fn lifecycle_events() -> Vec<ProgressEvent> {
