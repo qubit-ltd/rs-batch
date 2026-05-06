@@ -7,13 +7,8 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-//! # Batch API Tests
-//!
-//! Tests for batch execution, processing, utilities, and documentation.
-
-mod docs;
-mod execute;
-mod lib_tests;
-mod process;
-mod support;
-mod utils;
+mod indexed_task_tests;
+mod parallel_batch_executor_build_error_tests;
+mod parallel_batch_executor_builder_tests;
+mod parallel_batch_executor_tests;
+mod sequential_batch_executor_tests;

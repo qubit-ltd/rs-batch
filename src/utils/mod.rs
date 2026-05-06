@@ -7,13 +7,8 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-//! # Batch API Tests
-//!
-//! Tests for batch execution, processing, utilities, and documentation.
+//! Internal utilities shared by execution and processing implementations.
 
-mod docs;
-mod execute;
-mod lib_tests;
-mod process;
-mod support;
-mod utils;
+mod scoped_parallel;
+
+pub(crate) use scoped_parallel::run_scoped_parallel;
