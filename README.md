@@ -34,6 +34,10 @@ single-task submission. The crate provides:
   collecting successful return values by index.
 - `BatchProcessor`: trait for processing data items directly, without first
   wrapping each item as a task.
+- `SequentialBatchProcessor`: consumer-backed processor that handles items in
+  input order on the caller thread.
+- `ParallelBatchProcessor`: consumer-backed processor that handles items with
+  scoped standard threads.
 - `ChunkedBatchProcessor`: processor adapter that submits fixed-size chunks to a
   delegate processor.
 - `SequentialBatchExecutor`: deterministic, in-order execution on the caller
@@ -199,6 +203,38 @@ dependency too:
 [dependencies]
 qubit-batch = "0.4.0"
 qubit-function = "0.11"
+```
+
+### Process data with a consumer
+
+Use `SequentialBatchProcessor` or `ParallelBatchProcessor` when each item can be
+handled by a `qubit-function` `Consumer`.
+
+```rust
+use std::sync::{
+    Arc,
+    Mutex,
+};
+
+use qubit_batch::{
+    BatchProcessor,
+    ParallelBatchProcessor,
+};
+
+let processed = Arc::new(Mutex::new(Vec::new()));
+let processed_by_consumer = Arc::clone(&processed);
+let mut processor = ParallelBatchProcessor::new(move |item: &i32| {
+    processed_by_consumer
+        .lock()
+        .expect("processed values lock should not be poisoned")
+        .push(*item);
+});
+
+let result = processor
+    .process([1, 2, 3], 3)
+    .expect("the iterator yielded exactly three items");
+
+assert_eq!(result.processed_count(), 3);
 ```
 
 ### Process data in fixed-size chunks
@@ -380,6 +416,12 @@ Important result semantics:
 - `BatchProcessor`: trait for processing a declared batch of data items.
 - `BatchProcessResult`: aggregate result containing item, processed, chunk, and
   monotonic elapsed-duration counters.
+- `BatchProcessError`: count-mismatch error returned by built-in
+  consumer-backed processors.
+- `SequentialBatchProcessor`: `BoxConsumer`-backed processor that invokes the
+  consumer in input order.
+- `ParallelBatchProcessor`: `ArcConsumer`-backed processor that invokes the
+  consumer on fixed-width scoped standard threads.
 - `ChunkedBatchProcessor`: processor wrapper that splits a logical batch into
   fixed-size chunks and delegates each chunk.
 - `ChunkedBatchProcessError<E>`: chunked processor error for source count
@@ -404,14 +446,14 @@ Important result semantics:
 - `src/executor`: executor traits and the sequential executor implementation.
 - `src/error`: batch execution results, count mismatch errors, task failures,
   and task panic conversion.
-- `src/processor`: data-item batch processor traits, results, and the chunked
-  processor.
+- `src/processor`: data-item batch processor traits, results, consumer-backed
+  processors, and the chunked processor.
 - `src/progress`: re-exported progress event and reporter types from
   `qubit-progress`.
 - `tests/executor`: behavior tests for sequential execution, progress callbacks,
   failures, panics, and count mismatches.
-- `tests/processor`: behavior tests for chunking, delegate errors, and progress
-  callbacks.
+- `tests/processor`: behavior tests for direct processing, chunking, delegate
+  errors, and progress callbacks.
 - `tests/progress`: behavior tests for concrete progress reporters.
 - `tests/error`: tests for result invariants and error helper methods.
 - `tests/docs`: README consistency checks.
