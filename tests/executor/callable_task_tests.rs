@@ -10,10 +10,7 @@
 //! Integration tests for [`BatchExecutor::call`](qubit_batch::BatchExecutor::call)
 //! and the internal callable runnable wrapper.
 
-use qubit_batch::{
-    BatchExecutor,
-    SequentialBatchExecutor,
-};
+use qubit_batch::{BatchExecutor, SequentialBatchExecutor};
 
 use crate::support::TestCallable;
 
@@ -62,4 +59,24 @@ fn test_sequential_batch_executor_call_preserves_failure_indexes() {
     assert_eq!(result.outcome().panicked_count(), 1);
     assert_eq!(result.outcome().failures()[0].index(), 1);
     assert_eq!(result.outcome().failures()[1].index(), 2);
+}
+
+#[test]
+fn test_sequential_batch_executor_call_collects_many_values_by_index() {
+    const COUNT: usize = 2048;
+
+    let executor = SequentialBatchExecutor::new();
+    let tasks = (0..COUNT)
+        .map(|index| TestCallable::returning(index as i32))
+        .collect::<Vec<_>>();
+
+    let result = executor
+        .call(tasks, COUNT)
+        .expect("large callable batch should succeed");
+
+    assert_eq!(result.outcome().completed_count(), COUNT);
+    assert_eq!(result.values().len(), COUNT);
+    for (index, value) in result.values().iter().enumerate() {
+        assert_eq!(*value, Some(index as i32));
+    }
 }

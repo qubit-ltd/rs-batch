@@ -8,26 +8,14 @@
  *
  ******************************************************************************/
 use std::fmt::Debug;
-use std::sync::{
-    Arc,
-    Mutex,
-};
+use std::sync::Arc;
 
-use qubit_function::{
-    Callable,
-    Runnable,
-};
+use crossbeam_queue::SegQueue;
+use qubit_function::{Callable, Runnable};
 
-use crate::{
-    BatchExecutionError,
-    BatchOutcome,
-};
+use crate::{BatchExecutionError, BatchOutcome};
 
-use super::{
-    BatchCallResult,
-    callable_task::CallableTask,
-    for_each_task::ForEachTask,
-};
+use super::{callable_task::CallableTask, for_each_task::ForEachTask, BatchCallResult};
 
 /// Executes batches of fallible runnable tasks.
 ///
@@ -98,17 +86,16 @@ pub trait BatchExecutor: Send + Sync {
         R: Send,
         E: Send + Debug,
     {
-        let outputs = Arc::new(
-            (0..count)
-                .map(|_| Mutex::new(None))
-                .collect::<Vec<Mutex<Option<R>>>>(),
-        );
+        let outputs = Arc::new(SegQueue::new());
+        // This adapter is lazy: callables are wrapped as runnable tasks only
+        // when the executor consumes the iterator. The callables themselves are
+        // still executed later by `CallableTask::run`.
         let runnable_tasks = tasks.into_iter().enumerate().map({
             let outputs = Arc::clone(&outputs);
             move |(index, callable)| CallableTask::new(callable, index, Arc::clone(&outputs))
         });
         let outcome = self.execute(runnable_tasks, count)?;
-        let values = collect_call_outputs(outputs);
+        let values = collect_call_outputs(outputs, count);
         Ok(BatchCallResult::new(outcome, values))
     }
 
@@ -148,11 +135,12 @@ pub trait BatchExecutor: Send + Sync {
     }
 }
 
-/// Consumes shared callable output slots into an indexed value vector.
+/// Consumes shared callable outputs into an indexed value vector.
 ///
 /// # Parameters
 ///
-/// * `outputs` - Shared output slots filled by callable wrappers.
+/// * `outputs` - Shared output queue filled by callable wrappers.
+/// * `count` - Declared callable count used to size the result vector.
 ///
 /// # Returns
 ///
@@ -160,17 +148,20 @@ pub trait BatchExecutor: Send + Sync {
 ///
 /// # Panics
 ///
-/// Panics if callable wrappers still hold references to `outputs`.
-fn collect_call_outputs<R>(outputs: Arc<Vec<Mutex<Option<R>>>>) -> Vec<Option<R>> {
-    let slots = match Arc::try_unwrap(outputs) {
-        Ok(slots) => slots,
-        Err(_) => panic!("callable output slots should have a single owner after execution"),
+/// Panics if callable wrappers still hold references to `outputs`, or if a
+/// queued output index is outside the declared batch size.
+fn collect_call_outputs<R>(outputs: Arc<SegQueue<(usize, R)>>, count: usize) -> Vec<Option<R>> {
+    let outputs = match Arc::try_unwrap(outputs) {
+        Ok(outputs) => outputs,
+        Err(_) => panic!("callable output queue should have a single owner after execution"),
     };
-    slots
-        .into_iter()
-        .map(|slot| {
-            slot.into_inner()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-        })
-        .collect()
+    let mut values = Vec::with_capacity(count);
+    values.resize_with(count, || None);
+    while let Some((index, value)) = outputs.pop() {
+        let slot = values
+            .get_mut(index)
+            .expect("callable index must be within the declared count");
+        *slot = Some(value);
+    }
+    values
 }

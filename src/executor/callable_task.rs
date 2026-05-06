@@ -7,15 +7,10 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::sync::{
-    Arc,
-    Mutex,
-};
+use std::sync::Arc;
 
-use qubit_function::{
-    Callable,
-    Runnable,
-};
+use crossbeam_queue::SegQueue;
+use qubit_function::{Callable, Runnable};
 
 /// Runnable wrapper used by [`crate::executor::BatchExecutor::call`].
 pub(crate) struct CallableTask<C, R> {
@@ -23,8 +18,8 @@ pub(crate) struct CallableTask<C, R> {
     callable: Option<C>,
     /// Zero-based callable index within the batch.
     index: usize,
-    /// Shared success-value slots indexed by callable position.
-    outputs: Arc<Vec<Mutex<Option<R>>>>,
+    /// Shared queue receiving successful callable outputs.
+    outputs: Arc<SegQueue<(usize, R)>>,
 }
 
 impl<C, R> CallableTask<C, R> {
@@ -34,12 +29,12 @@ impl<C, R> CallableTask<C, R> {
     ///
     /// * `callable` - Callable to execute.
     /// * `index` - Zero-based callable index within the batch.
-    /// * `outputs` - Shared success-value slots.
+    /// * `outputs` - Shared queue receiving successful outputs.
     ///
     /// # Returns
     ///
-    /// A runnable wrapper that stores successful output at `index`.
-    pub(crate) fn new(callable: C, index: usize, outputs: Arc<Vec<Mutex<Option<R>>>>) -> Self {
+    /// A runnable wrapper that sends successful output with its `index`.
+    pub(crate) fn new(callable: C, index: usize, outputs: Arc<SegQueue<(usize, R)>>) -> Self {
         Self {
             callable: Some(callable),
             index,
@@ -52,7 +47,7 @@ impl<C, R, E> Runnable<E> for CallableTask<C, R>
 where
     C: Callable<R, E>,
 {
-    /// Executes the wrapped callable and stores its success value.
+    /// Executes the wrapped callable and enqueues its success value.
     ///
     /// # Returns
     ///
@@ -61,21 +56,14 @@ where
     ///
     /// # Panics
     ///
-    /// Panics if this wrapper is run more than once or if an executor runs a
-    /// callable whose index is outside the declared batch size.
+    /// Panics if this wrapper is run more than once.
     fn run(&mut self) -> Result<(), E> {
         let mut callable = self
             .callable
             .take()
             .expect("callable task may only run once");
         let value = callable.call()?;
-        let mut slot = self
-            .outputs
-            .get(self.index)
-            .expect("callable index must be within the declared count")
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        *slot = Some(value);
+        self.outputs.push((self.index, value));
         Ok(())
     }
 }
