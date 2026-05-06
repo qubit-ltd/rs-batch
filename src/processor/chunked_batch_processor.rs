@@ -14,7 +14,7 @@ use std::{
     time::Duration,
 };
 
-use qubit_progress::ProgressRun;
+use qubit_progress::Progress;
 
 use crate::{
     NoOpProgressReporter,
@@ -209,7 +209,7 @@ where
         I: IntoIterator<Item = Item>,
     {
         let reporter = Arc::clone(&self.reporter);
-        let mut progress = ProgressRun::new(reporter.as_ref(), self.report_interval);
+        let mut progress = Progress::new(reporter.as_ref(), self.report_interval);
         let mut state = ChunkedProcessState::new(count);
         progress.report_with_elapsed(
             ProgressPhase::Started,
@@ -288,7 +288,7 @@ impl<P> ChunkedBatchProcessor<P> {
         &mut self,
         chunk: &mut Vec<Item>,
         state: &mut ChunkedProcessState,
-        progress: &mut ProgressRun<'_>,
+        progress: &mut Progress<'_>,
     ) -> Result<(), ChunkedBatchProcessError<P::Error>>
     where
         P: BatchProcessor<Item>,
