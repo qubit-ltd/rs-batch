@@ -7,11 +7,8 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-//! Tests for batch executors and result types.
+//! Tests for parallel batch executor.
 
-mod batch_call_result_tests;
-mod batch_executor_tests;
-mod callable_task_tests;
-mod for_each_task_tests;
-mod parallel;
-mod sequential_batch_executor_tests;
+mod parallel_batch_executor_build_error_tests;
+mod parallel_batch_executor_builder_tests;
+mod parallel_batch_executor_tests;

@@ -9,10 +9,7 @@
  ******************************************************************************/
 //! Behavioral coverage for the internal batch execution state.
 
-use qubit_batch::{
-    BatchExecutor,
-    SequentialBatchExecutor,
-};
+use qubit_batch::{BatchExecutor, SequentialBatchExecutor};
 
 use crate::support::TestTask;
 

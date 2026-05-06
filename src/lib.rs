@@ -28,44 +28,19 @@ pub mod execution;
 pub mod executor;
 pub mod processor;
 
-pub use error::{
-    BatchExecutionError,
-    BatchTaskError,
-    BatchTaskFailure,
-};
-pub use execution::{
-    BatchOutcome,
-    BatchOutcomeBuildError,
-    BatchOutcomeBuilder,
-};
+pub use error::{BatchExecutionError, BatchTaskError, BatchTaskFailure};
+pub use execution::{BatchOutcome, BatchOutcomeBuildError, BatchOutcomeBuilder};
 pub use executor::{
-    BatchCallResult,
-    BatchExecutor,
-    ParallelBatchExecutor,
-    ParallelBatchExecutorBuildError,
-    ParallelBatchExecutorBuilder,
-    SequentialBatchExecutor,
+    BatchCallResult, BatchExecutor, ParallelBatchExecutor, ParallelBatchExecutorBuildError,
+    ParallelBatchExecutorBuilder, SequentialBatchExecutor,
 };
 pub use processor::{
-    BatchProcessError,
-    BatchProcessResult,
-    BatchProcessor,
-    ChunkedBatchProcessError,
-    ChunkedBatchProcessor,
-    ParallelBatchProcessor,
-    SequentialBatchProcessor,
+    BatchProcessError, BatchProcessResult, BatchProcessor, ChunkedBatchProcessError,
+    ChunkedBatchProcessor, ParallelBatchProcessor, SequentialBatchProcessor,
 };
 pub use qubit_progress::{
-    model::{
-        ProgressCounters,
-        ProgressEvent,
-        ProgressPhase,
-        ProgressStage,
-    },
+    model::{ProgressCounters, ProgressEvent, ProgressPhase, ProgressStage},
     reporter::{
-        LoggerProgressReporter,
-        NoOpProgressReporter,
-        ProgressReporter,
-        WriterProgressReporter,
+        LoggerProgressReporter, NoOpProgressReporter, ProgressReporter, WriterProgressReporter,
     },
 };

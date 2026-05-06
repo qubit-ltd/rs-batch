@@ -11,17 +11,10 @@
 
 use std::{
     num::NonZeroUsize,
-    panic::{
-        AssertUnwindSafe,
-        catch_unwind,
-    },
+    panic::{AssertUnwindSafe, catch_unwind},
     sync::{
-        Arc,
-        Mutex,
-        atomic::{
-            AtomicUsize,
-            Ordering,
-        },
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
     },
     thread,
     time::Duration,
@@ -29,11 +22,7 @@ use std::{
 
 use qubit_function::Consumer;
 
-use qubit_batch::{
-    BatchProcessError,
-    BatchProcessor,
-    ParallelBatchProcessor,
-};
+use qubit_batch::{BatchProcessError, BatchProcessor, ParallelBatchProcessor};
 
 use crate::support::panic_payload_message;
 
@@ -86,8 +75,8 @@ fn test_parallel_batch_processor_processes_items() {
     assert_eq!(result.chunk_count(), 1);
     assert_eq!(values, vec![1, 2, 3, 4]);
     assert_eq!(
-        processor.num_threads(),
-        ParallelBatchProcessor::<i32>::default_num_threads()
+        processor.thread_count(),
+        ParallelBatchProcessor::<i32>::default_thread_count()
     );
 }
 
@@ -119,13 +108,13 @@ fn test_parallel_batch_processor_uses_configured_thread_count() {
         thread::sleep(Duration::from_millis(20));
         active_by_consumer.fetch_sub(1, Ordering::AcqRel);
     })
-    .with_num_threads(NonZeroUsize::new(2).expect("thread count is non-zero"));
+    .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"));
 
     let result = processor
         .process(0..6, 6)
         .expect("parallel processing should succeed");
 
-    assert_eq!(processor.num_threads(), 2);
+    assert_eq!(processor.thread_count(), 2);
     assert_eq!(result.completed_count(), 6);
     assert!(max_active_count.load(Ordering::Acquire) > 1);
     assert!(max_active_count.load(Ordering::Acquire) <= 2);
@@ -138,7 +127,7 @@ fn test_parallel_batch_processor_supports_non_static_items() {
     let mut processor = ParallelBatchProcessor::new(|item: &BorrowedItem<'_>| {
         item.counter.fetch_add(1, Ordering::AcqRel);
     })
-    .with_num_threads(NonZeroUsize::new(2).expect("thread count is non-zero"));
+    .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"));
     let items = [
         BorrowedItem { counter: &first },
         BorrowedItem { counter: &second },
@@ -163,7 +152,7 @@ fn test_parallel_batch_processor_reports_count_exceeded() {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .push(*item);
     })
-    .with_num_threads(NonZeroUsize::new(2).expect("thread count is non-zero"));
+    .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"));
 
     let error = processor
         .process([1, 2, 3], 2)
@@ -214,7 +203,7 @@ fn test_parallel_batch_processor_reports_count_exceeded_before_first_item() {
 #[test]
 fn test_parallel_batch_processor_reports_count_shortfall() {
     let mut processor = ParallelBatchProcessor::new(|_item: &i32| {})
-        .with_num_threads(NonZeroUsize::new(2).expect("thread count is non-zero"));
+        .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"));
 
     let error = processor
         .process([1, 2], 3)
@@ -242,7 +231,7 @@ fn test_parallel_batch_processor_propagates_consumer_panic() {
     let mut processor = ParallelBatchProcessor::new(|_item: &i32| {
         panic!("{PANIC_MESSAGE}");
     })
-    .with_num_threads(NonZeroUsize::new(2).expect("thread count is non-zero"));
+    .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"));
 
     let payload = catch_unwind(AssertUnwindSafe(|| processor.process([1], 1)))
         .expect_err("consumer panic should be propagated");

@@ -10,33 +10,19 @@
 //! Tests for [`SequentialBatchExecutor`](qubit_batch::SequentialBatchExecutor).
 
 use std::{
-    panic::{
-        AssertUnwindSafe,
-        catch_unwind,
-    },
+    panic::{AssertUnwindSafe, catch_unwind},
     sync::{
         Arc,
-        atomic::{
-            AtomicUsize,
-            Ordering,
-        },
+        atomic::{AtomicUsize, Ordering},
     },
     time::Duration,
 };
 
-use qubit_batch::{
-    BatchExecutionError,
-    BatchExecutor,
-    SequentialBatchExecutor,
-};
+use qubit_batch::{BatchExecutionError, BatchExecutor, SequentialBatchExecutor};
 
 use crate::support::{
-    PanickingProgressReporter,
-    ProgressEvent,
-    ProgressPanicPhase,
-    RecordingProgressReporter,
-    TestTask,
-    panic_payload_message,
+    PanickingProgressReporter, ProgressEvent, ProgressPanicPhase, RecordingProgressReporter,
+    TestTask, panic_payload_message,
 };
 
 #[test]

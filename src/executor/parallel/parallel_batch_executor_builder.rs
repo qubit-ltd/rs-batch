@@ -7,22 +7,16 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{
-    sync::Arc,
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
-use crate::{
-    NoOpProgressReporter,
-    ParallelBatchExecutor,
-    ParallelBatchExecutorBuildError,
-    ProgressReporter,
-};
+use crate::{NoOpProgressReporter, ProgressReporter};
+
+use super::{ParallelBatchExecutor, ParallelBatchExecutorBuildError};
 
 /// Builder for [`ParallelBatchExecutor`].
 pub struct ParallelBatchExecutorBuilder {
     /// Number of worker threads used for parallel executions.
-    num_threads: usize,
+    thread_count: usize,
     /// Maximum batch size that still uses sequential execution.
     sequential_threshold: usize,
     /// Minimum interval between progress callbacks.
@@ -36,14 +30,14 @@ impl ParallelBatchExecutorBuilder {
     ///
     /// # Parameters
     ///
-    /// * `num_threads` - Number of scoped worker threads to use.
+    /// * `thread_count` - Number of scoped worker threads to use.
     ///
     /// # Returns
     ///
     /// This builder for fluent configuration.
     #[inline]
-    pub const fn num_threads(mut self, num_threads: usize) -> Self {
-        self.num_threads = num_threads;
+    pub const fn thread_count(mut self, thread_count: usize) -> Self {
+        self.thread_count = thread_count;
         self
     }
 
@@ -133,14 +127,14 @@ impl ParallelBatchExecutorBuilder {
     /// Returns [`ParallelBatchExecutorBuildError`] when the worker count or
     /// report interval is zero.
     pub fn build(self) -> Result<ParallelBatchExecutor, ParallelBatchExecutorBuildError> {
-        if self.num_threads == 0 {
+        if self.thread_count == 0 {
             return Err(ParallelBatchExecutorBuildError::ZeroThreadCount);
         }
         if self.report_interval.is_zero() {
             return Err(ParallelBatchExecutorBuildError::ZeroReportInterval);
         }
         Ok(ParallelBatchExecutor {
-            num_threads: self.num_threads,
+            thread_count: self.thread_count,
             sequential_threshold: self.sequential_threshold,
             report_interval: self.report_interval,
             reporter: self.reporter,
@@ -154,10 +148,11 @@ impl Default for ParallelBatchExecutorBuilder {
     /// # Returns
     ///
     /// A builder using available parallelism, five-second progress intervals,
-    /// sequential fallback for single-item batches, and no-op reporting.
+    /// sequential fallback for batches at or below [`ParallelBatchExecutor::DEFAULT_SEQUENTIAL_THRESHOLD`],
+    /// and no-op reporting.
     fn default() -> Self {
         Self {
-            num_threads: ParallelBatchExecutor::default_num_threads(),
+            thread_count: ParallelBatchExecutor::default_thread_count(),
             sequential_threshold: ParallelBatchExecutor::DEFAULT_SEQUENTIAL_THRESHOLD,
             report_interval: ParallelBatchExecutor::DEFAULT_REPORT_INTERVAL,
             reporter: Arc::new(NoOpProgressReporter),
