@@ -23,32 +23,25 @@
 #![deny(missing_docs)]
 #![deny(unsafe_op_in_unsafe_fn)]
 
-pub mod error;
-pub mod execution;
-pub mod executor;
-pub mod processor;
-pub(crate) mod runtime;
-pub(crate) mod state;
+pub mod execute;
+pub mod process;
+pub(crate) mod utils;
 
-pub use error::{
+pub use execute::{
+    BatchCallResult,
     BatchExecutionError,
-    BatchTaskError,
-    BatchTaskFailure,
-};
-pub use execution::{
+    BatchExecutor,
     BatchOutcome,
     BatchOutcomeBuildError,
     BatchOutcomeBuilder,
-};
-pub use executor::{
-    BatchCallResult,
-    BatchExecutor,
+    BatchTaskError,
+    BatchTaskFailure,
     ParallelBatchExecutor,
     ParallelBatchExecutorBuildError,
     ParallelBatchExecutorBuilder,
     SequentialBatchExecutor,
 };
-pub use processor::{
+pub use process::{
     BatchProcessError,
     BatchProcessResult,
     BatchProcessor,
@@ -56,18 +49,4 @@ pub use processor::{
     ChunkedBatchProcessor,
     ParallelBatchProcessor,
     SequentialBatchProcessor,
-};
-pub use qubit_progress::{
-    model::{
-        ProgressCounters,
-        ProgressEvent,
-        ProgressPhase,
-        ProgressStage,
-    },
-    reporter::{
-        LoggerProgressReporter,
-        NoOpProgressReporter,
-        ProgressReporter,
-        WriterProgressReporter,
-    },
 };

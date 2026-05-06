@@ -15,10 +15,12 @@ use std::{
     sync::Mutex,
 };
 
-use qubit_batch::{
-    ProgressEvent as QubitProgressEvent,
-    ProgressPhase,
-    ProgressReporter,
+use qubit_progress::{
+    model::{
+        ProgressEvent as QubitProgressEvent,
+        ProgressPhase,
+    },
+    reporter::ProgressReporter,
 };
 
 /// Progress callback that should panic during a test.

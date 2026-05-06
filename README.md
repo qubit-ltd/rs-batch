@@ -44,10 +44,8 @@ single-task submission. The crate provides:
   thread.
 - `ParallelBatchExecutor`: fixed-width parallel execution backed by scoped
   standard threads.
-- `ProgressReporter`: `qubit-progress` reporter trait receiving structured
+- Progress reporting accepts the `qubit-progress` `ProgressReporter` trait and
   `ProgressEvent` lifecycle notifications.
-- `WriterProgressReporter` and `LoggerProgressReporter`: concrete reporters
-  re-exported from `qubit-progress` for writers and the `log` crate.
 - `BatchOutcome`: structured batch outcome with failure aggregation and
   monotonic elapsed-duration reporting.
 
@@ -301,10 +299,12 @@ use std::time::Duration;
 
 use qubit_batch::{
     BatchExecutor,
+    SequentialBatchExecutor,
+};
+use qubit_progress::{
     ProgressEvent,
     ProgressPhase,
     ProgressReporter,
-    SequentialBatchExecutor,
 };
 
 struct ConsoleReporter;
@@ -426,12 +426,9 @@ Important result semantics:
   fixed-size chunks and delegates each chunk.
 - `ChunkedBatchProcessError<E>`: chunked processor error for source count
   mismatches or delegate failures, carrying the partial process result.
-- `ProgressReporter`: `qubit-progress` trait receiving `ProgressEvent` values
-  for batch start, periodic progress, and terminal notifications.
-- `NoOpProgressReporter`: default reporter that accepts callbacks without doing
-  any work.
-- `WriterProgressReporter` and `LoggerProgressReporter`: concrete reporters
-  re-exported from `qubit-progress` for writers and `log`.
+- Progress reporting uses `qubit-progress` reporter traits and event types.
+  Add `qubit-progress` as a direct dependency when implementing custom
+  reporters outside this crate.
 - `BatchOutcome<E>`: aggregate result containing task counts, monotonic
   elapsed duration, and detailed task failures.
 - `BatchExecutionError<E>`: batch-level contract error for declared count
@@ -443,19 +440,18 @@ Important result semantics:
 
 ## Project Layout
 
-- `src/executor`: executor traits and the sequential executor implementation.
-- `src/error`: batch execution results, count mismatch errors, task failures,
-  and task panic conversion.
-- `src/processor`: data-item batch processor traits, results, consumer-backed
-  processors, and the chunked processor.
-- `src/progress`: re-exported progress event and reporter types from
-  `qubit-progress`.
-- `tests/executor`: behavior tests for sequential execution, progress callbacks,
-  failures, panics, and count mismatches.
-- `tests/processor`: behavior tests for direct processing, chunking, delegate
+- `src/execute`: batch execution traits, outcomes, count mismatch errors, task
+  failures, and execution adapters.
+- `src/execute/impls`: standard-library batch executor implementations.
+- `src/process`: data-item batch processor traits, results, and processing
+  errors.
+- `src/process/impls`: consumer-backed processors and the chunked processor.
+- `src/utils`: crate-internal utilities shared by execution and processing.
+- `tests/execute`: behavior tests for batch execution, progress callbacks,
+  failures, panics, outcomes, and count mismatches.
+- `tests/process`: behavior tests for direct processing, chunking, delegate
   errors, and progress callbacks.
-- `tests/progress`: behavior tests for concrete progress reporters.
-- `tests/error`: tests for result invariants and error helper methods.
+- `tests/utils`: behavior tests for shared internal utility behavior.
 - `tests/docs`: README consistency checks.
 
 ## Documentation
