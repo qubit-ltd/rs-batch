@@ -72,7 +72,7 @@ fn test_parallel_batch_processor_processes_items() {
     });
 
     let result = processor
-        .process([1, 2, 3, 4], 4)
+        .process(vec![1, 2, 3, 4], 4)
         .expect("parallel processing should succeed");
     let mut values = accepted
         .lock()
@@ -98,7 +98,7 @@ fn test_parallel_batch_processor_accepts_empty_input() {
     });
 
     let result = processor
-        .process([], 0)
+        .process(Vec::<i32>::new(), 0)
         .expect("empty parallel processing should succeed");
 
     assert_eq!(result.item_count(), 0);
@@ -113,7 +113,7 @@ fn test_parallel_batch_processor_uses_configured_thread_count() {
     let max_active_count = ArcAtomic::new(0usize);
     let active_by_consumer = active_count.clone();
     let max_by_consumer = max_active_count.clone();
-    let mut processor = ParallelBatchProcessor::new(move |_item: &usize| {
+    let mut processor = ParallelBatchProcessor::new(move |_item: &i32| {
         let active = active_by_consumer.inc();
         max_by_consumer.fetch_max(active);
         thread::sleep(Duration::from_millis(20));
@@ -122,7 +122,7 @@ fn test_parallel_batch_processor_uses_configured_thread_count() {
     .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"));
 
     let result = processor
-        .process(0..6, 6)
+        .process(vec![0, 1, 2, 3, 4, 5], 6)
         .expect("parallel processing should succeed");
 
     assert_eq!(processor.thread_count(), 2);
@@ -166,7 +166,7 @@ fn test_parallel_batch_processor_reports_count_exceeded() {
     .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"));
 
     let error = processor
-        .process([1, 2, 3], 2)
+        .process(vec![1, 2, 3], 2)
         .expect_err("extra input should be reported");
 
     match error {
@@ -192,7 +192,7 @@ fn test_parallel_batch_processor_reports_count_exceeded_before_first_item() {
     });
 
     let error = processor
-        .process([1], 0)
+        .process(vec![1], 0)
         .expect_err("extra input should be reported before any consumer call");
 
     match error {
@@ -217,7 +217,7 @@ fn test_parallel_batch_processor_reports_count_shortfall() {
         .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"));
 
     let error = processor
-        .process([1, 2], 3)
+        .process(vec![1, 2], 3)
         .expect_err("short input should be reported");
 
     match error {
@@ -244,8 +244,26 @@ fn test_parallel_batch_processor_propagates_consumer_panic() {
     })
     .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"));
 
-    let payload = catch_unwind(AssertUnwindSafe(|| processor.process([1], 1)))
+    let payload = catch_unwind(AssertUnwindSafe(|| processor.process(vec![1], 1)))
         .expect_err("consumer panic should be propagated");
+
+    assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
+}
+
+#[test]
+fn test_parallel_batch_processor_propagates_worker_panic_after_channel_backpressure() {
+    const PANIC_MESSAGE: &str = "parallel processor backpressure panic";
+    let mut processor = ParallelBatchProcessor::new(|item: &i32| {
+        if *item == 0 {
+            panic!("{PANIC_MESSAGE}");
+        }
+    })
+    .with_thread_count(NonZeroUsize::new(1).expect("thread count is non-zero"));
+
+    let payload = catch_unwind(AssertUnwindSafe(|| {
+        processor.process((0..64).collect::<Vec<_>>(), 64)
+    }))
+    .expect_err("worker panic should be propagated without blocking the producer");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }

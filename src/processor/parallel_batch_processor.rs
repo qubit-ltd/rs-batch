@@ -9,20 +9,15 @@
  ******************************************************************************/
 use std::{
     num::NonZeroUsize,
-    panic::resume_unwind,
-    sync::{
-        Arc,
-        Mutex,
-        mpsc,
-    },
+    sync::Arc,
     thread,
-    time::{
-        Duration,
-        Instant,
-    },
+    time::Instant,
 };
 
-use qubit_atomic::ArcAtomicCount;
+use crate::{
+    runtime::run_scoped_parallel,
+    state::BatchProcessState,
+};
 use qubit_function::{
     ArcConsumer,
     Consumer,
@@ -164,27 +159,25 @@ where
         I: IntoIterator<Item = Item>,
     {
         let start = Instant::now();
-        let mut actual_count = 0usize;
-        let processed_count = ArcAtomicCount::zero();
+        let state = Arc::new(BatchProcessState::new(count));
 
         if count > 0 {
-            self.process_non_empty(items, count, &mut actual_count, processed_count.clone());
-        } else {
-            actual_count = observe_zero_count_input(items);
+            self.process_non_empty(items, count, Arc::clone(&state));
+        } else if items.into_iter().next().is_some() {
+            state.record_item_observed();
         }
 
-        let processed_count = processed_count.get();
-        let result = process_result(count, processed_count, start.elapsed());
-        if actual_count < count {
+        let result = state.to_direct_result(start.elapsed());
+        if state.observed_count() < count {
             Err(BatchProcessError::CountShortfall {
                 expected: count,
-                actual: actual_count,
+                actual: state.observed_count(),
                 result,
             })
-        } else if actual_count > count {
+        } else if state.observed_count() > count {
             Err(BatchProcessError::CountExceeded {
                 expected: count,
-                observed_at_least: actual_count,
+                observed_at_least: state.observed_count(),
                 result,
             })
         } else {
@@ -203,144 +196,28 @@ where
     ///
     /// * `items` - Item source for the batch.
     /// * `count` - Declared item count.
-    /// * `actual_count` - Mutable counter updated with the observed item count.
-    /// * `processed_count` - Shared successful consumer-call counter.
+    /// * `state` - Shared processing state updated by producer and workers.
     ///
     /// # Panics
     ///
     /// Propagates any worker panic raised while invoking the stored consumer.
-    fn process_non_empty<I>(
-        &self,
-        items: I,
-        count: usize,
-        actual_count: &mut usize,
-        processed_count: ArcAtomicCount,
-    ) where
+    fn process_non_empty<I>(&self, items: I, count: usize, state: Arc<BatchProcessState>)
+    where
         I: IntoIterator<Item = Item>,
     {
         let worker_count = self.thread_count.get().min(count);
-        thread::scope(|scope| {
-            let (task_sender, task_receiver) = mpsc::channel();
-            let task_receiver = Arc::new(Mutex::new(task_receiver));
-            let mut worker_handles = Vec::with_capacity(worker_count);
-            for _ in 0..worker_count {
-                let worker_receiver = Arc::clone(&task_receiver);
-                let worker_consumer = self.consumer.clone();
-                let worker_processed_count = processed_count.clone();
-                worker_handles.push(scope.spawn(move || {
-                    run_parallel_processor_worker(
-                        worker_receiver,
-                        worker_consumer,
-                        worker_processed_count,
-                    );
-                }));
-            }
-
-            for item in items {
-                if *actual_count == count {
-                    *actual_count += 1;
-                    break;
-                }
-                *actual_count += 1;
-                task_sender
-                    .send(item)
-                    .expect("parallel batch processor workers should accept items");
-            }
-            drop(task_sender);
-
-            for handle in worker_handles {
-                if let Err(payload) = handle.join() {
-                    resume_unwind(payload);
-                }
-            }
-        });
+        let observer_state = Arc::clone(&state);
+        let worker_state = Arc::clone(&state);
+        let consumer = self.consumer.clone();
+        run_scoped_parallel(
+            items,
+            count,
+            worker_count,
+            move || observer_state.record_item_observed(),
+            move |_index, item| {
+                consumer.accept(&item);
+                worker_state.record_item_processed();
+            },
+        );
     }
-}
-
-/// Runs one processor worker until the task channel closes.
-///
-/// # Parameters
-///
-/// * `task_receiver` - Shared receiver protected because standard receivers are
-///   not `Sync`.
-/// * `consumer` - Consumer invoked for every received item.
-/// * `processed_count` - Shared counter incremented after each consumer call.
-///
-/// # Panics
-///
-/// Propagates any panic raised by `consumer`.
-fn run_parallel_processor_worker<Item>(
-    task_receiver: Arc<Mutex<mpsc::Receiver<Item>>>,
-    consumer: ArcConsumer<Item>,
-    processed_count: ArcAtomicCount,
-) {
-    loop {
-        let received = task_receiver
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .recv();
-        let Ok(item) = received else {
-            break;
-        };
-        consumer.accept(&item);
-        processed_count.inc();
-    }
-}
-
-/// Observes whether a zero-count input source contains any extra item.
-///
-/// # Parameters
-///
-/// * `items` - Item source for a batch declared with zero items.
-///
-/// # Returns
-///
-/// `0` when the source is empty, or `1` when at least one excess item exists.
-fn observe_zero_count_input<Item, I>(items: I) -> usize
-where
-    I: IntoIterator<Item = Item>,
-{
-    usize::from(items.into_iter().next().is_some())
-}
-
-/// Builds a process result for a direct consumer-backed processor.
-///
-/// # Parameters
-///
-/// * `item_count` - Declared item count.
-/// * `processed_count` - Number of successful consumer calls.
-/// * `elapsed` - Total elapsed duration for this processing attempt.
-///
-/// # Returns
-///
-/// A process result where direct processors count the whole non-empty attempt as
-/// one logical chunk.
-#[inline]
-const fn process_result(
-    item_count: usize,
-    processed_count: usize,
-    elapsed: Duration,
-) -> BatchProcessResult {
-    BatchProcessResult::new(
-        item_count,
-        processed_count,
-        processed_count,
-        logical_chunk_count(processed_count),
-        elapsed,
-    )
-}
-
-/// Converts processed item count to a logical chunk count.
-///
-/// # Parameters
-///
-/// * `processed_count` - Number of successful consumer calls.
-///
-/// # Returns
-///
-/// `1` for non-empty direct processing attempts, or `0` when no item was
-/// processed.
-#[inline]
-const fn logical_chunk_count(processed_count: usize) -> usize {
-    if processed_count == 0 { 0 } else { 1 }
 }

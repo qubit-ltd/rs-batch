@@ -7,7 +7,8 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-//! Execution result tests.
+//! Internal state behavior tests through public batch APIs.
 
-mod batch_outcome_build_error_tests;
-mod batch_outcome_builder_tests;
+mod batch_counter_tests;
+mod batch_execution_state_tests;
+mod batch_process_state_tests;

@@ -7,7 +7,8 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-//! Execution result tests.
+//! Internal runtime helpers shared by executors and processors.
 
-mod batch_outcome_build_error_tests;
-mod batch_outcome_builder_tests;
+mod scoped_parallel_runner;
+
+pub(crate) use scoped_parallel_runner::run_scoped_parallel;

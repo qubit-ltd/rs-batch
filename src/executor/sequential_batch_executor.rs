@@ -26,7 +26,7 @@ use crate::{
     ProgressPhase,
     ProgressReporter,
     error::panic_payload_to_error,
-    execution::BatchExecutionState,
+    state::BatchExecutionState,
 };
 
 use super::BatchExecutor;
@@ -174,7 +174,7 @@ impl BatchExecutor for SequentialBatchExecutor {
         T: Runnable<E> + Send,
         E: Send + std::fmt::Debug,
     {
-        let mut state = BatchExecutionState::new(count);
+        let state = BatchExecutionState::new(count);
         let mut progress = Progress::new(self.reporter.as_ref(), self.report_interval);
         progress.report_with_elapsed(
             ProgressPhase::Started,
@@ -183,7 +183,8 @@ impl BatchExecutor for SequentialBatchExecutor {
         );
         let mut actual_count = 0;
         for task in tasks {
-            if actual_count == count {
+            actual_count = state.record_task_observed();
+            if actual_count > count {
                 let elapsed = progress.elapsed();
                 progress.report_with_elapsed(
                     ProgressPhase::Failed,
@@ -193,7 +194,7 @@ impl BatchExecutor for SequentialBatchExecutor {
                 let outcome = state.into_outcome(elapsed);
                 return Err(BatchExecutionError::CountExceeded {
                     expected: count,
-                    observed_at_least: count + 1,
+                    observed_at_least: actual_count,
                     outcome,
                 });
             }
@@ -202,12 +203,13 @@ impl BatchExecutor for SequentialBatchExecutor {
             state.record_task_started();
             match catch_unwind(AssertUnwindSafe(|| task.run())) {
                 Ok(Ok(())) => state.record_task_succeeded(),
-                Ok(Err(error)) => state.record_task_failed(actual_count, error),
-                Err(payload) => state
-                    .record_task_panicked(actual_count, panic_payload_to_error(payload.as_ref())),
+                Ok(Err(error)) => state.record_task_failed(actual_count - 1, error),
+                Err(payload) => state.record_task_panicked(
+                    actual_count - 1,
+                    panic_payload_to_error(payload.as_ref()),
+                ),
             }
             // Update the actual task count and report progress if due.
-            actual_count += 1;
             progress.report_running_if_due(state.progress_counters());
         }
 

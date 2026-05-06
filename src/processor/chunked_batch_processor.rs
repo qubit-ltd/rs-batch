@@ -18,9 +18,9 @@ use qubit_progress::Progress;
 
 use crate::{
     NoOpProgressReporter,
-    ProgressCounters,
     ProgressPhase,
     ProgressReporter,
+    state::BatchProcessState,
 };
 
 use super::{
@@ -219,7 +219,7 @@ where
     {
         let reporter = Arc::clone(&self.reporter);
         let mut progress = Progress::new(reporter.as_ref(), self.report_interval);
-        let mut state = ChunkedProcessState::new(count);
+        let state = BatchProcessState::new(count);
         progress.report_with_elapsed(
             ProgressPhase::Started,
             state.progress_counters(),
@@ -229,8 +229,9 @@ where
         let mut chunk = Vec::with_capacity(capacity);
 
         for item in items {
-            if state.actual_count == count {
-                let result = state.to_result(progress.elapsed());
+            let observed_count = state.record_item_observed();
+            if observed_count > count {
+                let result = state.to_chunked_result(progress.elapsed());
                 progress.report_with_elapsed(
                     ProgressPhase::Failed,
                     state.progress_counters(),
@@ -238,23 +239,22 @@ where
                 );
                 return Err(ChunkedBatchProcessError::CountExceeded {
                     expected: count,
-                    observed_at_least: count + 1,
+                    observed_at_least: observed_count,
                     result,
                 });
             }
             chunk.push(item);
-            state.actual_count += 1;
             if chunk.len() == self.chunk_size.get() {
-                self.process_chunk(&mut chunk, &mut state, &mut progress)?;
+                self.process_chunk(&mut chunk, &state, &mut progress)?;
             }
         }
 
         if !chunk.is_empty() {
-            self.process_chunk(&mut chunk, &mut state, &mut progress)?;
+            self.process_chunk(&mut chunk, &state, &mut progress)?;
         }
 
-        let result = state.to_result(progress.elapsed());
-        if state.actual_count < count {
+        let result = state.to_chunked_result(progress.elapsed());
+        if state.observed_count() < count {
             progress.report_with_elapsed(
                 ProgressPhase::Failed,
                 state.progress_counters(),
@@ -262,7 +262,7 @@ where
             );
             Err(ChunkedBatchProcessError::CountShortfall {
                 expected: count,
-                actual: state.actual_count,
+                actual: state.observed_count(),
                 result,
             })
         } else {
@@ -296,26 +296,24 @@ impl<P> ChunkedBatchProcessor<P> {
     fn process_chunk<Item>(
         &mut self,
         chunk: &mut Vec<Item>,
-        state: &mut ChunkedProcessState,
+        state: &BatchProcessState,
         progress: &mut Progress<'_>,
     ) -> Result<(), ChunkedBatchProcessError<P::Error>>
     where
         P: BatchProcessor<Item>,
     {
         let chunk_len = chunk.len();
-        let start_index = state.actual_count - chunk_len;
-        let chunk_index = state.chunk_count;
+        let start_index = state.observed_count() - chunk_len;
+        let chunk_index = state.chunk_count();
         let current_chunk = std::mem::take(chunk);
         match self.delegate.process(current_chunk, chunk_len) {
             Ok(chunk_result) => {
-                state.completed_count += chunk_len;
-                state.processed_count += chunk_result.processed_count();
-                state.chunk_count += 1;
-                progress.report_running_if_due(state.running_progress_counters());
+                state.record_chunk_processed(chunk_len, chunk_result.processed_count());
+                progress.report_running_if_due(state.running_chunk_progress_counters());
                 Ok(())
             }
             Err(source) => {
-                let result = state.to_result(progress.elapsed());
+                let result = state.to_chunked_result(progress.elapsed());
                 progress.report_with_elapsed(
                     ProgressPhase::Failed,
                     state.progress_counters(),
@@ -330,86 +328,5 @@ impl<P> ChunkedBatchProcessor<P> {
                 })
             }
         }
-    }
-}
-
-/// Mutable aggregate state for one chunked processing call.
-struct ChunkedProcessState {
-    /// Declared item count for the logical batch.
-    item_count: usize,
-    /// Actual number of items observed from the source.
-    actual_count: usize,
-    /// Number of items whose chunk returned successfully.
-    completed_count: usize,
-    /// Delegate-reported processed item count.
-    processed_count: usize,
-    /// Number of chunks successfully submitted.
-    chunk_count: usize,
-}
-
-impl ChunkedProcessState {
-    /// Creates empty aggregate state for a declared item count.
-    ///
-    /// # Parameters
-    ///
-    /// * `item_count` - Declared item count for the logical batch.
-    ///
-    /// # Returns
-    ///
-    /// Empty aggregate state.
-    #[inline]
-    const fn new(item_count: usize) -> Self {
-        Self {
-            item_count,
-            actual_count: 0,
-            completed_count: 0,
-            processed_count: 0,
-            chunk_count: 0,
-        }
-    }
-
-    /// Converts this state into a public process result.
-    ///
-    /// # Parameters
-    ///
-    /// * `elapsed` - Monotonic elapsed duration for the processing attempt.
-    ///
-    /// # Returns
-    ///
-    /// A batch process result containing the current counters.
-    #[inline]
-    const fn to_result(&self, elapsed: Duration) -> BatchProcessResult {
-        BatchProcessResult::new(
-            self.item_count,
-            self.completed_count,
-            self.processed_count,
-            self.chunk_count,
-            elapsed,
-        )
-    }
-
-    /// Returns generic progress counters for this processing state.
-    ///
-    /// # Returns
-    ///
-    /// Counters suitable for progress reporting.
-    #[inline]
-    fn progress_counters(&self) -> ProgressCounters {
-        ProgressCounters::new(Some(self.item_count))
-            .with_completed_count(self.completed_count)
-            .with_succeeded_count(self.processed_count)
-    }
-
-    /// Returns progress counters for in-flight chunk completion reports.
-    ///
-    /// # Returns
-    ///
-    /// Counters matching the previous running-event semantics, where a
-    /// successfully accepted chunk marks all of its items as succeeded.
-    #[inline]
-    fn running_progress_counters(&self) -> ProgressCounters {
-        ProgressCounters::new(Some(self.item_count))
-            .with_completed_count(self.completed_count)
-            .with_succeeded_count(self.completed_count)
     }
 }

@@ -7,11 +7,9 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::time::{
-    Duration,
-    Instant,
-};
+use std::time::Instant;
 
+use crate::state::BatchProcessState;
 use qubit_function::{
     BoxConsumer,
     Consumer,
@@ -107,72 +105,31 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
         I: IntoIterator<Item = Item>,
     {
         let start = Instant::now();
-        let mut processed_count = 0usize;
+        let state = BatchProcessState::new(count);
 
         for item in items {
-            if processed_count == count {
-                let result = process_result(count, processed_count, start.elapsed());
+            let observed_count = state.record_item_observed();
+            if observed_count > count {
+                let result = state.to_direct_result(start.elapsed());
                 return Err(BatchProcessError::CountExceeded {
                     expected: count,
-                    observed_at_least: count + 1,
+                    observed_at_least: observed_count,
                     result,
                 });
             }
             self.consumer.accept(&item);
-            processed_count += 1;
+            state.record_item_processed();
         }
 
-        let result = process_result(count, processed_count, start.elapsed());
-        if processed_count < count {
+        let result = state.to_direct_result(start.elapsed());
+        if state.observed_count() < count {
             Err(BatchProcessError::CountShortfall {
                 expected: count,
-                actual: processed_count,
+                actual: state.observed_count(),
                 result,
             })
         } else {
             Ok(result)
         }
     }
-}
-
-/// Builds a process result for a direct consumer-backed processor.
-///
-/// # Parameters
-///
-/// * `item_count` - Declared item count.
-/// * `processed_count` - Number of successful consumer calls.
-/// * `elapsed` - Total elapsed duration for this processing attempt.
-///
-/// # Returns
-///
-/// A process result where direct processors count the whole non-empty attempt as
-/// one logical chunk.
-#[inline]
-const fn process_result(
-    item_count: usize,
-    processed_count: usize,
-    elapsed: Duration,
-) -> BatchProcessResult {
-    BatchProcessResult::new(
-        item_count,
-        processed_count,
-        processed_count,
-        logical_chunk_count(processed_count),
-        elapsed,
-    )
-}
-
-/// Converts processed item count to a logical chunk count.
-///
-/// # Parameters
-///
-/// * `processed_count` - Number of successful consumer calls.
-///
-/// # Returns
-///
-/// `1` for non-empty direct processing attempts, or `0` when no item was
-/// processed.
-#[inline]
-const fn logical_chunk_count(processed_count: usize) -> usize {
-    if processed_count == 0 { 0 } else { 1 }
 }
