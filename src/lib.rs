@@ -30,6 +30,7 @@ pub use execution::{
     BatchExecutionState,
     BatchOutcome,
     BatchOutcomeBuildError,
+    BatchOutcomeBuilder,
 };
 pub use executor::{
     BatchCallResult,

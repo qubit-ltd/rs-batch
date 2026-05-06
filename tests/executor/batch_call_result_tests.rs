@@ -10,24 +10,23 @@
 
 use qubit_batch::{
     BatchCallResult,
-    BatchOutcome,
+    BatchOutcomeBuilder,
     BatchTaskError,
     BatchTaskFailure,
 };
-use std::time::Duration;
 
 #[test]
 fn test_batch_call_result_accessors_and_parts() {
-    let outcome = BatchOutcome::<&'static str>::try_new(
-        2,
-        2,
-        1,
-        0,
-        1,
-        Duration::ZERO,
-        vec![BatchTaskFailure::new(1, BatchTaskError::panicked("panic"))],
-    )
-    .expect("outcome should be valid");
+    let outcome = BatchOutcomeBuilder::<&'static str>::builder(2)
+        .completed_count(2)
+        .succeeded_count(1)
+        .panicked_count(1)
+        .failures(vec![BatchTaskFailure::new(
+            1,
+            BatchTaskError::panicked("panic"),
+        )])
+        .build()
+        .expect("outcome should be valid");
     let result = BatchCallResult::new(outcome.clone(), vec![Some(10), None]);
 
     assert_eq!(result.outcome(), &outcome);

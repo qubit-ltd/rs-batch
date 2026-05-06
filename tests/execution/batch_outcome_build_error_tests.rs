@@ -9,14 +9,16 @@
  ******************************************************************************/
 
 use qubit_batch::{
-    BatchOutcome,
     BatchOutcomeBuildError,
+    BatchOutcomeBuilder,
 };
-use std::time::Duration;
 
 #[test]
 fn test_batch_outcome_build_error_terminal_count_mismatch() {
-    let error = BatchOutcome::<&'static str>::try_new(2, 2, 1, 0, 0, Duration::ZERO, Vec::new())
+    let error = BatchOutcomeBuilder::<&'static str>::builder(2)
+        .completed_count(2)
+        .succeeded_count(1)
+        .build()
         .expect_err("terminal count mismatch should be rejected");
 
     assert!(matches!(

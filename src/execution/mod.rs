@@ -12,7 +12,9 @@
 mod batch_execution_state;
 mod batch_outcome;
 mod batch_outcome_build_error;
+mod batch_outcome_builder;
 
 pub use batch_execution_state::BatchExecutionState;
 pub use batch_outcome::BatchOutcome;
 pub use batch_outcome_build_error::BatchOutcomeBuildError;
+pub use batch_outcome_builder::BatchOutcomeBuilder;
