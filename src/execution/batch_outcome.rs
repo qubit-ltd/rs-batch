@@ -13,8 +13,7 @@ use std::{
 };
 
 use crate::{
-    BatchOutcomeBuildError,
-    BatchTaskError,
+    BatchOutcomeBuilder,
     BatchTaskFailure,
 };
 
@@ -38,96 +37,25 @@ pub struct BatchOutcome<E> {
 }
 
 impl<E> BatchOutcome<E> {
-    /// Tries to create a new batch outcome.
+    /// Creates a new batch outcome from a validated builder.
     ///
     /// # Parameters
     ///
-    /// * `task_count` - Declared task count for the batch.
-    /// * `completed_count` - Number of tasks that finished.
-    /// * `succeeded_count` - Number of tasks that succeeded.
-    /// * `failed_count` - Number of tasks that returned their own error.
-    /// * `panicked_count` - Number of tasks that panicked.
-    /// * `elapsed` - Total monotonic elapsed duration.
-    /// * `failures` - Detailed task failure records.
+    /// * `builder` - Validated outcome builder carrying all outcome fields.
     ///
     /// # Returns
     ///
-    /// `Ok(outcome)` with failures sorted by task index when the counters and
-    /// failure details are consistent.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`BatchOutcomeBuildError`] when the supplied counters are
-    /// inconsistent.
-    pub fn try_new(
-        task_count: usize,
-        completed_count: usize,
-        succeeded_count: usize,
-        failed_count: usize,
-        panicked_count: usize,
-        elapsed: Duration,
-        failures: Vec<BatchTaskFailure<E>>,
-    ) -> Result<Self, BatchOutcomeBuildError> {
-        validate_outcome_invariants(
-            task_count,
-            completed_count,
-            succeeded_count,
-            failed_count,
-            panicked_count,
-            &failures,
-        )?;
-        let mut failures = failures;
-        failures.sort_by_key(|failure| failure.index());
-        Ok(Self {
-            task_count,
-            completed_count,
-            succeeded_count,
-            failed_count,
-            panicked_count,
-            elapsed,
-            failures,
-        })
-    }
-
-    /// Creates a new batch outcome for executor-internal use.
-    ///
-    /// # Parameters
-    ///
-    /// * `task_count` - Declared task count for the batch.
-    /// * `completed_count` - Number of tasks that finished.
-    /// * `succeeded_count` - Number of tasks that succeeded.
-    /// * `failed_count` - Number of tasks that returned their own error.
-    /// * `panicked_count` - Number of tasks that panicked.
-    /// * `elapsed` - Total monotonic elapsed duration.
-    /// * `failures` - Detailed task failure records.
-    ///
-    /// # Returns
-    ///
-    /// A fully populated batch outcome with failures sorted by task index.
-    ///
-    /// # Panics
-    ///
-    /// Panics when the executor supplies inconsistent counters.
-    #[track_caller]
-    pub(crate) fn from_validated_parts(
-        task_count: usize,
-        completed_count: usize,
-        succeeded_count: usize,
-        failed_count: usize,
-        panicked_count: usize,
-        elapsed: Duration,
-        failures: Vec<BatchTaskFailure<E>>,
-    ) -> Self {
-        Self::try_new(
-            task_count,
-            completed_count,
-            succeeded_count,
-            failed_count,
-            panicked_count,
-            elapsed,
-            failures,
-        )
-        .expect("batch outcome invariants must hold")
+    /// A fully populated batch outcome.
+    pub fn new(builder: BatchOutcomeBuilder<E>) -> Self {
+        Self {
+            task_count: builder.task_count,
+            completed_count: builder.completed_count,
+            succeeded_count: builder.succeeded_count,
+            failed_count: builder.failed_count,
+            panicked_count: builder.panicked_count,
+            elapsed: builder.elapsed,
+            failures: builder.failures,
+        }
     }
 
     /// Returns the declared task count for this batch.
@@ -245,82 +173,4 @@ impl<E> fmt::Display for BatchOutcome<E> {
             self.elapsed(),
         )
     }
-}
-
-/// Validates all counters and failure details for a batch outcome.
-fn validate_outcome_invariants<E>(
-    task_count: usize,
-    completed_count: usize,
-    succeeded_count: usize,
-    failed_count: usize,
-    panicked_count: usize,
-    failures: &[BatchTaskFailure<E>],
-) -> Result<(), BatchOutcomeBuildError> {
-    let failure_count = failed_count.checked_add(panicked_count).ok_or(
-        BatchOutcomeBuildError::FailureCountOverflow {
-            failed_count,
-            panicked_count,
-        },
-    )?;
-    let terminal_count = succeeded_count.checked_add(failure_count).ok_or(
-        BatchOutcomeBuildError::TerminalCountOverflow {
-            succeeded_count,
-            failure_count,
-        },
-    )?;
-
-    if completed_count > task_count {
-        return Err(BatchOutcomeBuildError::CompletedCountExceeded {
-            task_count,
-            completed_count,
-        });
-    }
-    if terminal_count != completed_count {
-        return Err(BatchOutcomeBuildError::TerminalCountMismatch {
-            completed_count,
-            terminal_count,
-            succeeded_count,
-            failed_count,
-            panicked_count,
-        });
-    }
-    if failures.len() != failure_count {
-        return Err(BatchOutcomeBuildError::FailureDetailCountMismatch {
-            expected: failure_count,
-            actual: failures.len(),
-        });
-    }
-    validate_failure_details(task_count, failed_count, panicked_count, failures)
-}
-
-/// Validates detailed failure records against aggregate counters.
-fn validate_failure_details<E>(
-    task_count: usize,
-    failed_count: usize,
-    panicked_count: usize,
-    failures: &[BatchTaskFailure<E>],
-) -> Result<(), BatchOutcomeBuildError> {
-    let mut observed_failed_count = 0usize;
-    let mut observed_panicked_count = 0usize;
-    for failure in failures {
-        if failure.index() >= task_count {
-            return Err(BatchOutcomeBuildError::FailureIndexOutOfRange {
-                index: failure.index(),
-                task_count,
-            });
-        }
-        match failure.error() {
-            BatchTaskError::Failed(_) => observed_failed_count += 1,
-            BatchTaskError::Panicked { .. } => observed_panicked_count += 1,
-        }
-    }
-    if observed_failed_count != failed_count || observed_panicked_count != panicked_count {
-        return Err(BatchOutcomeBuildError::FailureVariantCountMismatch {
-            expected_failed: failed_count,
-            actual_failed: observed_failed_count,
-            expected_panicked: panicked_count,
-            actual_panicked: observed_panicked_count,
-        });
-    }
-    Ok(())
 }

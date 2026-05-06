@@ -16,6 +16,7 @@ use qubit_progress::model::ProgressCounters;
 
 use crate::{
     BatchOutcome,
+    BatchOutcomeBuilder,
     BatchTaskError,
     BatchTaskFailure,
 };
@@ -128,15 +129,15 @@ impl<E> BatchExecutionState<E> {
     ///
     /// The final or partial outcome represented by this state.
     pub fn into_outcome(self, elapsed: Duration) -> BatchOutcome<E> {
-        BatchOutcome::from_validated_parts(
-            self.task_count,
-            self.completed_count,
-            self.succeeded_count,
-            self.failed_count,
-            self.panicked_count,
-            elapsed,
-            self.failures,
-        )
+        BatchOutcomeBuilder::builder(self.task_count)
+            .completed_count(self.completed_count)
+            .succeeded_count(self.succeeded_count)
+            .failed_count(self.failed_count)
+            .panicked_count(self.panicked_count)
+            .elapsed(elapsed)
+            .failures(self.failures)
+            .build()
+            .expect("batch execution state should collect consistent counters")
     }
 
     /// Returns the declared task count.
