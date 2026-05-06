@@ -1,6 +1,6 @@
 [package]
 name = "qubit-batch"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2024"
 rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
@@ -13,11 +13,15 @@ readme = "README.md"
 keywords = ["batch", "progress", "executor", "sequential"]
 categories = ["concurrency", "development-tools"]
 exclude = [
+    ".gitignore",
+    ".gitmodules",
+    ".rs-ci/**",
     "coverage.sh",
     "check-coverage-thresholds.sh",
     ".circleci/*",
     "align-ci.sh",
     "ci-check.sh",
+    "style-check.sh",
 ]
 
 [lib]
