@@ -17,6 +17,7 @@ use std::{
 };
 
 use qubit_function::Runnable;
+use qubit_progress::ProgressRun;
 
 use crate::{
     BatchExecutionError,
@@ -25,7 +26,6 @@ use crate::{
     NoOpProgressReporter,
     ProgressPhase,
     ProgressReporter,
-    ProgressRun,
     error::panic_payload_to_error,
 };
 

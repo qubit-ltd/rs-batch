@@ -14,12 +14,13 @@ use std::{
     time::Duration,
 };
 
+use qubit_progress::ProgressRun;
+
 use crate::{
     NoOpProgressReporter,
     ProgressCounters,
     ProgressPhase,
     ProgressReporter,
-    ProgressRun,
 };
 
 use super::{
