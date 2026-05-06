@@ -7,7 +7,12 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-//! Execution result tests.
+//! Internal batch execution and processing state.
 
-mod batch_outcome_build_error_tests;
-mod batch_outcome_builder_tests;
+mod batch_counter;
+mod batch_execution_state;
+mod batch_process_state;
+
+pub(crate) use batch_counter::BatchCounter;
+pub(crate) use batch_execution_state::BatchExecutionState;
+pub(crate) use batch_process_state::BatchProcessState;

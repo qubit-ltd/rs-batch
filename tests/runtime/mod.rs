@@ -7,7 +7,6 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-//! Execution result tests.
+//! Runtime helper behavior tests through public batch APIs.
 
-mod batch_outcome_build_error_tests;
-mod batch_outcome_builder_tests;
+mod scoped_parallel_runner_tests;

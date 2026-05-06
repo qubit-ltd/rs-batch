@@ -10,10 +10,15 @@
 use std::fmt;
 use std::panic::resume_unwind;
 use std::sync::Arc;
-use std::sync::Mutex;
-use std::sync::mpsc;
+use std::sync::mpsc::{
+    self,
+    RecvTimeoutError,
+};
 use std::thread;
-use std::time::Duration;
+use std::time::{
+    Duration,
+    Instant,
+};
 
 use qubit_function::Runnable;
 use qubit_progress::Progress;
@@ -23,17 +28,15 @@ use crate::BatchOutcome;
 use crate::ProgressCounters;
 use crate::ProgressPhase;
 use crate::ProgressReporter;
+use crate::runtime::run_scoped_parallel;
+use crate::state::BatchExecutionState;
 
 use crate::executor::BatchExecutor;
 use crate::executor::SequentialBatchExecutor;
 
 use super::ParallelBatchExecutorBuildError;
 use super::ParallelBatchExecutorBuilder;
-use super::indexed_task::IndexedTask;
-use super::indexed_task::run_parallel_worker;
-use super::parallel_batch_progress_state::ParallelBatchProgressState;
-use super::parallel_batch_progress_state::run_progress_loop;
-use super::parallel_batch_result_state::ParallelBatchResultState;
+use super::indexed_task::run_parallel_task;
 
 /// Fixed-width parallel batch executor backed by scoped standard threads.
 ///
@@ -207,12 +210,11 @@ impl BatchExecutor for ParallelBatchExecutor {
             return self.sequential_executor().execute(tasks, count);
         }
 
-        let progress_state = Arc::new(ParallelBatchProgressState::new());
-        let result_state = Arc::new(ParallelBatchResultState::new());
+        let state = Arc::new(BatchExecutionState::new(count));
         let progress = Progress::new(self.reporter.as_ref(), self.report_interval);
         progress.report_with_elapsed(
             ProgressPhase::Started,
-            progress_state.progress_counters(count),
+            state.progress_counters(),
             Duration::ZERO,
         );
         let start = progress.started_at();
@@ -223,13 +225,12 @@ impl BatchExecutor for ParallelBatchExecutor {
             let (stop_sender, stop_receiver) = mpsc::channel();
             let progress_handle = {
                 let progress_reporter = Arc::clone(&self.reporter);
-                let reporter_state = Arc::clone(&progress_state);
+                let reporter_state = Arc::clone(&state);
                 let report_interval = self.report_interval;
                 scope.spawn(move || {
                     run_progress_loop(
                         progress_reporter,
                         reporter_state,
-                        count,
                         start,
                         report_interval,
                         stop_receiver,
@@ -237,51 +238,27 @@ impl BatchExecutor for ParallelBatchExecutor {
                 })
             };
 
-            let (task_sender, task_receiver) = mpsc::sync_channel(worker_count);
-            let task_receiver = Arc::new(Mutex::new(task_receiver));
-            let mut worker_handles = Vec::with_capacity(worker_count);
-            for _ in 0..worker_count {
-                let worker_receiver = Arc::clone(&task_receiver);
-                let worker_progress_state = Arc::clone(&progress_state);
-                let worker_result_state = Arc::clone(&result_state);
-                worker_handles.push(scope.spawn(move || {
-                    run_parallel_worker(
-                        worker_receiver,
-                        worker_progress_state,
-                        worker_result_state,
-                    );
-                }));
-            }
-
-            for task in tasks {
-                if actual_count == count {
-                    actual_count += 1;
-                    break;
-                }
-                let index = actual_count;
-                actual_count += 1;
-                task_sender
-                    .send(IndexedTask { index, task })
-                    .expect("parallel batch workers should accept tasks");
-            }
-            drop(task_sender);
-
-            for handle in worker_handles {
-                if let Err(payload) = handle.join() {
-                    resume_unwind(payload);
-                }
-            }
+            let observer_state = Arc::clone(&state);
+            let worker_state = Arc::clone(&state);
+            actual_count = run_scoped_parallel(
+                tasks,
+                count,
+                worker_count,
+                move || observer_state.record_task_observed(),
+                move |index, task| {
+                    run_parallel_task(&worker_state, index, task);
+                },
+            );
             let _ = stop_sender.send(());
             if let Err(payload) = progress_handle.join() {
                 resume_unwind(payload);
             }
         });
 
-        let completed_count = progress_state.completed_count();
         let elapsed = progress.elapsed();
-        let result = Arc::into_inner(result_state)
-            .expect("parallel batch result state should have a single owner")
-            .into_outcome(count, completed_count, elapsed);
+        let result = Arc::into_inner(state)
+            .expect("parallel batch execution state should have a single owner")
+            .into_outcome(elapsed);
 
         if actual_count < count {
             progress.report_with_elapsed(
@@ -321,4 +298,33 @@ fn outcome_progress_counters<E>(outcome: &BatchOutcome<E>) -> ProgressCounters {
         .with_completed_count(outcome.completed_count())
         .with_succeeded_count(outcome.succeeded_count())
         .with_failed_count(outcome.failure_count())
+}
+
+/// Runs the periodic progress loop for one parallel batch execution.
+///
+/// # Parameters
+///
+/// * `reporter` - Reporter receiving progress callbacks.
+/// * `state` - Shared batch state read by the reporting loop.
+/// * `start` - Batch start time.
+/// * `report_interval` - Delay between progress callbacks.
+/// * `stop_receiver` - Stop signal receiver used by the caller thread.
+fn run_progress_loop<E>(
+    reporter: Arc<dyn ProgressReporter>,
+    state: Arc<BatchExecutionState<E>>,
+    start: Instant,
+    report_interval: Duration,
+    stop_receiver: mpsc::Receiver<()>,
+) {
+    let progress = Progress::from_start(reporter.as_ref(), report_interval, start);
+    loop {
+        match stop_receiver.recv_timeout(report_interval) {
+            Ok(()) | Err(RecvTimeoutError::Disconnected) => break,
+            Err(RecvTimeoutError::Timeout) => progress.report_with_elapsed(
+                ProgressPhase::Running,
+                state.progress_counters(),
+                start.elapsed(),
+            ),
+        }
+    }
 }

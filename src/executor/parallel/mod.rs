@@ -13,8 +13,6 @@ mod indexed_task;
 mod parallel_batch_executor;
 mod parallel_batch_executor_build_error;
 mod parallel_batch_executor_builder;
-mod parallel_batch_progress_state;
-mod parallel_batch_result_state;
 
 pub use parallel_batch_executor::ParallelBatchExecutor;
 pub use parallel_batch_executor_build_error::ParallelBatchExecutorBuildError;
