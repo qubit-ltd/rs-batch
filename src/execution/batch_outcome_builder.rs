@@ -7,7 +7,10 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::time::Duration;
+use std::{
+    collections::HashSet,
+    time::Duration,
+};
 
 use crate::{
     BatchOutcomeBuildError,
@@ -243,11 +246,17 @@ fn validate_failure_details<E>(
 ) -> Result<(), BatchOutcomeBuildError> {
     let mut observed_failed_count = 0usize;
     let mut observed_panicked_count = 0usize;
+    let mut observed_indexes = HashSet::with_capacity(failures.len());
     for failure in failures {
         if failure.index() >= task_count {
             return Err(BatchOutcomeBuildError::FailureIndexOutOfRange {
                 index: failure.index(),
                 task_count,
+            });
+        }
+        if !observed_indexes.insert(failure.index()) {
+            return Err(BatchOutcomeBuildError::DuplicateFailureIndex {
+                index: failure.index(),
             });
         }
         match failure.error() {
