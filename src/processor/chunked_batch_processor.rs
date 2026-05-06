@@ -17,7 +17,7 @@ use std::{
     },
 };
 
-use crate::progress::{
+use crate::{
     NoOpProgressReporter,
     ProgressCounters,
     ProgressEvent,

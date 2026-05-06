@@ -25,14 +25,12 @@ use crate::{
     BatchExecutionError,
     BatchExecutionState,
     BatchOutcome,
+    NoOpProgressReporter,
+    ProgressCounters,
+    ProgressEvent,
+    ProgressPhase,
+    ProgressReporter,
     error::panic_payload_to_error,
-    progress::{
-        NoOpProgressReporter,
-        ProgressCounters,
-        ProgressEvent,
-        ProgressPhase,
-        ProgressReporter,
-    },
 };
 
 use super::BatchExecutor;
