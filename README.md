@@ -38,6 +38,8 @@ single-task submission. The crate provides:
   delegate processor.
 - `SequentialBatchExecutor`: deterministic, in-order execution on the caller
   thread.
+- `ParallelBatchExecutor`: fixed-width parallel execution backed by scoped
+  standard threads.
 - `ProgressReporter`: `qubit-progress` reporter trait receiving structured
   `ProgressEvent` lifecycle notifications.
 - `WriterProgressReporter` and `LoggerProgressReporter`: concrete reporters
@@ -59,7 +61,8 @@ Rayon-backed parallel batch execution lives in the companion
   execution.
 - Detect declared task-count mismatches and return the partial result collected
   before the mismatch was observed.
-- Keep the core API free of runtime-specific dependencies.
+- Keep the core API free of runtime-specific dependencies while still offering
+  a standard-library parallel executor.
 
 ## Installation
 
@@ -354,12 +357,15 @@ Important result semantics:
 
 - `SequentialBatchExecutor::new()` is deterministic and runs tasks on the caller
   thread in iterator order.
+- `ParallelBatchExecutor::default()` uses available CPU parallelism and scoped
+  standard threads, so tasks may borrow data from the caller.
 - `BatchOutcome::failures()` returns failure records sorted by task
   index.
 - `BatchTaskFailure::index()` is zero-based and refers to the task's position in
   the batch.
-- The core crate intentionally avoids runtime dependencies. Use the companion
-  `qubit-rayon-batch` crate when you need Rayon-backed parallel execution.
+- The core crate intentionally avoids runtime dependencies. Use
+  `ParallelBatchExecutor` for a standard-library fixed-width executor, or the
+  companion `qubit-rayon-batch` crate when you need Rayon-backed CPU execution.
 
 ## Public API Cheat Sheet
 
@@ -369,6 +375,8 @@ Important result semantics:
   summary and indexed success values.
 - `SequentialBatchExecutor`: default executor that runs tasks sequentially on the
   caller thread.
+- `ParallelBatchExecutor`: fixed-width scoped-thread executor for parallel
+  batch execution without a runtime dependency.
 - `BatchProcessor`: trait for processing a declared batch of data items.
 - `BatchProcessResult`: aggregate result containing item, processed, chunk, and
   monotonic elapsed-duration counters.

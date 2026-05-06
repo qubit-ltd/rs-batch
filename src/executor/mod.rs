@@ -14,8 +14,14 @@ mod batch_call_result;
 mod batch_executor;
 mod callable_task;
 mod for_each_task;
+mod parallel_batch_executor;
 mod sequential_batch_executor;
 
 pub use batch_call_result::BatchCallResult;
 pub use batch_executor::BatchExecutor;
+pub use parallel_batch_executor::{
+    ParallelBatchExecutor,
+    ParallelBatchExecutorBuildError,
+    ParallelBatchExecutorBuilder,
+};
 pub use sequential_batch_executor::SequentialBatchExecutor;

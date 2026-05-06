@@ -41,6 +41,9 @@ pub use execution::{
 pub use executor::{
     BatchCallResult,
     BatchExecutor,
+    ParallelBatchExecutor,
+    ParallelBatchExecutorBuildError,
+    ParallelBatchExecutorBuilder,
     SequentialBatchExecutor,
 };
 pub use processor::{
