@@ -12,6 +12,26 @@
 //! This crate focuses on one-shot execution of whole task batches rather than
 //! single-task submission services.
 //!
+//! Core types are re-exported from the crate root, so callers can import the
+//! executor trait, result type, and concrete implementation together.
+//!
+//! ```rust
+//! use qubit_batch::{
+//!     BatchExecutor,
+//!     BatchOutcome,
+//!     SequentialBatchExecutor,
+//! };
+//!
+//! let outcome: BatchOutcome<&'static str> = SequentialBatchExecutor::new()
+//!     .for_each([1, 2, 3], 3, |value| {
+//!         assert!(value > 0);
+//!         Ok::<(), &'static str>(())
+//!     })
+//!     .expect("iterator should yield exactly three items");
+//!
+//! assert!(outcome.is_success());
+//! ```
+//!
 //! Executor state machines are internal implementation details and are not
 //! part of the public crate-root API.
 //!
