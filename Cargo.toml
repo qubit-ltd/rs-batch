@@ -6,11 +6,11 @@ rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
 license = "Apache-2.0"
 repository = "https://github.com/qubit-ltd/rs-batch"
-description = "Batch task execution abstractions and sequential executor with progress reporting"
+description = "One-shot batch execution and processing with sequential and scoped parallel utilities"
 homepage = "https://github.com/qubit-ltd/rs-batch"
 documentation = "https://docs.rs/qubit-batch"
 readme = "README.md"
-keywords = ["batch", "progress", "executor", "sequential"]
+keywords = ["batch", "progress", "executor", "parallel", "processing"]
 categories = ["concurrency", "development-tools"]
 exclude = [
     ".gitignore",
