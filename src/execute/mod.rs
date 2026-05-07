@@ -24,7 +24,7 @@ pub mod impls;
 
 pub use batch_call_result::BatchCallResult;
 pub use batch_execution_error::BatchExecutionError;
-pub(crate) use batch_execution_state::BatchExecutionState;
+pub use batch_execution_state::BatchExecutionState;
 pub use batch_executor::BatchExecutor;
 pub use batch_outcome::BatchOutcome;
 pub use batch_outcome_build_error::BatchOutcomeBuildError;
