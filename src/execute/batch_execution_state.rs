@@ -24,7 +24,7 @@ use crate::{
 };
 
 /// Shared state collected while a batch executor is running.
-pub(crate) struct BatchExecutionState<E> {
+pub struct BatchExecutionState<E> {
     /// Declared task count.
     task_count: usize,
     /// Number of tasks observed from the source.
@@ -54,7 +54,7 @@ impl<E> BatchExecutionState<E> {
     ///
     /// Empty execution state.
     #[inline]
-    pub(crate) const fn new(task_count: usize) -> Self {
+    pub const fn new(task_count: usize) -> Self {
         Self {
             task_count,
             observed_count: AtomicCount::zero(),
@@ -73,13 +73,13 @@ impl<E> BatchExecutionState<E> {
     ///
     /// The observed task count after this task was recorded.
     #[inline]
-    pub(crate) fn record_task_observed(&self) -> usize {
+    pub fn record_task_observed(&self) -> usize {
         self.observed_count.inc()
     }
 
     /// Records that one task has started.
     #[inline]
-    pub(crate) fn record_task_started(&self) {
+    pub fn record_task_started(&self) {
         self.active_count.inc();
     }
 
@@ -89,7 +89,7 @@ impl<E> BatchExecutionState<E> {
     ///
     /// Panics if no active task was recorded for this completion.
     #[inline]
-    pub(crate) fn record_task_succeeded(&self) {
+    pub fn record_task_succeeded(&self) {
         self.active_count.dec();
         self.completed_count.inc();
         self.succeeded_count.inc();
@@ -106,7 +106,7 @@ impl<E> BatchExecutionState<E> {
     ///
     /// Panics if no active task was recorded for this completion.
     #[inline]
-    pub(crate) fn record_task_failed(&self, index: usize, error: E) {
+    pub fn record_task_failed(&self, index: usize, error: E) {
         self.active_count.dec();
         self.completed_count.inc();
         self.failed_count.inc();
@@ -125,7 +125,7 @@ impl<E> BatchExecutionState<E> {
     ///
     /// Panics if no active task was recorded for this completion.
     #[inline]
-    pub(crate) fn record_task_panicked(&self, index: usize, error: BatchTaskError<E>) {
+    pub fn record_task_panicked(&self, index: usize, error: BatchTaskError<E>) {
         self.active_count.dec();
         self.completed_count.inc();
         self.panicked_count.inc();
@@ -138,7 +138,7 @@ impl<E> BatchExecutionState<E> {
     ///
     /// Counters suitable for progress reporting.
     #[inline]
-    pub(crate) fn progress_counters(&self) -> ProgressCounters {
+    pub fn progress_counters(&self) -> ProgressCounters {
         ProgressCounters::new(Some(self.task_count))
             .with_active_count(self.active_count.get())
             .with_completed_count(self.completed_count.get())
@@ -160,7 +160,7 @@ impl<E> BatchExecutionState<E> {
     ///
     /// The final or partial outcome represented by this state.
     #[inline]
-    pub(crate) fn into_outcome(self, elapsed: Duration) -> BatchOutcome<E> {
+    pub fn into_outcome(self, elapsed: Duration) -> BatchOutcome<E> {
         let failures = self
             .failures
             .into_inner()

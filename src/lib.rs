@@ -32,12 +32,9 @@
 //! assert!(outcome.is_success());
 //! ```
 //!
-//! Executor state machines are internal implementation details and are not
-//! part of the public crate-root API.
-//!
-//! ```compile_fail
-//! use qubit_batch::BatchExecutionState;
-//! ```
+//! [`BatchExecutionState`] is public so runtime-specific executor crates can
+//! reuse the same accounting and outcome-building rules as the built-in
+//! executors.
 //!
 //! # Progress Interval Semantics
 //!
@@ -64,6 +61,7 @@ pub(crate) mod utils;
 pub use execute::{
     BatchCallResult,
     BatchExecutionError,
+    BatchExecutionState,
     BatchExecutor,
     BatchOutcome,
     BatchOutcomeBuildError,
