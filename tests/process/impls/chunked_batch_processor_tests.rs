@@ -231,6 +231,41 @@ fn test_chunked_batch_processor_reports_count_exceeded() {
 }
 
 #[test]
+fn test_chunked_batch_processor_flushes_tail_chunk_before_count_exceeded() {
+    let delegate = RecordingProcessor::default();
+    let chunks = delegate.chunks();
+    let mut processor = ChunkedBatchProcessor::new(
+        delegate,
+        NonZeroUsize::new(2).expect("chunk size is non-zero"),
+    );
+
+    let error = processor
+        .process([1, 2, 3, 4], 3)
+        .expect_err("extra input should be reported after flushing declared tail");
+
+    match error {
+        ChunkedBatchProcessError::CountExceeded {
+            expected,
+            observed_at_least,
+            result,
+        } => {
+            assert_eq!(expected, 3);
+            assert_eq!(observed_at_least, 4);
+            assert_eq!(result.completed_count(), 3);
+            assert_eq!(result.processed_count(), 3);
+            assert_eq!(result.chunk_count(), 2);
+            assert_eq!(
+                *chunks
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner),
+                vec![vec![1, 2], vec![3]]
+            );
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
 fn test_chunked_batch_processor_reports_count_exceeded_before_first_chunk() {
     let delegate = RecordingProcessor::default();
     let mut processor = ChunkedBatchProcessor::new(
