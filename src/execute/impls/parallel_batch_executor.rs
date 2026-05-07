@@ -7,7 +7,6 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::fmt;
 use std::panic::resume_unwind;
 use std::sync::Arc;
 use std::sync::mpsc::{
@@ -49,6 +48,33 @@ use super::indexed_task::run_parallel_task;
 /// shuts them down before [`BatchExecutor::execute`] returns. Because the
 /// workers are scoped to the call, tasks may borrow data from the caller and do
 /// not need to be `'static`.
+///
+/// [`Default`] uses [`Self::DEFAULT_SEQUENTIAL_THRESHOLD`], so batches with at
+/// most 100 declared tasks run through [`SequentialBatchExecutor`] to avoid
+/// thread setup overhead. Configure `sequential_threshold(0)` through
+/// [`Self::builder`] when every non-empty batch should use parallel workers.
+///
+/// ```rust
+/// use qubit_batch::{
+///     BatchExecutor,
+///     ParallelBatchExecutor,
+/// };
+///
+/// let executor = ParallelBatchExecutor::builder()
+///     .thread_count(2)
+///     .sequential_threshold(0)
+///     .build()
+///     .expect("parallel executor configuration should be valid");
+///
+/// let outcome = executor
+///     .for_each(0..4, 4, |value| {
+///         assert!(value < 4);
+///         Ok::<(), &'static str>(())
+///     })
+///     .expect("range length should match the declared count");
+///
+/// assert!(outcome.is_success());
+/// ```
 #[derive(Clone)]
 pub struct ParallelBatchExecutor {
     /// Number of worker threads used for parallel executions.
@@ -65,7 +91,7 @@ impl ParallelBatchExecutor {
     /// Default interval between progress callbacks.
     pub const DEFAULT_REPORT_INTERVAL: Duration = Duration::from_secs(5);
 
-    /// Default sequential fallback threshold.
+    /// Default maximum batch size that still uses sequential execution.
     pub const DEFAULT_SEQUENTIAL_THRESHOLD: usize = 100;
 
     /// Returns the default worker-thread count.
@@ -209,7 +235,7 @@ impl BatchExecutor for ParallelBatchExecutor {
     where
         I: IntoIterator<Item = T>,
         T: Runnable<E> + Send,
-        E: Send + fmt::Debug,
+        E: Send,
     {
         if count <= self.sequential_threshold || self.thread_count <= 1 {
             return self.sequential_executor().execute(tasks, count);

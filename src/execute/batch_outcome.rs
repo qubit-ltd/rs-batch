@@ -22,6 +22,22 @@ use crate::{
 /// Create outcomes through [`BatchOutcomeBuilder::build`] so counters and
 /// failure details are validated before the outcome exists.
 ///
+/// ```rust
+/// use qubit_batch::{
+///     BatchOutcome,
+///     BatchOutcomeBuilder,
+/// };
+///
+/// let outcome: BatchOutcome<&'static str> = BatchOutcomeBuilder::builder(2)
+///     .completed_count(2)
+///     .succeeded_count(2)
+///     .build()
+///     .expect("outcome counters should be consistent");
+///
+/// assert!(outcome.is_success());
+/// assert_eq!(outcome.failure_count(), 0);
+/// ```
+///
 /// ```compile_fail
 /// use qubit_batch::{
 ///     BatchOutcome,

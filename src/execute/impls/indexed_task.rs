@@ -7,7 +7,6 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::fmt;
 use std::panic::{
     AssertUnwindSafe,
     catch_unwind,
@@ -30,7 +29,7 @@ use crate::execute::{
 pub(crate) fn run_parallel_task<T, E>(state: &BatchExecutionState<E>, index: usize, mut task: T)
 where
     T: Runnable<E>,
-    E: Send + fmt::Debug,
+    E: Send,
 {
     state.record_task_started();
     let outcome = catch_unwind(AssertUnwindSafe(|| task.run()));

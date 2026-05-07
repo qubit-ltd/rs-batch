@@ -41,6 +41,21 @@ use crate::{
 /// Progress updates are emitted only between tasks. A long-running single task
 /// therefore does not produce intermediate sequential progress callbacks.
 ///
+/// ```rust
+/// use qubit_batch::{
+///     BatchExecutor,
+///     SequentialBatchExecutor,
+/// };
+///
+/// let outcome = SequentialBatchExecutor::new()
+///     .for_each(["a", "b", "c"], 3, |item| {
+///         assert!(!item.is_empty());
+///         Ok::<(), &'static str>(())
+///     })
+///     .expect("iterator should yield exactly three items");
+///
+/// assert!(outcome.is_success());
+/// ```
 #[derive(Clone)]
 pub struct SequentialBatchExecutor {
     /// Interval between progress callbacks while the batch is running.
@@ -177,7 +192,7 @@ impl BatchExecutor for SequentialBatchExecutor {
     where
         I: IntoIterator<Item = T>,
         T: Runnable<E> + Send,
-        E: Send + std::fmt::Debug,
+        E: Send,
     {
         let state = BatchExecutionState::new(count);
         let mut progress = Progress::new(self.reporter.as_ref(), self.report_interval);

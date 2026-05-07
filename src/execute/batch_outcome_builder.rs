@@ -19,6 +19,32 @@ use crate::{
 };
 
 /// Builder carrying validated parts for a [`crate::BatchOutcome`].
+///
+/// The builder checks aggregate counters, failure detail count, duplicate
+/// indexes, and failed-versus-panicked detail counts before creating an
+/// outcome.
+///
+/// ```rust
+/// use qubit_batch::{
+///     BatchOutcomeBuilder,
+///     BatchTaskError,
+///     BatchTaskFailure,
+/// };
+///
+/// let outcome = BatchOutcomeBuilder::builder(2)
+///     .completed_count(2)
+///     .succeeded_count(1)
+///     .failed_count(1)
+///     .failures(vec![BatchTaskFailure::new(
+///         1,
+///         BatchTaskError::Failed("invalid row"),
+///     )])
+///     .build()
+///     .expect("outcome counters should match failure details");
+///
+/// assert_eq!(outcome.failed_count(), 1);
+/// assert_eq!(outcome.failures()[0].index(), 1);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BatchOutcomeBuilder<E> {
     /// Declared task count for the batch.

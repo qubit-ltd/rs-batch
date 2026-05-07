@@ -24,6 +24,7 @@ use qubit_batch::{
     BatchExecutor,
     SequentialBatchExecutor,
 };
+use qubit_function::Runnable;
 
 use crate::support::{
     PanickingProgressReporter,
@@ -52,6 +53,17 @@ fn test_sequential_batch_executor_executes_successfully() {
     assert_eq!(result.completed_count(), 3);
     assert_eq!(result.succeeded_count(), 3);
     assert_eq!(result.failure_count(), 0);
+}
+
+#[test]
+fn test_sequential_batch_executor_accepts_non_debug_errors() {
+    let executor = SequentialBatchExecutor::new();
+    let result = executor.execute([NonDebugTask], 1);
+
+    match result {
+        Ok(outcome) => assert!(outcome.is_success()),
+        Err(_) => panic!("non-debug task error type should be accepted"),
+    }
 }
 
 #[test]
@@ -232,4 +244,21 @@ fn test_sequential_batch_executor_propagates_progress_reporter_finish_panic() {
         .expect_err("progress reporter finish panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
+}
+
+/// Error type that intentionally does not implement [`std::fmt::Debug`].
+struct NonDebugError;
+
+/// Runnable task used to prove executor APIs do not require debug errors.
+struct NonDebugTask;
+
+impl Runnable<NonDebugError> for NonDebugTask {
+    /// Runs successfully without constructing the non-debug error.
+    ///
+    /// # Returns
+    ///
+    /// Always returns `Ok(())`.
+    fn run(&mut self) -> Result<(), NonDebugError> {
+        Ok(())
+    }
 }
