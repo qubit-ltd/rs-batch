@@ -35,3 +35,24 @@ fn test_chunked_batch_process_error_result_accessors() {
     assert!(error.to_string().contains("batch chunk 1 failed"));
     assert_eq!(error.into_result(), result);
 }
+
+#[test]
+fn test_chunked_batch_process_error_invalid_result_into_result() {
+    let result = BatchProcessResult::builder(4)
+        .completed_count(2)
+        .processed_count(2)
+        .chunk_count(1)
+        .elapsed(Duration::from_millis(10))
+        .build()
+        .expect("process result counters should be valid");
+    let error = ChunkedBatchProcessError::<&'static str>::InvalidChunkResult {
+        chunk_index: 1,
+        start_index: 2,
+        chunk_len: 2,
+        item_count: 3,
+        completed_count: 2,
+        result: result.clone(),
+    };
+
+    assert_eq!(error.into_result(), result);
+}

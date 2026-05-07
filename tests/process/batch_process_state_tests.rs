@@ -17,6 +17,8 @@ use qubit_batch::{
     SequentialBatchProcessor,
 };
 
+use crate::support::TestChunkProcessor;
+
 #[test]
 fn test_batch_process_state_builds_direct_and_chunked_results() {
     let mut direct = SequentialBatchProcessor::new(|_item: &usize| {});
@@ -24,13 +26,13 @@ fn test_batch_process_state_builds_direct_and_chunked_results() {
         .process([1usize, 2usize, 3usize], 3)
         .expect("direct processing should succeed");
 
-    let delegate = SequentialBatchProcessor::new(|_item: &usize| {});
+    let delegate = TestChunkProcessor::success();
     let mut chunked = ChunkedBatchProcessor::new(
         delegate,
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
     );
     let chunked_result = chunked
-        .process([1usize, 2usize, 3usize], 3)
+        .process([1i32, 2i32, 3i32], 3)
         .expect("chunked processing should succeed");
 
     assert_eq!(direct_result.completed_count(), 3);

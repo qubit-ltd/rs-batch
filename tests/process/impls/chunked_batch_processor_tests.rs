@@ -13,10 +13,7 @@ use std::{
     error::Error,
     fmt,
     num::NonZeroUsize,
-    sync::{
-        Arc,
-        Mutex,
-    },
+    sync::Arc,
     time::Duration,
 };
 
@@ -31,44 +28,13 @@ use qubit_progress::reporter::NoOpProgressReporter;
 use crate::support::{
     ProgressEvent,
     RecordingProgressReporter,
+    TestChunkOutcome,
+    TestChunkProcessor,
 };
-
-#[derive(Debug, Default)]
-struct RecordingProcessor {
-    chunks: Arc<Mutex<Vec<Vec<i32>>>>,
-}
-
-impl RecordingProcessor {
-    fn chunks(&self) -> Arc<Mutex<Vec<Vec<i32>>>> {
-        Arc::clone(&self.chunks)
-    }
-}
-
-impl BatchProcessor<i32> for RecordingProcessor {
-    type Error = &'static str;
-
-    fn process<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
-    where
-        I: IntoIterator<Item = i32>,
-    {
-        let chunk = items.into_iter().collect::<Vec<_>>();
-        assert_eq!(chunk.len(), count);
-        self.chunks
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .push(chunk);
-        Ok(BatchProcessResult::builder(count)
-            .completed_count(count)
-            .processed_count(count)
-            .chunk_count(if count == 0 { 0 } else { 1 })
-            .build()
-            .expect("recording processor result counters should be valid"))
-    }
-}
 
 #[test]
 fn test_chunked_batch_processor_accessors_and_delegate_mutation() {
-    let delegate = RecordingProcessor::default();
+    let delegate = TestChunkProcessor::success();
     let chunks = delegate.chunks();
     let mut processor = ChunkedBatchProcessor::new(
         delegate,
@@ -89,7 +55,7 @@ fn test_chunked_batch_processor_accessors_and_delegate_mutation() {
 
 #[test]
 fn test_chunked_batch_processor_submits_items_in_chunks() {
-    let delegate = RecordingProcessor::default();
+    let delegate = TestChunkProcessor::success();
     let chunks = delegate.chunks();
     let mut processor = ChunkedBatchProcessor::new(
         delegate,
@@ -114,7 +80,7 @@ fn test_chunked_batch_processor_submits_items_in_chunks() {
 
 #[test]
 fn test_chunked_batch_processor_accepts_empty_input() {
-    let delegate = RecordingProcessor::default();
+    let delegate = TestChunkProcessor::success();
     let chunks = delegate.chunks();
     let mut processor = ChunkedBatchProcessor::new(
         delegate,
@@ -139,7 +105,7 @@ fn test_chunked_batch_processor_accepts_empty_input() {
 
 #[test]
 fn test_chunked_batch_processor_reports_progress() {
-    let delegate = RecordingProcessor::default();
+    let delegate = TestChunkProcessor::success();
     let reporter = Arc::new(RecordingProgressReporter::new());
     let mut processor = ChunkedBatchProcessor::new(
         delegate,
@@ -177,7 +143,7 @@ fn test_chunked_batch_processor_reports_progress() {
 
 #[test]
 fn test_chunked_batch_processor_skips_progress_before_interval() {
-    let delegate = RecordingProcessor::default();
+    let delegate = TestChunkProcessor::success();
     let reporter = Arc::new(RecordingProgressReporter::new());
     let mut processor = ChunkedBatchProcessor::new(
         delegate,
@@ -205,7 +171,7 @@ fn test_chunked_batch_processor_skips_progress_before_interval() {
 
 #[test]
 fn test_chunked_batch_processor_reports_count_exceeded() {
-    let delegate = RecordingProcessor::default();
+    let delegate = TestChunkProcessor::success();
     let mut processor = ChunkedBatchProcessor::new(
         delegate,
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
@@ -232,7 +198,7 @@ fn test_chunked_batch_processor_reports_count_exceeded() {
 
 #[test]
 fn test_chunked_batch_processor_flushes_tail_chunk_before_count_exceeded() {
-    let delegate = RecordingProcessor::default();
+    let delegate = TestChunkProcessor::success();
     let chunks = delegate.chunks();
     let mut processor = ChunkedBatchProcessor::new(
         delegate,
@@ -267,7 +233,7 @@ fn test_chunked_batch_processor_flushes_tail_chunk_before_count_exceeded() {
 
 #[test]
 fn test_chunked_batch_processor_reports_count_exceeded_before_first_chunk() {
-    let delegate = RecordingProcessor::default();
+    let delegate = TestChunkProcessor::success();
     let mut processor = ChunkedBatchProcessor::new(
         delegate,
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
@@ -294,7 +260,7 @@ fn test_chunked_batch_processor_reports_count_exceeded_before_first_chunk() {
 
 #[test]
 fn test_chunked_batch_processor_reports_count_shortfall() {
-    let delegate = RecordingProcessor::default();
+    let delegate = TestChunkProcessor::success();
     let mut processor = ChunkedBatchProcessor::new(
         delegate,
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
@@ -381,71 +347,13 @@ fn test_chunked_batch_process_error_helpers_and_display() {
     assert!(shortfall.source().is_none());
     assert!(exceeded.source().is_none());
     assert_eq!(invalid.result(), &result);
+    assert_eq!(invalid.clone().into_result(), result);
     assert_eq!(
         invalid.to_string(),
         "batch chunk 1 returned invalid result at item 2: expected 2 completed items, got item_count 2, completed_count 1"
     );
     assert!(invalid.source().is_none());
     assert_eq!(failed.into_result(), result);
-}
-
-#[derive(Debug)]
-struct FailingProcessor;
-
-impl BatchProcessor<i32> for FailingProcessor {
-    type Error = &'static str;
-
-    fn process<I>(&mut self, _items: I, _count: usize) -> Result<BatchProcessResult, Self::Error>
-    where
-        I: IntoIterator<Item = i32>,
-    {
-        Err("insert failed")
-    }
-}
-
-#[derive(Debug)]
-struct FailingSecondChunkProcessor {
-    calls: usize,
-}
-
-impl BatchProcessor<i32> for FailingSecondChunkProcessor {
-    type Error = &'static str;
-
-    fn process<I>(&mut self, _items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
-    where
-        I: IntoIterator<Item = i32>,
-    {
-        if self.calls == 0 {
-            self.calls += 1;
-            Ok(BatchProcessResult::builder(count)
-                .completed_count(count)
-                .processed_count(count)
-                .chunk_count(if count == 0 { 0 } else { 1 })
-                .build()
-                .expect("first chunk result counters should be valid"))
-        } else {
-            Err("partial insert failed")
-        }
-    }
-}
-
-#[derive(Debug)]
-struct InvalidChunkResultProcessor;
-
-impl BatchProcessor<i32> for InvalidChunkResultProcessor {
-    type Error = &'static str;
-
-    fn process<I>(&mut self, _items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
-    where
-        I: IntoIterator<Item = i32>,
-    {
-        Ok(BatchProcessResult::builder(count)
-            .completed_count(count - 1)
-            .processed_count(count - 1)
-            .chunk_count(1)
-            .build()
-            .expect("partial delegate result counters should be valid"))
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -462,7 +370,7 @@ impl Error for TestProcessorError {}
 #[test]
 fn test_chunked_batch_processor_wraps_delegate_error() {
     let mut processor = ChunkedBatchProcessor::new(
-        FailingProcessor,
+        TestChunkProcessor::with_outcomes([TestChunkOutcome::Failure("insert failed")]),
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
     );
 
@@ -491,7 +399,10 @@ fn test_chunked_batch_processor_wraps_delegate_error() {
 #[test]
 fn test_chunked_batch_processor_wraps_partial_chunk_error() {
     let mut processor = ChunkedBatchProcessor::new(
-        FailingSecondChunkProcessor { calls: 0 },
+        TestChunkProcessor::with_outcomes([
+            TestChunkOutcome::Success,
+            TestChunkOutcome::Failure("partial insert failed"),
+        ]),
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
     );
 
@@ -521,7 +432,7 @@ fn test_chunked_batch_processor_wraps_partial_chunk_error() {
 #[test]
 fn test_chunked_batch_processor_rejects_invalid_delegate_result() {
     let mut processor = ChunkedBatchProcessor::new(
-        InvalidChunkResultProcessor,
+        TestChunkProcessor::with_outcomes([TestChunkOutcome::InvalidCompletedCount]),
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
     );
 
@@ -543,6 +454,39 @@ fn test_chunked_batch_processor_rejects_invalid_delegate_result() {
             assert_eq!(chunk_len, 2);
             assert_eq!(item_count, 2);
             assert_eq!(completed_count, 1);
+            assert_eq!(result.completed_count(), 0);
+            assert_eq!(result.processed_count(), 0);
+            assert_eq!(result.chunk_count(), 0);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn test_chunked_batch_processor_rejects_invalid_delegate_item_count() {
+    let mut processor = ChunkedBatchProcessor::new(
+        TestChunkProcessor::with_outcomes([TestChunkOutcome::InvalidItemCount]),
+        NonZeroUsize::new(2).expect("chunk size is non-zero"),
+    );
+
+    let error = processor
+        .process([1, 2], 2)
+        .expect_err("delegate result should describe the submitted chunk");
+
+    match error {
+        ChunkedBatchProcessError::InvalidChunkResult {
+            chunk_index,
+            start_index,
+            chunk_len,
+            item_count,
+            completed_count,
+            result,
+        } => {
+            assert_eq!(chunk_index, 0);
+            assert_eq!(start_index, 0);
+            assert_eq!(chunk_len, 2);
+            assert_eq!(item_count, 3);
+            assert_eq!(completed_count, 2);
             assert_eq!(result.completed_count(), 0);
             assert_eq!(result.processed_count(), 0);
             assert_eq!(result.chunk_count(), 0);

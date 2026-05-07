@@ -11,6 +11,7 @@
 
 mod progress_reporter;
 mod test_callable;
+mod test_chunk_processor;
 mod test_task;
 
 pub use progress_reporter::{
@@ -21,4 +22,8 @@ pub use progress_reporter::{
     panic_payload_message,
 };
 pub use test_callable::TestCallable;
+pub use test_chunk_processor::{
+    TestChunkOutcome,
+    TestChunkProcessor,
+};
 pub use test_task::TestTask;
