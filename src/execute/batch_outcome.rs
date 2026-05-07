@@ -12,6 +12,8 @@ use std::{
     time::Duration,
 };
 
+use qubit_progress::model::ProgressCounters;
+
 use crate::{
     BatchOutcomeBuilder,
     BatchTaskFailure,
@@ -146,6 +148,23 @@ impl<E> BatchOutcome<E> {
     #[inline]
     pub const fn failure_count(&self) -> usize {
         self.failed_count + self.panicked_count
+    }
+
+    /// Builds generic progress counters from this outcome for terminal progress
+    /// reporting.
+    ///
+    /// # Returns
+    ///
+    /// Counters with total set to [`Self::task_count`], completed to
+    /// [`Self::completed_count`], succeeded to [`Self::succeeded_count`], and
+    /// failed to [`Self::failure_count`] (errors plus panics). Active count
+    /// stays zero because the batch has finished.
+    #[inline]
+    pub fn progress_counters(&self) -> ProgressCounters {
+        ProgressCounters::new(Some(self.task_count()))
+            .with_completed_count(self.completed_count())
+            .with_succeeded_count(self.succeeded_count())
+            .with_failed_count(self.failure_count())
     }
 
     /// Returns the total monotonic elapsed duration.

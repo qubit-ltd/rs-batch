@@ -22,10 +22,7 @@ use std::time::{
 use qubit_function::Runnable;
 use qubit_progress::{
     Progress,
-    model::{
-        ProgressCounters,
-        ProgressPhase,
-    },
+    model::ProgressPhase,
     reporter::ProgressReporter,
 };
 
@@ -307,7 +304,7 @@ impl BatchExecutor for ParallelBatchExecutor {
         if actual_count < count {
             progress.report_with_elapsed(
                 ProgressPhase::Failed,
-                outcome_progress_counters(&result),
+                result.progress_counters(),
                 result.elapsed(),
             );
             Err(BatchExecutionError::CountShortfall {
@@ -318,7 +315,7 @@ impl BatchExecutor for ParallelBatchExecutor {
         } else if actual_count > count {
             progress.report_with_elapsed(
                 ProgressPhase::Failed,
-                outcome_progress_counters(&result),
+                result.progress_counters(),
                 result.elapsed(),
             );
             Err(BatchExecutionError::CountExceeded {
@@ -329,19 +326,12 @@ impl BatchExecutor for ParallelBatchExecutor {
         } else {
             progress.report_with_elapsed(
                 ProgressPhase::Finished,
-                outcome_progress_counters(&result),
+                result.progress_counters(),
                 result.elapsed(),
             );
             Ok(result)
         }
     }
-}
-
-fn outcome_progress_counters<E>(outcome: &BatchOutcome<E>) -> ProgressCounters {
-    ProgressCounters::new(Some(outcome.task_count()))
-        .with_completed_count(outcome.completed_count())
-        .with_succeeded_count(outcome.succeeded_count())
-        .with_failed_count(outcome.failure_count())
 }
 
 /// Runs the periodic progress loop for one parallel batch execution.
