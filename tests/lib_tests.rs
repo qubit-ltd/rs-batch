@@ -16,9 +16,9 @@ use qubit_batch::execute::{
 };
 use qubit_batch::process::impls::SequentialBatchProcessor as ProcessSequentialBatchProcessor;
 use qubit_batch::process::{
+    BatchProcessResult as ProcessBatchProcessResult,
     BatchProcessResultBuildError as ProcessBatchProcessResultBuildError,
     BatchProcessResultBuilder as ProcessBatchProcessResultBuilder,
-    BatchProcessResult as ProcessBatchProcessResult,
     BatchProcessor as ProcessBatchProcessor,
 };
 use qubit_batch::{

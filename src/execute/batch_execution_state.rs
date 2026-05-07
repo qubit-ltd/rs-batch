@@ -143,7 +143,11 @@ impl<E> BatchExecutionState<E> {
             .with_active_count(self.active_count.get())
             .with_completed_count(self.completed_count.get())
             .with_succeeded_count(self.succeeded_count.get())
-            .with_failed_count(self.failed_count.get().saturating_add(self.panicked_count.get()))
+            .with_failed_count(
+                self.failed_count
+                    .get()
+                    .saturating_add(self.panicked_count.get()),
+            )
     }
 
     /// Consumes this state and builds a batch outcome.

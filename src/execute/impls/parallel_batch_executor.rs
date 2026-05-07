@@ -367,8 +367,9 @@ fn run_progress_loop<E>(
             ProgressLoopWait::Signal(ProgressLoopSignal::RunningPoint) => {
                 progress.report_running_if_due(state.progress_counters());
             }
-            ProgressLoopWait::Signal(ProgressLoopSignal::Stop)
-            | ProgressLoopWait::Disconnected => break,
+            ProgressLoopWait::Signal(ProgressLoopSignal::Stop) | ProgressLoopWait::Disconnected => {
+                break;
+            }
             ProgressLoopWait::Timeout => {
                 progress.report_running_if_due(state.progress_counters());
             }
