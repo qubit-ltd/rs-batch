@@ -16,7 +16,13 @@ use std::time::Duration;
 
 #[test]
 fn test_chunked_batch_process_error_result_accessors() {
-    let result = BatchProcessResult::new(4, 2, 2, 2, Duration::from_millis(10));
+    let result = BatchProcessResult::builder(4)
+        .completed_count(2)
+        .processed_count(2)
+        .chunk_count(2)
+        .elapsed(Duration::from_millis(10))
+        .build()
+        .expect("process result counters should be valid");
     let error = ChunkedBatchProcessError::ChunkFailed {
         chunk_index: 1,
         start_index: 2,

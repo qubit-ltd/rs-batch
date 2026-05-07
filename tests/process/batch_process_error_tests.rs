@@ -18,7 +18,13 @@ use qubit_batch::{
 
 #[test]
 fn test_batch_process_error_helpers_and_display() {
-    let result = BatchProcessResult::new(3, 1, 1, 1, Duration::from_millis(5));
+    let result = BatchProcessResult::builder(3)
+        .completed_count(1)
+        .processed_count(1)
+        .chunk_count(1)
+        .elapsed(Duration::from_millis(5))
+        .build()
+        .expect("process result counters should be valid");
     let shortfall = BatchProcessError::CountShortfall {
         expected: 3,
         actual: 1,

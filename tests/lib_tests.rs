@@ -9,8 +9,6 @@
  ******************************************************************************/
 //! Tests for the crate-level public API layout.
 
-use std::time::Duration;
-
 use qubit_batch::execute::impls::SequentialBatchExecutor as ExecuteSequentialBatchExecutor;
 use qubit_batch::execute::{
     BatchExecutor as ExecuteBatchExecutor,
@@ -18,6 +16,8 @@ use qubit_batch::execute::{
 };
 use qubit_batch::process::impls::SequentialBatchProcessor as ProcessSequentialBatchProcessor;
 use qubit_batch::process::{
+    BatchProcessResultBuildError as ProcessBatchProcessResultBuildError,
+    BatchProcessResultBuilder as ProcessBatchProcessResultBuilder,
     BatchProcessResult as ProcessBatchProcessResult,
     BatchProcessor as ProcessBatchProcessor,
 };
@@ -25,6 +25,8 @@ use qubit_batch::{
     BatchExecutor,
     BatchOutcome,
     BatchProcessResult,
+    BatchProcessResultBuildError,
+    BatchProcessResultBuilder,
     BatchProcessor,
     SequentialBatchExecutor,
     SequentialBatchProcessor,
@@ -44,6 +46,10 @@ fn test_core_types_are_exported_from_crate_root_and_grouped_modules() {
 
     let _root_outcome: Option<BatchOutcome<&'static str>> = None;
     let _execute_outcome: Option<ExecuteBatchOutcome<&'static str>> = None;
-    let _root_process_result = BatchProcessResult::new(0, 0, 0, 0, Duration::ZERO);
-    let _process_result = ProcessBatchProcessResult::new(0, 0, 0, 0, Duration::ZERO);
+    let _root_process_result: Option<BatchProcessResult> = None;
+    let _process_result: Option<ProcessBatchProcessResult> = None;
+    let _root_process_result_builder = BatchProcessResultBuilder::builder(0);
+    let _process_result_builder = ProcessBatchProcessResultBuilder::builder(0);
+    let _root_process_result_build_error: Option<BatchProcessResultBuildError> = None;
+    let _process_result_build_error: Option<ProcessBatchProcessResultBuildError> = None;
 }

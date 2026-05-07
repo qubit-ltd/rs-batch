@@ -64,6 +64,8 @@ pub use execute::{
 pub use process::{
     BatchProcessError,
     BatchProcessResult,
+    BatchProcessResultBuildError,
+    BatchProcessResultBuilder,
     BatchProcessor,
     ChunkedBatchProcessError,
     ChunkedBatchProcessor,

@@ -57,13 +57,12 @@ impl BatchProcessor<i32> for RecordingProcessor {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .push(chunk);
-        Ok(BatchProcessResult::new(
-            count,
-            count,
-            count,
-            1,
-            Duration::ZERO,
-        ))
+        Ok(BatchProcessResult::builder(count)
+            .completed_count(count)
+            .processed_count(count)
+            .chunk_count(if count == 0 { 0 } else { 1 })
+            .build()
+            .expect("recording processor result counters should be valid"))
     }
 }
 
@@ -287,7 +286,13 @@ fn test_chunked_batch_processor_reports_count_shortfall() {
 
 #[test]
 fn test_chunked_batch_process_error_helpers_and_display() {
-    let result = BatchProcessResult::new(3, 1, 1, 1, Duration::from_millis(5));
+    let result = BatchProcessResult::builder(3)
+        .completed_count(1)
+        .processed_count(1)
+        .chunk_count(1)
+        .elapsed(Duration::from_millis(5))
+        .build()
+        .expect("process result counters should be valid");
     let shortfall = ChunkedBatchProcessError::<TestProcessorError>::CountShortfall {
         expected: 3,
         actual: 1,
@@ -363,13 +368,12 @@ impl BatchProcessor<i32> for FailingSecondChunkProcessor {
     {
         if self.calls == 0 {
             self.calls += 1;
-            Ok(BatchProcessResult::new(
-                count,
-                count,
-                count,
-                1,
-                Duration::ZERO,
-            ))
+            Ok(BatchProcessResult::builder(count)
+                .completed_count(count)
+                .processed_count(count)
+                .chunk_count(if count == 0 { 0 } else { 1 })
+                .build()
+                .expect("first chunk result counters should be valid"))
         } else {
             Err("partial insert failed")
         }

@@ -12,6 +12,8 @@ use std::{
     time::Duration,
 };
 
+use crate::BatchProcessResultBuilder;
+
 /// Structured result produced by a batch processor.
 ///
 /// The result distinguishes completed input items from successfully processed
@@ -22,9 +24,15 @@ use std::{
 /// ```rust
 /// use std::time::Duration;
 ///
-/// use qubit_batch::BatchProcessResult;
+/// use qubit_batch::BatchProcessResultBuilder;
 ///
-/// let result = BatchProcessResult::new(3, 3, 3, 1, Duration::ZERO);
+/// let result = BatchProcessResultBuilder::builder(3)
+///     .completed_count(3)
+///     .processed_count(3)
+///     .chunk_count(1)
+///     .elapsed(Duration::ZERO)
+///     .build()
+///     .expect("process result counters should be consistent");
 ///
 /// assert!(result.is_success());
 /// assert_eq!(result.item_count(), 3);
@@ -45,35 +53,38 @@ pub struct BatchProcessResult {
 }
 
 impl BatchProcessResult {
-    /// Creates a new batch process result.
+    /// Starts building a batch process result.
     ///
     /// # Parameters
     ///
     /// * `item_count` - Declared item count for the batch.
-    /// * `completed_count` - Number of input items that reached a terminal
-    ///   processing outcome.
-    /// * `processed_count` - Number of items reported as successfully
-    ///   processed.
-    /// * `chunk_count` - Number of chunks submitted by the processor.
-    /// * `elapsed` - Total monotonic elapsed duration.
     ///
     /// # Returns
     ///
-    /// A batch process result with the supplied counters.
+    /// A result builder initialized with zero counters and zero elapsed time.
     #[inline]
-    pub const fn new(
-        item_count: usize,
-        completed_count: usize,
-        processed_count: usize,
-        chunk_count: usize,
-        elapsed: Duration,
-    ) -> Self {
+    pub const fn builder(item_count: usize) -> BatchProcessResultBuilder {
+        BatchProcessResultBuilder::builder(item_count)
+    }
+
+    /// Creates a new batch process result from a validated builder.
+    ///
+    /// # Parameters
+    ///
+    /// * `builder` - Validated process result builder carrying all result
+    ///   fields.
+    ///
+    /// # Returns
+    ///
+    /// A fully populated batch process result.
+    #[inline]
+    pub(crate) const fn new(builder: BatchProcessResultBuilder) -> Self {
         Self {
-            item_count,
-            completed_count,
-            processed_count,
-            chunk_count,
-            elapsed,
+            item_count: builder.item_count,
+            completed_count: builder.completed_count,
+            processed_count: builder.processed_count,
+            chunk_count: builder.chunk_count,
+            elapsed: builder.elapsed,
         }
     }
 

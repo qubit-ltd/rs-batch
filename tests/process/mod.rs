@@ -8,6 +8,7 @@
  *
  ******************************************************************************/
 mod batch_process_error_tests;
+mod batch_process_result_builder_tests;
 mod batch_process_result_tests;
 mod batch_process_state_tests;
 mod batch_processor_tests;
