@@ -184,6 +184,7 @@ use std::{
 
 use qubit_batch::{
     BatchProcessResult,
+    BatchProcessResultBuilder,
     BatchProcessor,
     ChunkedBatchProcessor,
 };
@@ -198,13 +199,13 @@ impl BatchProcessor<i32> for InsertChunk {
         I: IntoIterator<Item = i32>,
     {
         let processed = rows.into_iter().count();
-        Ok(BatchProcessResult::new(
-            count,
-            processed,
-            processed,
-            1,
-            Duration::ZERO,
-        ))
+        BatchProcessResultBuilder::builder(count)
+            .completed_count(processed)
+            .processed_count(processed)
+            .chunk_count(1)
+            .elapsed(Duration::ZERO)
+            .build()
+            .map_err(|_| "invalid process result")
     }
 }
 

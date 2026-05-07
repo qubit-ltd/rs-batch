@@ -99,6 +99,16 @@ impl BatchProcessState {
         self.observed_count.get()
     }
 
+    /// Returns the completed item count.
+    ///
+    /// # Returns
+    ///
+    /// The number of input items completed so far.
+    #[inline]
+    pub(crate) fn completed_count(&self) -> usize {
+        self.completed_count.get()
+    }
+
     /// Returns the completed chunk count.
     ///
     /// # Returns
@@ -121,13 +131,13 @@ impl BatchProcessState {
     #[inline]
     pub(crate) fn to_direct_result(&self, elapsed: Duration) -> BatchProcessResult {
         let processed_count = self.processed_count.get();
-        BatchProcessResult::new(
-            self.item_count,
-            self.completed_count.get(),
-            processed_count,
-            logical_chunk_count(processed_count),
-            elapsed,
-        )
+        BatchProcessResult::builder(self.item_count)
+            .completed_count(self.completed_count.get())
+            .processed_count(processed_count)
+            .chunk_count(logical_chunk_count(processed_count))
+            .elapsed(elapsed)
+            .build()
+            .expect("direct batch process state should collect consistent counters")
     }
 
     /// Converts this state into a chunked processor result.
@@ -141,13 +151,13 @@ impl BatchProcessState {
     /// A chunked processor result containing the current counters.
     #[inline]
     pub(crate) fn to_chunked_result(&self, elapsed: Duration) -> BatchProcessResult {
-        BatchProcessResult::new(
-            self.item_count,
-            self.completed_count.get(),
-            self.processed_count.get(),
-            self.chunk_count.get(),
-            elapsed,
-        )
+        BatchProcessResult::builder(self.item_count)
+            .completed_count(self.completed_count.get())
+            .processed_count(self.processed_count.get())
+            .chunk_count(self.chunk_count.get())
+            .elapsed(elapsed)
+            .build()
+            .expect("chunked batch process state should collect consistent counters")
     }
 
     /// Returns generic progress counters for this processing state.

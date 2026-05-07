@@ -25,7 +25,13 @@ use super::BatchProcessResult;
 ///     ChunkedBatchProcessError,
 /// };
 ///
-/// let result = BatchProcessResult::new(4, 2, 2, 1, Duration::ZERO);
+/// let result = BatchProcessResult::builder(4)
+///     .completed_count(2)
+///     .processed_count(2)
+///     .chunk_count(1)
+///     .elapsed(Duration::ZERO)
+///     .build()
+///     .expect("process result counters should be valid");
 /// let error: ChunkedBatchProcessError<&'static str> =
 ///     ChunkedBatchProcessError::ChunkFailed {
 ///         chunk_index: 1,
