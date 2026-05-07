@@ -16,6 +16,28 @@ use super::BatchProcessResult;
 /// The error variants report mismatches between the declared item count and the
 /// number of items yielded by the input source. Each variant carries the partial
 /// result accumulated before the mismatch was detected.
+///
+/// ```rust
+/// use qubit_batch::{
+///     BatchProcessError,
+///     BatchProcessor,
+///     SequentialBatchProcessor,
+/// };
+///
+/// let mut processor = SequentialBatchProcessor::new(|_item: &i32| {});
+/// let error = processor
+///     .process([1], 2)
+///     .expect_err("iterator should yield fewer items than declared");
+///
+/// match error {
+///     BatchProcessError::CountShortfall { expected, actual, result } => {
+///         assert_eq!(expected, 2);
+///         assert_eq!(actual, 1);
+///         assert_eq!(result.completed_count(), 1);
+///     }
+///     BatchProcessError::CountExceeded { .. } => unreachable!(),
+/// }
+/// ```
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum BatchProcessError {
     /// The input source ended before the declared item count was reached.

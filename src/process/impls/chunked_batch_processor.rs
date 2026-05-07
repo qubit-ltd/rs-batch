@@ -40,6 +40,51 @@ use crate::process::{
 ///
 /// * `P` - Delegate processor receiving each chunk.
 ///
+/// ```rust
+/// use std::{
+///     num::NonZeroUsize,
+///     time::Duration,
+/// };
+///
+/// use qubit_batch::{
+///     BatchProcessResult,
+///     BatchProcessor,
+///     ChunkedBatchProcessor,
+/// };
+///
+/// struct InsertChunk;
+///
+/// impl BatchProcessor<i32> for InsertChunk {
+///     type Error = &'static str;
+///
+///     fn process<I>(&mut self, rows: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+///     where
+///         I: IntoIterator<Item = i32>,
+///     {
+///         let processed = rows.into_iter().count();
+///         Ok(BatchProcessResult::new(
+///             count,
+///             processed,
+///             processed,
+///             1,
+///             Duration::ZERO,
+///         ))
+///     }
+/// }
+///
+/// let mut processor = ChunkedBatchProcessor::new(
+///     InsertChunk,
+///     NonZeroUsize::new(2).expect("chunk size should be non-zero"),
+/// );
+///
+/// let result = processor
+///     .process([1, 2, 3, 4, 5], 5)
+///     .expect("iterator should yield exactly five items");
+///
+/// assert_eq!(result.completed_count(), 5);
+/// assert_eq!(result.chunk_count(), 3);
+/// ```
+///
 pub struct ChunkedBatchProcessor<P> {
     /// Delegate processor receiving each chunk.
     delegate: P,

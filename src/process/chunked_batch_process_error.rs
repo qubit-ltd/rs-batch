@@ -13,6 +13,31 @@ use super::BatchProcessResult;
 
 /// Error returned by [`crate::ChunkedBatchProcessor`].
 ///
+/// Count-mismatch variants carry the aggregate result accumulated before the
+/// mismatch was detected. `ChunkFailed` carries the delegate error plus the
+/// aggregate result collected before the failing chunk.
+///
+/// ```rust
+/// use std::time::Duration;
+///
+/// use qubit_batch::{
+///     BatchProcessResult,
+///     ChunkedBatchProcessError,
+/// };
+///
+/// let result = BatchProcessResult::new(4, 2, 2, 1, Duration::ZERO);
+/// let error: ChunkedBatchProcessError<&'static str> =
+///     ChunkedBatchProcessError::ChunkFailed {
+///         chunk_index: 1,
+///         start_index: 2,
+///         chunk_len: 2,
+///         source: "insert failed",
+///         result,
+///     };
+///
+/// assert_eq!(error.result().processed_count(), 2);
+/// ```
+///
 /// # Type Parameters
 ///
 /// * `E` - Error type returned by the delegate processor.
