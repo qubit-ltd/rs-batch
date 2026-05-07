@@ -17,8 +17,4 @@ fn test_parallel_batch_executor_build_error_display_messages() {
         ParallelBatchExecutorBuildError::ZeroThreadCount.to_string(),
         "parallel batch executor thread count must be positive"
     );
-    assert_eq!(
-        ParallelBatchExecutorBuildError::ZeroReportInterval.to_string(),
-        "parallel batch executor report interval must be positive"
-    );
 }

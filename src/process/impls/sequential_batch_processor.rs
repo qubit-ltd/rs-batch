@@ -128,7 +128,9 @@ impl<Item> SequentialBatchProcessor<Item> {
     ///
     /// # Parameters
     ///
-    /// * `report_interval` - Minimum time between progress callbacks.
+    /// * `report_interval` - Minimum time between due-based running progress
+    ///   callbacks. [`Duration::ZERO`] reports at every sequential
+    ///   between-item progress point.
     ///
     /// # Returns
     ///
@@ -145,7 +147,7 @@ impl<Item> SequentialBatchProcessor<Item> {
     ///
     /// # Returns
     ///
-    /// The minimum time between progress callbacks.
+    /// The minimum time between due-based running progress callbacks.
     #[inline]
     pub const fn report_interval(&self) -> Duration {
         self.report_interval

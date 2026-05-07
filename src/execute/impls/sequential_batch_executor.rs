@@ -113,7 +113,9 @@ impl SequentialBatchExecutor {
     ///
     /// # Parameters
     ///
-    /// * `report_interval` - Minimum time between progress callbacks.
+    /// * `report_interval` - Minimum time between due-based running progress
+    ///   callbacks. [`Duration::ZERO`] reports at every sequential
+    ///   between-task progress point.
     ///
     /// # Returns
     ///
@@ -130,7 +132,7 @@ impl SequentialBatchExecutor {
     ///
     /// # Returns
     ///
-    /// The minimum time between progress callbacks.
+    /// The minimum time between due-based running progress callbacks.
     #[inline]
     pub const fn report_interval(&self) -> Duration {
         self.report_interval

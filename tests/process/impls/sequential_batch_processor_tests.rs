@@ -122,6 +122,29 @@ fn test_sequential_batch_processor_reports_progress() {
 }
 
 #[test]
+fn test_sequential_batch_processor_reports_progress_with_zero_interval() {
+    let reporter = Arc::new(RecordingProgressReporter::new());
+    let mut processor = SequentialBatchProcessor::new(|_item: &i32| {})
+        .with_reporter_arc(reporter.clone())
+        .with_report_interval(Duration::ZERO);
+
+    let result = processor
+        .process(vec![1, 2], 2)
+        .expect("sequential processing should succeed");
+    let events = reporter.events();
+
+    assert_eq!(result.completed_count(), 2);
+    assert!(events.iter().any(|event| matches!(
+        event,
+        ProgressEvent::Process {
+            total_count: 2,
+            completed_count,
+            ..
+        } if *completed_count >= 1
+    )));
+}
+
+#[test]
 fn test_sequential_batch_processor_accepts_empty_input() {
     let mut processor = SequentialBatchProcessor::new(|_item: &i32| {
         panic!("empty input should not call the consumer");

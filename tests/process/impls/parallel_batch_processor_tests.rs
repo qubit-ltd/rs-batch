@@ -143,6 +143,30 @@ fn test_parallel_batch_processor_reports_progress() {
 }
 
 #[test]
+fn test_parallel_batch_processor_reports_progress_with_zero_interval() {
+    let reporter = Arc::new(RecordingProgressReporter::new());
+    let mut processor = ParallelBatchProcessor::new(|_item: &i32| {})
+        .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
+        .with_reporter_arc(reporter.clone())
+        .with_report_interval(Duration::ZERO);
+
+    let result = processor
+        .process(vec![1, 2, 3], 3)
+        .expect("parallel processing should succeed");
+    let events = reporter.events();
+
+    assert_eq!(result.completed_count(), 3);
+    assert!(events.iter().any(|event| matches!(
+        event,
+        ProgressEvent::Process {
+            total_count: 3,
+            completed_count,
+            ..
+        } if *completed_count >= 1
+    )));
+}
+
+#[test]
 fn test_parallel_batch_processor_accepts_empty_input() {
     let mut processor = ParallelBatchProcessor::new(|_item: &i32| {
         panic!("empty input should not call the consumer");

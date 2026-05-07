@@ -15,7 +15,9 @@ use super::BatchProcessResult;
 ///
 /// Count-mismatch variants carry the aggregate result accumulated before the
 /// mismatch was detected. `ChunkFailed` carries the delegate error plus the
-/// aggregate result collected before the failing chunk.
+/// aggregate result collected before the failing chunk. `InvalidChunkResult`
+/// means the delegate returned `Ok`, but the returned `item_count` or
+/// `completed_count` did not match the submitted chunk length.
 ///
 /// ```rust
 /// use std::time::Duration;
@@ -88,6 +90,31 @@ pub enum ChunkedBatchProcessError<E> {
         /// Result accumulated before this chunk failed.
         result: BatchProcessResult,
     },
+
+    /// The delegate returned `Ok` with counters that do not describe the
+    /// submitted chunk.
+    ///
+    /// A successful chunk delegate call must report both `item_count` and
+    /// `completed_count` equal to `chunk_len`. A lower `processed_count` is
+    /// allowed, but partial chunk completion should be represented by delegate
+    /// failure instead of an inconsistent success result.
+    #[error(
+        "batch chunk {chunk_index} returned invalid result at item {start_index}: expected {chunk_len} completed items, got item_count {item_count}, completed_count {completed_count}"
+    )]
+    InvalidChunkResult {
+        /// Zero-based chunk index.
+        chunk_index: usize,
+        /// Zero-based source item index where this chunk starts.
+        start_index: usize,
+        /// Number of items submitted in this chunk.
+        chunk_len: usize,
+        /// Delegate-reported declared item count.
+        item_count: usize,
+        /// Delegate-reported completed item count.
+        completed_count: usize,
+        /// Result accumulated before this invalid chunk result was reported.
+        result: BatchProcessResult,
+    },
 }
 
 impl<E> ChunkedBatchProcessError<E> {
@@ -101,7 +128,8 @@ impl<E> ChunkedBatchProcessError<E> {
         match self {
             Self::CountShortfall { result, .. }
             | Self::CountExceeded { result, .. }
-            | Self::ChunkFailed { result, .. } => result,
+            | Self::ChunkFailed { result, .. }
+            | Self::InvalidChunkResult { result, .. } => result,
         }
     }
 
@@ -115,7 +143,8 @@ impl<E> ChunkedBatchProcessError<E> {
         match self {
             Self::CountShortfall { result, .. }
             | Self::CountExceeded { result, .. }
-            | Self::ChunkFailed { result, .. } => result,
+            | Self::ChunkFailed { result, .. }
+            | Self::InvalidChunkResult { result, .. } => result,
         }
     }
 }

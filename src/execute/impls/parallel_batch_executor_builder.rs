@@ -86,7 +86,9 @@ impl ParallelBatchExecutorBuilder {
     ///
     /// # Parameters
     ///
-    /// * `report_interval` - Minimum interval between running progress events.
+    /// * `report_interval` - Minimum interval between due-based running
+    ///   progress events. Use [`Duration::ZERO`] to report at every
+    ///   implementation-defined running progress point.
     ///
     /// # Returns
     ///
@@ -149,14 +151,11 @@ impl ParallelBatchExecutorBuilder {
     ///
     /// # Errors
     ///
-    /// Returns [`ParallelBatchExecutorBuildError`] when the worker count or
-    /// report interval is zero.
+    /// Returns [`ParallelBatchExecutorBuildError`] when the worker count is
+    /// zero.
     pub fn build(self) -> Result<ParallelBatchExecutor, ParallelBatchExecutorBuildError> {
         if self.thread_count == 0 {
             return Err(ParallelBatchExecutorBuildError::ZeroThreadCount);
-        }
-        if self.report_interval.is_zero() {
-            return Err(ParallelBatchExecutorBuildError::ZeroReportInterval);
         }
         Ok(ParallelBatchExecutor {
             thread_count: self.thread_count,

@@ -36,7 +36,9 @@
 - `SequentialBatchProcessor` 和 `ParallelBatchProcessor` 对每个数据项调用一个
   `qubit-function` `Consumer`，并支持进度上报。
 - `ChunkedBatchProcessor` 把一个逻辑批次拆成固定大小的 chunk，并把每个 chunk
-  委托给另一个 `BatchProcessor`。
+  委托给另一个 `BatchProcessor`。delegate 对某个 chunk 返回 `Ok` 时，必须报告
+  `item_count == chunk_len` 且 `completed_count == chunk_len`；当底层操作报告
+  的成功数或影响行数更少时，`processed_count` 可以小于 chunk 长度。
 
 基于 Rayon 的批量执行器位于配套的 `qubit-rayon-batch` crate。
 
@@ -223,6 +225,14 @@ assert_eq!(result.processed_count(), 5);
 assert_eq!(result.chunk_count(), 3);
 ```
 
+`ChunkedBatchProcessor` 委托一个 chunk 时，会把 delegate 返回的结果视为这个
+已提交 chunk 的结果。返回 `Ok` 表示 delegate 已经让 chunk 内每个数据项都达到
+终态，因此 `item_count` 和 `completed_count` 必须都等于提交的 chunk 长度。
+`processed_count` 可以小于 chunk 长度，用于表达目标系统报告的成功数更少，例如
+幂等数据库插入接受了 3 行但实际只影响 2 行。如果 delegate 无法让整个 chunk
+达到终态，应返回 `Err`；不一致的 `Ok` 结果会被报告为
+`ChunkedBatchProcessError::InvalidChunkResult`。
+
 ## 进度上报
 
 `qubit-batch` 接受 `qubit-progress` 的上报器，但不重新导出 `qubit-progress`
@@ -282,6 +292,13 @@ assert!(result.is_success());
 进度上报器本身的 panic 会直接传播给调用者，因为它们不属于任务失败模型。
 顺序执行和顺序处理只会在两个任务或数据项之间上报进度；并行变体通过 scoped
 上报线程周期性发送 running 进度。
+
+配置的 `report_interval` 是在实现代码到达 running 进度点时检查的节流条件，
+不保证时间一到就立刻发出 running 事件。顺序变体在任务或数据项之间检查，
+chunked processing 在一个 chunk 完成后检查。并行变体使用 scoped 上报线程；
+当 interval 大于 0 时，也可以在 worker 活跃期间周期性发送 running 事件。
+`Duration::ZERO` 表示关闭时间节流：每当实现代码到达自己的 running 进度点时
+就尽快上报，但不会因此进入持续刷新循环。
 
 ## 任务数量契约
 
