@@ -47,6 +47,24 @@ pub enum BatchTaskError<E> {
 }
 
 impl<E> BatchTaskError<E> {
+    /// Creates a panicked task error from a captured panic payload.
+    ///
+    /// # Parameters
+    ///
+    /// * `payload` - Panic payload captured by `catch_unwind`.
+    ///
+    /// # Returns
+    ///
+    /// A panicked task error containing a string message when the payload carries
+    /// one.
+    #[inline]
+    pub fn from_panic_payload(payload: &(dyn Any + Send)) -> Self {
+        match panic_payload_message(payload) {
+            Some(message) => Self::panicked(message),
+            None => Self::panicked_without_message(),
+        }
+    }
+
     /// Creates a panicked task error with a captured message.
     ///
     /// # Parameters
@@ -164,10 +182,7 @@ where
 /// A panicked task error containing a string message when the payload carries
 /// one.
 pub(crate) fn panic_payload_to_error<E>(payload: &(dyn Any + Send)) -> BatchTaskError<E> {
-    match panic_payload_message(payload) {
-        Some(message) => BatchTaskError::panicked(message),
-        None => BatchTaskError::panicked_without_message(),
-    }
+    BatchTaskError::from_panic_payload(payload)
 }
 
 /// Extracts a readable panic message from a panic payload.
