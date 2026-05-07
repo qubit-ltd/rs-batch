@@ -51,7 +51,7 @@ Rayon-backed execution lives in the companion `qubit-rayon-batch` crate.
 
 ```toml
 [dependencies]
-qubit-batch = "0.4.3"
+qubit-batch = "0.4.4"
 ```
 
 Add `qubit-function` when you implement `Runnable`, `Callable`, or `Consumer`
