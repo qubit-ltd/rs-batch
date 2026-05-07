@@ -14,6 +14,18 @@ use super::batch_task_error::BatchTaskError;
 /// Each failure keeps the task's stable batch index so callers can map the
 /// failure back to the source task.
 ///
+/// ```rust
+/// use qubit_batch::{
+///     BatchTaskError,
+///     BatchTaskFailure,
+/// };
+///
+/// let failure = BatchTaskFailure::new(2, BatchTaskError::Failed("invalid row"));
+///
+/// assert_eq!(failure.index(), 2);
+/// assert!(failure.error().is_failed());
+/// ```
+///
 /// # Type Parameters
 ///
 /// * `E` - The task-specific error type.

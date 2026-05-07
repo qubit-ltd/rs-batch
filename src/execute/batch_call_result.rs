@@ -16,6 +16,28 @@ use crate::BatchOutcome;
 /// callable index; successful callables store `Some(value)`, while failed or
 /// panicked callables store `None`.
 ///
+/// ```rust
+/// use qubit_batch::{
+///     BatchExecutor,
+///     SequentialBatchExecutor,
+/// };
+///
+/// fn count_users() -> Result<usize, &'static str> {
+///     Ok(3)
+/// }
+///
+/// fn count_orders() -> Result<usize, &'static str> {
+///     Ok(5)
+/// }
+///
+/// let result = SequentialBatchExecutor::new()
+///     .call([count_users, count_orders], 2)
+///     .expect("callable count should match");
+///
+/// assert!(result.outcome().is_success());
+/// assert_eq!(result.values(), &[Some(3), Some(5)]);
+/// ```
+///
 /// # Type Parameters
 ///
 /// * `R` - Callable success value type.

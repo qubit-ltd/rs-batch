@@ -10,6 +10,20 @@
 use thiserror::Error;
 
 /// Error returned when building a [`crate::ParallelBatchExecutor`].
+///
+/// ```rust
+/// use qubit_batch::{
+///     ParallelBatchExecutor,
+///     ParallelBatchExecutorBuildError,
+/// };
+///
+/// let error = match ParallelBatchExecutor::builder().thread_count(0).build() {
+///     Ok(_) => panic!("zero worker count should be rejected"),
+///     Err(error) => error,
+/// };
+///
+/// assert_eq!(error, ParallelBatchExecutorBuildError::ZeroThreadCount);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum ParallelBatchExecutorBuildError {
     /// The configured worker-thread count is zero.

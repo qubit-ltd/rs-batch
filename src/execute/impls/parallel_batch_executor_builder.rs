@@ -23,6 +23,22 @@ use super::{
 };
 
 /// Builder for [`ParallelBatchExecutor`].
+///
+/// Use the builder when the default worker count, sequential fallback
+/// threshold, progress interval, or reporter should be customized.
+///
+/// ```rust
+/// use qubit_batch::ParallelBatchExecutor;
+///
+/// let executor = ParallelBatchExecutor::builder()
+///     .thread_count(2)
+///     .sequential_threshold(0)
+///     .build()
+///     .expect("parallel executor configuration should be valid");
+///
+/// assert_eq!(executor.thread_count(), 2);
+/// assert_eq!(executor.sequential_threshold(), 0);
+/// ```
 pub struct ParallelBatchExecutorBuilder {
     /// Number of worker threads used for parallel executions.
     thread_count: usize,

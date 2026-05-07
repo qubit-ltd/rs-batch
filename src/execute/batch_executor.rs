@@ -7,7 +7,6 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::fmt::Debug;
 use std::sync::Arc;
 
 use crossbeam_queue::SegQueue;
@@ -27,8 +26,27 @@ use super::{
     for_each_task::ForEachTask,
 };
 
-/// Executes batches of fallible runnable tasks.
+/// Executes declared batches of fallible tasks.
 ///
+/// Implementations consume the supplied iterator once, execute every observed
+/// task unless the declared count is exceeded, and return a [`BatchOutcome`]
+/// containing task-level successes, failures, panics, and elapsed time.
+///
+/// ```rust
+/// use qubit_batch::{
+///     BatchExecutor,
+///     SequentialBatchExecutor,
+/// };
+///
+/// let outcome = SequentialBatchExecutor::new()
+///     .for_each([1, 2, 3], 3, |value| {
+///         assert!(value > 0);
+///         Ok::<(), &'static str>(())
+///     })
+///     .expect("iterator should yield exactly three items");
+///
+/// assert!(outcome.is_success());
+/// ```
 pub trait BatchExecutor: Send + Sync {
     /// Executes a batch of runnable tasks.
     ///
@@ -62,7 +80,7 @@ pub trait BatchExecutor: Send + Sync {
     where
         I: IntoIterator<Item = T>,
         T: Runnable<E> + Send,
-        E: Send + Debug;
+        E: Send;
 
     /// Executes a batch of callable tasks and collects success values by index.
     ///
@@ -96,7 +114,7 @@ pub trait BatchExecutor: Send + Sync {
         I: IntoIterator<Item = C>,
         C: Callable<R, E> + Send,
         R: Send,
-        E: Send + Debug,
+        E: Send,
     {
         let outputs = Arc::new(SegQueue::new());
         // This adapter is lazy: callables are wrapped as runnable tasks only
@@ -137,7 +155,7 @@ pub trait BatchExecutor: Send + Sync {
         I: IntoIterator<Item = Item>,
         Item: Send,
         F: Fn(Item) -> Result<(), E> + Send + Sync,
-        E: Send + Debug,
+        E: Send,
     {
         let action = Arc::new(action);
         let tasks = items

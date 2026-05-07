@@ -17,6 +17,28 @@ use crate::BatchOutcome;
 /// this enum. This error is reserved for situations such as declared task-count
 /// mismatches.
 ///
+/// ```rust
+/// use qubit_batch::{
+///     BatchExecutionError,
+///     BatchExecutor,
+///     SequentialBatchExecutor,
+/// };
+///
+/// let error = SequentialBatchExecutor::new()
+///     .for_each([10, 20], 3, |_value| Ok::<(), &'static str>(()))
+///     .expect_err("iterator should yield fewer items than declared");
+///
+/// assert!(error.is_count_shortfall());
+/// assert_eq!(error.outcome().completed_count(), 2);
+/// match error {
+///     BatchExecutionError::CountShortfall { expected, actual, .. } => {
+///         assert_eq!(expected, 3);
+///         assert_eq!(actual, 2);
+///     }
+///     BatchExecutionError::CountExceeded { .. } => unreachable!(),
+/// }
+/// ```
+///
 /// # Type Parameters
 ///
 /// * `E` - The task-specific error type stored inside the attached outcome.

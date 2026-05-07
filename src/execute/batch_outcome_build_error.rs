@@ -10,6 +10,24 @@
 use thiserror::Error;
 
 /// Error returned when constructing a batch outcome with invalid counters.
+///
+/// ```rust
+/// use qubit_batch::{
+///     BatchOutcomeBuildError,
+///     BatchOutcomeBuilder,
+/// };
+///
+/// let error = BatchOutcomeBuilder::<&'static str>::builder(1)
+///     .completed_count(2)
+///     .succeeded_count(2)
+///     .build()
+///     .expect_err("completed count should not exceed declared task count");
+///
+/// assert!(matches!(
+///     error,
+///     BatchOutcomeBuildError::CompletedCountExceeded { .. }
+/// ));
+/// ```
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum BatchOutcomeBuildError {
     /// The completed task count is greater than the declared task count.

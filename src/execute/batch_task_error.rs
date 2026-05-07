@@ -15,6 +15,21 @@ use std::{
 
 /// Error recorded for one task inside a batch execution.
 ///
+/// Use this type to distinguish a task's returned business error from a panic
+/// captured while running that task.
+///
+/// ```rust
+/// use qubit_batch::BatchTaskError;
+///
+/// let failed = BatchTaskError::Failed("invalid record");
+/// assert!(failed.is_failed());
+/// assert_eq!(failed.panic_message(), None);
+///
+/// let panicked: BatchTaskError<&'static str> = BatchTaskError::panicked("boom");
+/// assert!(panicked.is_panicked());
+/// assert_eq!(panicked.panic_message(), Some("boom"));
+/// ```
+///
 /// # Type Parameters
 ///
 /// * `E` - The task-specific error type.
