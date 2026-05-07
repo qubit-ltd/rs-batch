@@ -30,7 +30,6 @@ doctest = true
 
 [dependencies]
 crossbeam-queue = "0.3"
-log = "0.4"
 thiserror = "2.0"
 
 qubit-atomic = "0.10"
