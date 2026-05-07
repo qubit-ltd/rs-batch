@@ -35,7 +35,11 @@ use qubit_batch::{
 };
 use qubit_function::Consumer;
 
-use crate::support::panic_payload_message;
+use crate::support::{
+    ProgressEvent,
+    RecordingProgressReporter,
+    panic_payload_message,
+};
 
 #[test]
 fn test_parallel_batch_processor_consumer_accessors() {
@@ -58,6 +62,16 @@ fn test_parallel_batch_processor_consumer_accessors() {
             .unwrap_or_else(std::sync::PoisonError::into_inner),
         vec![5, 6]
     );
+}
+
+#[test]
+fn test_parallel_batch_processor_accessors_and_value_reporter() {
+    let processor = ParallelBatchProcessor::new(|_item: &i32| {})
+        .with_reporter(RecordingProgressReporter::new())
+        .with_report_interval(Duration::from_millis(25));
+
+    assert_eq!(processor.report_interval(), Duration::from_millis(25));
+    assert!(Arc::strong_count(processor.reporter()) >= 1);
 }
 
 #[test]
@@ -89,6 +103,43 @@ fn test_parallel_batch_processor_processes_items() {
         processor.thread_count(),
         ParallelBatchProcessor::<i32>::default_thread_count()
     );
+}
+
+#[test]
+fn test_parallel_batch_processor_reports_progress() {
+    let reporter = Arc::new(RecordingProgressReporter::new());
+    let mut processor = ParallelBatchProcessor::new(|_item: &i32| {
+        thread::sleep(Duration::from_millis(20));
+    })
+    .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
+    .with_reporter_arc(reporter.clone())
+    .with_report_interval(Duration::from_millis(5));
+
+    let result = processor
+        .process(vec![1, 2, 3, 4], 4)
+        .expect("parallel processing should succeed");
+    let events = reporter.events();
+
+    assert_eq!(result.completed_count(), 4);
+    assert!(matches!(
+        events.first(),
+        Some(ProgressEvent::Start { total_count: 4 })
+    ));
+    assert!(events.iter().any(|event| matches!(
+        event,
+        ProgressEvent::Process {
+            total_count: 4,
+            active_count,
+            ..
+        } if *active_count > 0
+    )));
+    assert!(matches!(
+        events.last(),
+        Some(ProgressEvent::Finish {
+            total_count: 4,
+            completed_count: 4,
+        })
+    ));
 }
 
 #[test]

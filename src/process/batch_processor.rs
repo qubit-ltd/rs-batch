@@ -15,6 +15,41 @@ use super::BatchProcessResult;
 /// may insert records into a database, send them to a remote service, or apply
 /// any other batch-level operation chosen by the implementation.
 ///
+/// ```rust
+/// use std::time::Duration;
+///
+/// use qubit_batch::{
+///     BatchProcessResult,
+///     BatchProcessor,
+/// };
+///
+/// struct CountItems;
+///
+/// impl BatchProcessor<i32> for CountItems {
+///     type Error = &'static str;
+///
+///     fn process<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+///     where
+///         I: IntoIterator<Item = i32>,
+///     {
+///         let processed = items.into_iter().count();
+///         Ok(BatchProcessResult::new(
+///             count,
+///             processed,
+///             processed,
+///             1,
+///             Duration::ZERO,
+///         ))
+///     }
+/// }
+///
+/// let result = CountItems
+///     .process([1, 2, 3], 3)
+///     .expect("processor should accept the batch");
+///
+/// assert!(result.is_success());
+/// ```
+///
 /// # Type Parameters
 ///
 /// * `Item` - The data item type consumed by this processor.

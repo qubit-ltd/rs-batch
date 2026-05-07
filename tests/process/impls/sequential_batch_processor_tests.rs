@@ -13,6 +13,7 @@ use std::sync::{
     Arc,
     Mutex,
 };
+use std::time::Duration;
 
 use qubit_function::Consumer;
 
@@ -20,6 +21,11 @@ use qubit_batch::{
     BatchProcessError,
     BatchProcessor,
     SequentialBatchProcessor,
+};
+
+use crate::support::{
+    ProgressEvent,
+    RecordingProgressReporter,
 };
 
 #[test]
@@ -43,6 +49,16 @@ fn test_sequential_batch_processor_consumer_accessors() {
             .unwrap_or_else(std::sync::PoisonError::into_inner),
         vec![5, 6]
     );
+}
+
+#[test]
+fn test_sequential_batch_processor_accessors_and_value_reporter() {
+    let processor = SequentialBatchProcessor::new(|_item: &i32| {})
+        .with_reporter(RecordingProgressReporter::new())
+        .with_report_interval(Duration::from_millis(25));
+
+    assert_eq!(processor.report_interval(), Duration::from_millis(25));
+    assert!(Arc::strong_count(processor.reporter()) >= 1);
 }
 
 #[test]
@@ -70,6 +86,39 @@ fn test_sequential_batch_processor_processes_items_in_order() {
             .unwrap_or_else(std::sync::PoisonError::into_inner),
         vec![1, 2, 3]
     );
+}
+
+#[test]
+fn test_sequential_batch_processor_reports_progress() {
+    let reporter = Arc::new(RecordingProgressReporter::new());
+    let mut processor = SequentialBatchProcessor::new(|_item: &i32| {
+        std::thread::sleep(Duration::from_millis(2));
+    })
+    .with_reporter_arc(reporter.clone())
+    .with_report_interval(Duration::from_millis(1));
+
+    let result = processor
+        .process(vec![1, 2, 3], 3)
+        .expect("sequential processing should succeed");
+    let events = reporter.events();
+
+    assert_eq!(result.completed_count(), 3);
+    assert!(matches!(
+        events.first(),
+        Some(ProgressEvent::Start { total_count: 3 })
+    ));
+    assert!(events.iter().any(|event| matches!(
+        event,
+        ProgressEvent::Process {
+            total_count: 3,
+            completed_count,
+            ..
+        } if *completed_count >= 1
+    )));
+    assert!(matches!(
+        events.last(),
+        Some(ProgressEvent::Finish { total_count: 3, .. })
+    ));
 }
 
 #[test]

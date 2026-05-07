@@ -20,6 +20,8 @@ pub(crate) struct BatchProcessState {
     item_count: usize,
     /// Number of items observed from the source.
     observed_count: AtomicCount,
+    /// Number of items currently being processed.
+    active_count: AtomicCount,
     /// Number of input items whose processing completed.
     completed_count: AtomicCount,
     /// Number of items reported as successfully processed.
@@ -43,6 +45,7 @@ impl BatchProcessState {
         Self {
             item_count,
             observed_count: AtomicCount::zero(),
+            active_count: AtomicCount::zero(),
             completed_count: AtomicCount::zero(),
             processed_count: AtomicCount::zero(),
             chunk_count: AtomicCount::zero(),
@@ -59,9 +62,16 @@ impl BatchProcessState {
         self.observed_count.inc()
     }
 
+    /// Records that one item has started processing.
+    #[inline]
+    pub(crate) fn record_item_started(&self) {
+        self.active_count.inc();
+    }
+
     /// Records one successfully processed item.
     #[inline]
     pub(crate) fn record_item_processed(&self) {
+        self.active_count.dec();
         self.completed_count.inc();
         self.processed_count.inc();
     }
@@ -148,6 +158,7 @@ impl BatchProcessState {
     #[inline]
     pub(crate) fn progress_counters(&self) -> ProgressCounters {
         ProgressCounters::new(Some(self.item_count))
+            .with_active_count(self.active_count.get())
             .with_completed_count(self.completed_count.get())
             .with_succeeded_count(self.processed_count.get())
     }

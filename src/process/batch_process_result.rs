@@ -19,6 +19,17 @@ use std::{
 /// database rows, that differs from the number of input items whose chunk
 /// returned.
 ///
+/// ```rust
+/// use std::time::Duration;
+///
+/// use qubit_batch::BatchProcessResult;
+///
+/// let result = BatchProcessResult::new(3, 3, 3, 1, Duration::ZERO);
+///
+/// assert!(result.is_success());
+/// assert_eq!(result.item_count(), 3);
+/// assert_eq!(result.chunk_count(), 1);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BatchProcessResult {
     /// Declared item count for the batch.
