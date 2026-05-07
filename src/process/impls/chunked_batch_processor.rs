@@ -278,6 +278,9 @@ where
         for item in items {
             let observed_count = state.record_item_observed();
             if observed_count > count {
+                if !chunk.is_empty() {
+                    self.process_chunk(&mut chunk, &state, &mut progress)?;
+                }
                 let result = state.to_chunked_result(progress.elapsed());
                 progress.report_with_elapsed(
                     ProgressPhase::Failed,
@@ -350,7 +353,7 @@ impl<P> ChunkedBatchProcessor<P> {
         P: BatchProcessor<Item>,
     {
         let chunk_len = chunk.len();
-        let start_index = state.observed_count() - chunk_len;
+        let start_index = state.completed_count();
         let chunk_index = state.chunk_count();
         let current_chunk = std::mem::take(chunk);
         match self.delegate.process(current_chunk, chunk_len) {
