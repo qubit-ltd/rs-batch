@@ -11,7 +11,9 @@
 //! and the internal callable runnable wrapper.
 
 use qubit_batch::{
+    BatchExecutionError,
     BatchExecutor,
+    ParallelBatchExecutor,
     SequentialBatchExecutor,
 };
 
@@ -81,5 +83,79 @@ fn test_sequential_batch_executor_call_collects_many_values_by_index() {
     assert_eq!(result.values().len(), COUNT);
     for (index, value) in result.values().iter().enumerate() {
         assert_eq!(*value, Some(index as i32));
+    }
+}
+
+#[test]
+fn test_parallel_batch_executor_call_collects_values_by_index() {
+    let executor = ParallelBatchExecutor::builder()
+        .thread_count(2)
+        .sequential_threshold(0)
+        .build()
+        .expect("parallel executor should build");
+    let tasks = vec![
+        TestCallable::returning(10),
+        TestCallable::fail("failed"),
+        TestCallable::panic("panic in callable"),
+        TestCallable::returning(40),
+    ];
+
+    let result = executor
+        .call(tasks, 4)
+        .expect("callable failures should stay in the batch result");
+
+    assert_eq!(result.values(), &[Some(10), None, None, Some(40)]);
+    assert_eq!(result.outcome().completed_count(), 4);
+    assert_eq!(result.outcome().failed_count(), 1);
+    assert_eq!(result.outcome().panicked_count(), 1);
+    assert_eq!(result.outcome().failures()[0].index(), 1);
+    assert_eq!(result.outcome().failures()[1].index(), 2);
+}
+
+#[test]
+fn test_parallel_batch_executor_call_reports_count_mismatches() {
+    let executor = ParallelBatchExecutor::builder()
+        .thread_count(2)
+        .sequential_threshold(0)
+        .build()
+        .expect("parallel executor should build");
+
+    let shortfall = executor
+        .call(vec![TestCallable::returning(10)], 2)
+        .expect_err("call shortfall should be reported");
+    match shortfall {
+        BatchExecutionError::CountShortfall {
+            expected,
+            actual,
+            outcome,
+        } => {
+            assert_eq!(expected, 2);
+            assert_eq!(actual, 1);
+            assert_eq!(outcome.completed_count(), 1);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+
+    let exceeded = executor
+        .call(
+            vec![
+                TestCallable::returning(10),
+                TestCallable::returning(20),
+                TestCallable::returning(30),
+            ],
+            2,
+        )
+        .expect_err("call overflow should be reported");
+    match exceeded {
+        BatchExecutionError::CountExceeded {
+            expected,
+            observed_at_least,
+            outcome,
+        } => {
+            assert_eq!(expected, 2);
+            assert_eq!(observed_at_least, 3);
+            assert_eq!(outcome.completed_count(), 2);
+        }
+        other => panic!("unexpected error: {other:?}"),
     }
 }
