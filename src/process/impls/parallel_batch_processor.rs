@@ -42,6 +42,14 @@ use crate::process::{
 };
 use crate::utils::run_scoped_parallel;
 
+/// Signal sent to the scoped progress reporter thread.
+enum ProgressLoopSignal {
+    /// A worker reached an implementation-defined running progress point.
+    RunningPoint,
+    /// Parallel processing is complete and the reporter thread should stop.
+    Stop,
+}
+
 /// Processes batch items in parallel on scoped standard threads.
 ///
 /// The processor stores the supplied consumer as an [`ArcConsumer`] so every
@@ -186,7 +194,9 @@ impl<Item> ParallelBatchProcessor<Item> {
     ///
     /// # Parameters
     ///
-    /// * `report_interval` - Minimum time between progress callbacks.
+    /// * `report_interval` - Minimum time between due-based running progress
+    ///   callbacks. [`Duration::ZERO`] reports on worker completion signals
+    ///   without periodic polling.
     ///
     /// # Returns
     ///
@@ -213,7 +223,7 @@ impl<Item> ParallelBatchProcessor<Item> {
     ///
     /// # Returns
     ///
-    /// The minimum time between progress callbacks.
+    /// The minimum time between due-based running progress callbacks.
     #[inline]
     pub const fn report_interval(&self) -> Duration {
         self.report_interval
@@ -356,7 +366,7 @@ where
         I: IntoIterator<Item = Item>,
     {
         thread::scope(|scope| {
-            let (stop_sender, stop_receiver) = mpsc::channel();
+            let (progress_sender, progress_receiver) = mpsc::channel();
             let progress_handle = {
                 let progress_reporter = Arc::clone(&self.reporter);
                 let reporter_state = Arc::clone(&state);
@@ -367,7 +377,7 @@ where
                         reporter_state,
                         start,
                         report_interval,
-                        stop_receiver,
+                        progress_receiver,
                     );
                 })
             };
@@ -376,6 +386,8 @@ where
             let observer_state = Arc::clone(&state);
             let worker_state = Arc::clone(&state);
             let consumer = self.consumer.clone();
+            let worker_progress_sender = progress_sender.clone();
+            let report_on_worker_completion = self.report_interval.is_zero();
             run_scoped_parallel(
                 items,
                 count,
@@ -385,9 +397,12 @@ where
                     worker_state.record_item_started();
                     consumer.accept(&item);
                     worker_state.record_item_processed();
+                    if report_on_worker_completion {
+                        let _ = worker_progress_sender.send(ProgressLoopSignal::RunningPoint);
+                    }
                 },
             );
-            let _ = stop_sender.send(());
+            let _ = progress_sender.send(ProgressLoopSignal::Stop);
             if let Err(payload) = progress_handle.join() {
                 resume_unwind(payload);
             }
@@ -402,42 +417,65 @@ where
 /// * `reporter` - Reporter receiving progress callbacks.
 /// * `state` - Shared processing state read by the reporting loop.
 /// * `start` - Batch start time.
-/// * `report_interval` - Delay between progress callbacks.
-/// * `stop_receiver` - Stop signal receiver used by the caller thread.
+/// * `report_interval` - Configured progress-report interval.
+/// * `signal_receiver` - Progress-point and stop signal receiver used by the
+///   caller and worker threads.
 fn run_progress_loop(
     reporter: Arc<dyn ProgressReporter>,
     state: Arc<BatchProcessState>,
     start: Instant,
     report_interval: Duration,
-    stop_receiver: mpsc::Receiver<()>,
+    signal_receiver: mpsc::Receiver<ProgressLoopSignal>,
 ) {
-    let progress = Progress::from_start(reporter.as_ref(), report_interval, start);
+    let mut progress = Progress::from_start(reporter.as_ref(), report_interval, start);
     loop {
-        match stop_receiver.recv_timeout(progress_loop_wait_interval(report_interval)) {
-            Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
-            Err(mpsc::RecvTimeoutError::Timeout) => progress.report_with_elapsed(
-                ProgressPhase::Running,
-                state.progress_counters(),
-                start.elapsed(),
-            ),
+        match receive_progress_signal(&signal_receiver, report_interval) {
+            ProgressLoopWait::Signal(ProgressLoopSignal::RunningPoint) => {
+                progress.report_running_if_due(state.progress_counters());
+            }
+            ProgressLoopWait::Signal(ProgressLoopSignal::Stop)
+            | ProgressLoopWait::Disconnected => break,
+            ProgressLoopWait::Timeout => {
+                progress.report_running_if_due(state.progress_counters());
+            }
         }
     }
 }
 
-/// Returns the blocking wait interval used by the reporter thread.
+/// Receives one progress-loop signal.
 ///
 /// # Parameters
 ///
+/// * `signal_receiver` - Signal receiver shared with workers and the caller.
 /// * `report_interval` - Configured progress-report interval.
 ///
 /// # Returns
 ///
-/// `report_interval` when it is positive, otherwise a short positive interval
-/// to avoid a zero-duration busy loop.
-const fn progress_loop_wait_interval(report_interval: Duration) -> Duration {
+/// A worker or stop signal, a timeout marker for positive intervals, or a
+/// disconnected marker when all senders have disconnected.
+fn receive_progress_signal(
+    signal_receiver: &mpsc::Receiver<ProgressLoopSignal>,
+    report_interval: Duration,
+) -> ProgressLoopWait {
     if report_interval.is_zero() {
-        Duration::from_millis(1)
-    } else {
-        report_interval
+        return match signal_receiver.recv() {
+            Ok(signal) => ProgressLoopWait::Signal(signal),
+            Err(_) => ProgressLoopWait::Disconnected,
+        };
     }
+    match signal_receiver.recv_timeout(report_interval) {
+        Ok(signal) => ProgressLoopWait::Signal(signal),
+        Err(mpsc::RecvTimeoutError::Timeout) => ProgressLoopWait::Timeout,
+        Err(mpsc::RecvTimeoutError::Disconnected) => ProgressLoopWait::Disconnected,
+    }
+}
+
+/// Result of waiting for a progress-loop signal.
+enum ProgressLoopWait {
+    /// A worker or stop signal was received.
+    Signal(ProgressLoopSignal),
+    /// No signal arrived before the positive report interval elapsed.
+    Timeout,
+    /// All senders were dropped.
+    Disconnected,
 }

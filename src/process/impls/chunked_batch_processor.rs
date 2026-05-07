@@ -36,6 +36,14 @@ use crate::process::{
 /// but the real target must receive smaller batches, such as SQL batch insert
 /// operations with a maximum row count per statement.
 ///
+/// The delegate must return a result whose `item_count` and `completed_count`
+/// match the submitted chunk length whenever it returns `Ok`. The delegate may
+/// still report a lower `processed_count`, such as when a database reports
+/// fewer affected rows than submitted rows. If the delegate cannot reach a
+/// terminal outcome for every item in the chunk, it should return `Err`;
+/// inconsistent `Ok` results are returned as
+/// [`ChunkedBatchProcessError::InvalidChunkResult`].
+///
 /// # Type Parameters
 ///
 /// * `P` - Delegate processor receiving each chunk.
@@ -165,7 +173,9 @@ impl<P> ChunkedBatchProcessor<P> {
     ///
     /// # Parameters
     ///
-    /// * `report_interval` - Minimum time between progress callbacks.
+    /// * `report_interval` - Minimum time between due-based running progress
+    ///   callbacks. [`Duration::ZERO`] reports at every completed-chunk
+    ///   progress point.
     ///
     /// # Returns
     ///
@@ -192,7 +202,7 @@ impl<P> ChunkedBatchProcessor<P> {
     ///
     /// # Returns
     ///
-    /// The minimum time between progress callbacks.
+    /// The minimum time between due-based running progress callbacks.
     #[inline]
     pub const fn report_interval(&self) -> Duration {
         self.report_interval
@@ -259,7 +269,8 @@ where
     /// # Errors
     ///
     /// Returns [`ChunkedBatchProcessError`] when the source count does not
-    /// match `count`, or when the delegate fails for one chunk.
+    /// match `count`, when the delegate fails for one chunk, or when a delegate
+    /// `Ok` result does not describe the submitted chunk.
     fn process<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
@@ -358,6 +369,24 @@ impl<P> ChunkedBatchProcessor<P> {
         let current_chunk = std::mem::take(chunk);
         match self.delegate.process(current_chunk, chunk_len) {
             Ok(chunk_result) => {
+                if chunk_result.item_count() != chunk_len
+                    || chunk_result.completed_count() != chunk_len
+                {
+                    let result = state.to_chunked_result(progress.elapsed());
+                    progress.report_with_elapsed(
+                        ProgressPhase::Failed,
+                        state.progress_counters(),
+                        result.elapsed(),
+                    );
+                    return Err(ChunkedBatchProcessError::InvalidChunkResult {
+                        chunk_index,
+                        start_index,
+                        chunk_len,
+                        item_count: chunk_result.item_count(),
+                        completed_count: chunk_result.completed_count(),
+                        result,
+                    });
+                }
                 state.record_chunk_processed(chunk_len, chunk_result.processed_count());
                 progress.report_running_if_due(state.running_chunk_progress_counters());
                 Ok(())

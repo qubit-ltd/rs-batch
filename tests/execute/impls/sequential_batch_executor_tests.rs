@@ -200,6 +200,31 @@ fn test_sequential_batch_executor_reports_progress() {
 }
 
 #[test]
+fn test_sequential_batch_executor_reports_progress_with_zero_interval() {
+    let reporter = Arc::new(RecordingProgressReporter::new());
+    let executor = SequentialBatchExecutor::new()
+        .with_reporter_arc(reporter.clone())
+        .with_report_interval(Duration::ZERO);
+    let tasks = vec![TestTask::succeed(), TestTask::succeed()];
+
+    let result = executor
+        .execute(tasks, 2)
+        .expect("sequential batch should succeed");
+    let events = reporter.events();
+
+    assert_eq!(result.completed_count(), 2);
+    assert!(events.iter().any(|event| matches!(
+        event,
+        ProgressEvent::Process {
+            total_count: 2,
+            active_count: 0,
+            completed_count,
+            ..
+        } if *completed_count >= 1
+    )));
+}
+
+#[test]
 fn test_sequential_batch_executor_propagates_progress_reporter_start_panic() {
     const PANIC_MESSAGE: &str = "progress reporter start panic";
     let executor = SequentialBatchExecutor::new().with_reporter(PanickingProgressReporter::new(

@@ -40,7 +40,10 @@ consumes the supplied iterator once and returns a structured result.
 - `SequentialBatchProcessor` and `ParallelBatchProcessor` invoke a
   `qubit-function` `Consumer` per item and support progress reporting.
 - `ChunkedBatchProcessor` splits one logical batch into fixed-size chunks and
-  delegates each chunk to another `BatchProcessor`.
+  delegates each chunk to another `BatchProcessor`. A delegate that returns
+  `Ok` for a chunk must report `item_count == chunk_len` and
+  `completed_count == chunk_len`; `processed_count` may be lower when the
+  underlying operation reports fewer successful or affected rows.
 
 Rayon-backed execution lives in the companion `qubit-rayon-batch` crate.
 
@@ -228,6 +231,16 @@ assert_eq!(result.processed_count(), 5);
 assert_eq!(result.chunk_count(), 3);
 ```
 
+When `ChunkedBatchProcessor` delegates a chunk, the delegate result is treated
+as the result for that exact submitted chunk. Returning `Ok` means the delegate
+has reached a terminal outcome for every item in the chunk, so `item_count` and
+`completed_count` must both match the submitted chunk length. `processed_count`
+can be lower than the chunk length for domains where the target reports a
+smaller success count, such as an idempotent database insert that accepts three
+rows but affects only two. If the delegate cannot reach a terminal outcome for
+the whole chunk, it should return `Err`; inconsistent `Ok` results are reported
+as `ChunkedBatchProcessError::InvalidChunkResult`.
+
 ## Progress Reporting
 
 `qubit-batch` accepts `qubit-progress` reporters but does not re-export
@@ -289,6 +302,16 @@ processor consumers and progress reporters propagate to the caller because they
 are outside the task failure model. Sequential execution and processing report
 progress only between tasks or items; parallel variants report running progress
 periodically from a scoped reporter thread.
+
+The configured `report_interval` is a throttle checked only at
+implementation-defined running progress points. It does not guarantee that a
+running event is emitted immediately when the interval elapses. Sequential
+variants check between tasks or items, and chunked processing checks after a
+chunk completes. Parallel variants use a scoped reporter thread; with a positive
+interval they can also emit periodic running events while workers are active.
+`Duration::ZERO` disables time throttling, so running progress is reported as
+soon as each implementation-defined progress point is reached; it does not
+create a tight refresh loop.
 
 ## Count Contract
 

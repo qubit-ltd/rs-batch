@@ -75,12 +75,6 @@ fn test_parallel_batch_executor_rejects_invalid_builder_config() {
         ParallelBatchExecutor::builder().thread_count(0).build(),
         Err(ParallelBatchExecutorBuildError::ZeroThreadCount)
     ));
-    assert!(matches!(
-        ParallelBatchExecutor::builder()
-            .report_interval(Duration::ZERO)
-            .build(),
-        Err(ParallelBatchExecutorBuildError::ZeroReportInterval)
-    ));
 }
 
 #[test]
@@ -289,6 +283,38 @@ fn test_parallel_batch_executor_reports_progress() {
         events.last(),
         Some(ProgressEvent::Finish { total_count: 3, .. })
     ));
+}
+
+#[test]
+fn test_parallel_batch_executor_reports_progress_with_zero_interval() {
+    let reporter = Arc::new(RecordingProgressReporter::new());
+    let executor = ParallelBatchExecutor::builder()
+        .thread_count(2)
+        .sequential_threshold(0)
+        .reporter_arc(reporter.clone())
+        .report_interval(Duration::ZERO)
+        .build()
+        .expect("zero report interval should build");
+    let tasks = vec![
+        TestTask::succeed(),
+        TestTask::succeed(),
+        TestTask::succeed(),
+    ];
+
+    let result = executor
+        .execute(tasks, 3)
+        .expect("parallel batch should succeed");
+    let events = reporter.events();
+
+    assert_eq!(result.completed_count(), 3);
+    assert!(events.iter().any(|event| matches!(
+        event,
+        ProgressEvent::Process {
+            total_count: 3,
+            completed_count,
+            ..
+        } if *completed_count >= 1
+    )));
 }
 
 #[test]

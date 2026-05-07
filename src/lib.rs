@@ -39,6 +39,20 @@
 //! use qubit_batch::BatchExecutionState;
 //! ```
 //!
+//! # Progress Interval Semantics
+//!
+//! Progress reporting has explicit lifecycle events plus optional running
+//! events. A `report_interval` is a throttle checked only when an implementation
+//! reaches one of its running-progress points; it is not a timer guarantee that
+//! a running event is emitted immediately when that duration passes. Passing
+//! [`std::time::Duration::ZERO`] disables time throttling, so each
+//! implementation-defined running-progress point reports as soon as it is
+//! reached. Sequential variants reach those points between tasks or items.
+//! Chunked processing reaches them after a chunk completes. Parallel variants
+//! report from a scoped reporter thread; with a positive interval they can also
+//! emit periodic running events while workers are active, while zero interval
+//! reports on worker completion signals and does not spin in a tight loop.
+//!
 
 #![deny(missing_docs)]
 #![deny(unsafe_op_in_unsafe_fn)]

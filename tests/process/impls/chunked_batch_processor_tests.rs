@@ -345,6 +345,14 @@ fn test_chunked_batch_process_error_helpers_and_display() {
         source: TestProcessorError("delegate failed"),
         result: result.clone(),
     };
+    let invalid = ChunkedBatchProcessError::<TestProcessorError>::InvalidChunkResult {
+        chunk_index: 1,
+        start_index: 2,
+        chunk_len: 2,
+        item_count: 2,
+        completed_count: 1,
+        result: result.clone(),
+    };
 
     assert_eq!(shortfall.result(), &result);
     assert_eq!(shortfall.clone().into_result(), result);
@@ -372,6 +380,12 @@ fn test_chunked_batch_process_error_helpers_and_display() {
     );
     assert!(shortfall.source().is_none());
     assert!(exceeded.source().is_none());
+    assert_eq!(invalid.result(), &result);
+    assert_eq!(
+        invalid.to_string(),
+        "batch chunk 1 returned invalid result at item 2: expected 2 completed items, got item_count 2, completed_count 1"
+    );
+    assert!(invalid.source().is_none());
     assert_eq!(failed.into_result(), result);
 }
 
@@ -412,6 +426,25 @@ impl BatchProcessor<i32> for FailingSecondChunkProcessor {
         } else {
             Err("partial insert failed")
         }
+    }
+}
+
+#[derive(Debug)]
+struct InvalidChunkResultProcessor;
+
+impl BatchProcessor<i32> for InvalidChunkResultProcessor {
+    type Error = &'static str;
+
+    fn process<I>(&mut self, _items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+    where
+        I: IntoIterator<Item = i32>,
+    {
+        Ok(BatchProcessResult::builder(count)
+            .completed_count(count - 1)
+            .processed_count(count - 1)
+            .chunk_count(1)
+            .build()
+            .expect("partial delegate result counters should be valid"))
     }
 }
 
@@ -480,6 +513,39 @@ fn test_chunked_batch_processor_wraps_partial_chunk_error() {
             assert_eq!(source, "partial insert failed");
             assert_eq!(result.completed_count(), 2);
             assert_eq!(result.chunk_count(), 1);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn test_chunked_batch_processor_rejects_invalid_delegate_result() {
+    let mut processor = ChunkedBatchProcessor::new(
+        InvalidChunkResultProcessor,
+        NonZeroUsize::new(2).expect("chunk size is non-zero"),
+    );
+
+    let error = processor
+        .process([1, 2], 2)
+        .expect_err("delegate result should describe the submitted chunk");
+
+    match error {
+        ChunkedBatchProcessError::InvalidChunkResult {
+            chunk_index,
+            start_index,
+            chunk_len,
+            item_count,
+            completed_count,
+            result,
+        } => {
+            assert_eq!(chunk_index, 0);
+            assert_eq!(start_index, 0);
+            assert_eq!(chunk_len, 2);
+            assert_eq!(item_count, 2);
+            assert_eq!(completed_count, 1);
+            assert_eq!(result.completed_count(), 0);
+            assert_eq!(result.processed_count(), 0);
+            assert_eq!(result.chunk_count(), 0);
         }
         other => panic!("unexpected error: {other:?}"),
     }

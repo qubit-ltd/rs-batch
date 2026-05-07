@@ -53,15 +53,19 @@ fn test_parallel_batch_executor_builder_can_disable_reporting() {
 }
 
 #[test]
+fn test_parallel_batch_executor_builder_allows_zero_report_interval() {
+    let executor = ParallelBatchExecutor::builder()
+        .report_interval(Duration::ZERO)
+        .build()
+        .expect("zero report interval should be accepted");
+
+    assert_eq!(executor.report_interval(), Duration::ZERO);
+}
+
+#[test]
 fn test_parallel_batch_executor_builder_rejects_invalid_config() {
     assert!(matches!(
         ParallelBatchExecutor::builder().thread_count(0).build(),
         Err(ParallelBatchExecutorBuildError::ZeroThreadCount)
-    ));
-    assert!(matches!(
-        ParallelBatchExecutor::builder()
-            .report_interval(Duration::ZERO)
-            .build(),
-        Err(ParallelBatchExecutorBuildError::ZeroReportInterval)
     ));
 }

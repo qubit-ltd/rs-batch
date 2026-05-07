@@ -29,8 +29,4 @@ pub enum ParallelBatchExecutorBuildError {
     /// The configured worker-thread count is zero.
     #[error("parallel batch executor thread count must be positive")]
     ZeroThreadCount,
-
-    /// The configured progress-report interval is zero.
-    #[error("parallel batch executor report interval must be positive")]
-    ZeroReportInterval,
 }
