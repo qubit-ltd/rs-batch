@@ -339,7 +339,7 @@ where
             let reporter_state = Arc::clone(&state);
             let running_progress =
                 progress.spawn_running_reporter(scope, move || reporter_state.progress_counters());
-            let worker_progress_point_handle = running_progress.point_handle();
+            let running_point_handle = running_progress.point_handle();
 
             let worker_count = self.thread_count.get().min(count);
             let observer_state = Arc::clone(&state);
@@ -354,7 +354,7 @@ where
                     worker_state.record_item_started();
                     consumer.accept(&item);
                     worker_state.record_item_processed();
-                    worker_progress_point_handle.report();
+                    running_point_handle.report();
                 },
             );
             running_progress.stop_and_join();
