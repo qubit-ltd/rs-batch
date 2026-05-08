@@ -239,7 +239,7 @@ impl BatchExecutor for ParallelBatchExecutor {
             let reporter_state = Arc::clone(&state);
             let running_progress =
                 progress.spawn_running_reporter(scope, move || reporter_state.progress_counters());
-            let worker_progress_point_handle = running_progress.point_handle();
+            let running_point_handle = running_progress.point_handle();
 
             let observer_state = Arc::clone(&state);
             let worker_state = Arc::clone(&state);
@@ -250,7 +250,7 @@ impl BatchExecutor for ParallelBatchExecutor {
                 move || observer_state.record_task_observed(),
                 move |index, task| {
                     run_parallel_task(&worker_state, index, task);
-                    worker_progress_point_handle.report();
+                    running_point_handle.report();
                 },
             );
             running_progress.stop_and_join();
