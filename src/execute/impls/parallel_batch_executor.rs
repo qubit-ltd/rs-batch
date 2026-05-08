@@ -14,8 +14,6 @@ use std::time::Duration;
 use qubit_function::Runnable;
 use qubit_progress::{
     Progress,
-    RunningProgressLoop,
-    model::ProgressPhase,
     reporter::ProgressReporter,
 };
 
@@ -233,22 +231,14 @@ impl BatchExecutor for ParallelBatchExecutor {
 
         let state = Arc::new(BatchExecutionState::new(count));
         let progress = Progress::new(self.reporter.as_ref(), self.report_interval);
-        progress.report_with_elapsed(
-            ProgressPhase::Started,
-            state.progress_counters(),
-            Duration::ZERO,
-        );
-        let start = progress.started_at();
+        progress.report_started(state.progress_counters());
         let mut actual_count = 0usize;
         let worker_count = self.thread_count.min(count);
 
         thread::scope(|scope| {
             let reporter_state = Arc::clone(&state);
-            let progress =
-                Progress::from_start(self.reporter.as_ref(), self.report_interval, start);
-            let running_progress = RunningProgressLoop::spawn_scoped(scope, progress, move || {
-                reporter_state.progress_counters()
-            });
+            let running_progress =
+                progress.spawn_running_reporter(scope, move || reporter_state.progress_counters());
             let worker_progress_point_handle = running_progress.point_handle();
 
             let observer_state = Arc::clone(&state);
@@ -266,39 +256,27 @@ impl BatchExecutor for ParallelBatchExecutor {
             running_progress.stop_and_join();
         });
 
-        let elapsed = progress.elapsed();
-        let result = Arc::into_inner(state)
-            .expect("parallel batch execution state should have a single owner")
-            .into_outcome(elapsed);
-
+        let state = Arc::into_inner(state)
+            .expect("parallel batch execution state should have a single owner");
         if actual_count < count {
-            progress.report_with_elapsed(
-                ProgressPhase::Failed,
-                result.progress_counters(),
-                result.elapsed(),
-            );
+            let failed = progress.report_failed(state.progress_counters());
+            let result = state.into_outcome(failed.elapsed());
             Err(BatchExecutionError::CountShortfall {
                 expected: count,
                 actual: actual_count,
                 outcome: result,
             })
         } else if actual_count > count {
-            progress.report_with_elapsed(
-                ProgressPhase::Failed,
-                result.progress_counters(),
-                result.elapsed(),
-            );
+            let failed = progress.report_failed(state.progress_counters());
+            let result = state.into_outcome(failed.elapsed());
             Err(BatchExecutionError::CountExceeded {
                 expected: count,
                 observed_at_least: actual_count,
                 outcome: result,
             })
         } else {
-            progress.report_with_elapsed(
-                ProgressPhase::Finished,
-                result.progress_counters(),
-                result.elapsed(),
-            );
+            let finished = progress.report_finished(state.progress_counters());
+            let result = state.into_outcome(finished.elapsed());
             Ok(result)
         }
     }

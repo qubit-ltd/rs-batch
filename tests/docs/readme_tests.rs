@@ -42,10 +42,10 @@ fn test_readme_mentions_current_executor_types() {
 #[test]
 /// Ensures parallel implementations use the shared scoped progress guard.
 fn test_parallel_progress_reporting_uses_scoped_progress_guard() {
-    assert!(PARALLEL_BATCH_EXECUTOR.contains("RunningProgressLoop::spawn_scoped"));
-    assert!(PARALLEL_BATCH_PROCESSOR.contains("RunningProgressLoop::spawn_scoped"));
-    assert!(!PARALLEL_BATCH_EXECUTOR.contains("RunningProgressLoop::channel()"));
-    assert!(!PARALLEL_BATCH_PROCESSOR.contains("RunningProgressLoop::channel()"));
+    assert!(PARALLEL_BATCH_EXECUTOR.contains("spawn_running_reporter"));
+    assert!(PARALLEL_BATCH_PROCESSOR.contains("spawn_running_reporter"));
+    assert!(!PARALLEL_BATCH_EXECUTOR.contains("RunningProgressLoop"));
+    assert!(!PARALLEL_BATCH_PROCESSOR.contains("RunningProgressLoop"));
 }
 
 /// Extracts the first package version entry from Cargo.toml content.

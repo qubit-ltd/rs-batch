@@ -46,7 +46,7 @@
 
 ```toml
 [dependencies]
-qubit-batch = "0.4.5"
+qubit-batch = "0.5.0"
 ```
 
 当你要直接实现 `Runnable`、`Callable` 或 `Consumer` 类型时，需要额外依赖
@@ -290,8 +290,8 @@ assert!(result.is_success());
 
 任务体中的 panic 会被捕获为 `BatchTaskError::Panicked`。processor consumer 和
 进度上报器本身的 panic 会直接传播给调用者，因为它们不属于任务失败模型。
-顺序执行和顺序处理只会在两个任务或数据项之间上报进度；并行变体通过 scoped
-上报线程周期性发送 running 进度。
+顺序执行和顺序处理只会在两个任务或数据项之间上报进度；并行变体通过
+`Progress::spawn_running_reporter` 在 scoped 上报线程中周期性发送 running 进度。
 
 配置的 `report_interval` 是在实现代码到达 running 进度点时检查的节流条件，
 不保证时间一到就立刻发出 running 事件。顺序变体在任务或数据项之间检查，

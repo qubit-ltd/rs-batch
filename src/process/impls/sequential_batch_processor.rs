@@ -18,7 +18,6 @@ use qubit_function::{
 };
 use qubit_progress::{
     Progress,
-    model::ProgressPhase,
     reporter::{
         NoOpProgressReporter,
         ProgressReporter,
@@ -215,21 +214,13 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
     {
         let state = BatchProcessState::new(count);
         let mut progress = Progress::new(self.reporter.as_ref(), self.report_interval);
-        progress.report_with_elapsed(
-            ProgressPhase::Started,
-            state.progress_counters(),
-            Duration::ZERO,
-        );
+        progress.report_started(state.progress_counters());
 
         for item in items {
             let observed_count = state.record_item_observed();
             if observed_count > count {
-                let result = state.to_direct_result(progress.elapsed());
-                progress.report_with_elapsed(
-                    ProgressPhase::Failed,
-                    state.progress_counters(),
-                    result.elapsed(),
-                );
+                let failed = progress.report_failed(state.progress_counters());
+                let result = state.to_direct_result(failed.elapsed());
                 return Err(BatchProcessError::CountExceeded {
                     expected: count,
                     observed_at_least: observed_count,
@@ -239,27 +230,20 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
             state.record_item_started();
             self.consumer.accept(&item);
             state.record_item_processed();
-            progress.report_running_if_due(state.progress_counters());
+            let _ = progress.report_running_if_due(state.progress_counters());
         }
 
-        let result = state.to_direct_result(progress.elapsed());
         if state.observed_count() < count {
-            progress.report_with_elapsed(
-                ProgressPhase::Failed,
-                state.progress_counters(),
-                result.elapsed(),
-            );
+            let failed = progress.report_failed(state.progress_counters());
+            let result = state.to_direct_result(failed.elapsed());
             Err(BatchProcessError::CountShortfall {
                 expected: count,
                 actual: state.observed_count(),
                 result,
             })
         } else {
-            progress.report_with_elapsed(
-                ProgressPhase::Finished,
-                state.progress_counters(),
-                result.elapsed(),
-            );
+            let finished = progress.report_finished(state.progress_counters());
+            let result = state.to_direct_result(finished.elapsed());
             Ok(result)
         }
     }
