@@ -361,7 +361,7 @@ where
             let running_progress = RunningProgressLoop::spawn_scoped(scope, progress, move || {
                 reporter_state.progress_counters()
             });
-            let worker_progress_points = running_progress.points();
+            let worker_progress_point_handle = running_progress.point_handle();
 
             let worker_count = self.thread_count.get().min(count);
             let observer_state = Arc::clone(&state);
@@ -376,7 +376,7 @@ where
                     worker_state.record_item_started();
                     consumer.accept(&item);
                     worker_state.record_item_processed();
-                    worker_progress_points.running_point();
+                    worker_progress_point_handle.report();
                 },
             );
             running_progress.stop_and_join();
