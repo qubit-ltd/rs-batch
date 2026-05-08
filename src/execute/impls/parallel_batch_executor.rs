@@ -7,7 +7,6 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::panic::resume_unwind;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -244,22 +243,16 @@ impl BatchExecutor for ParallelBatchExecutor {
         let worker_count = self.thread_count.min(count);
 
         thread::scope(|scope| {
-            let (progress_loop, progress_notifier) = RunningProgressLoop::channel();
-            let progress_handle = {
-                let progress_reporter = Arc::clone(&self.reporter);
-                let reporter_state = Arc::clone(&state);
-                let report_interval = self.report_interval;
-                scope.spawn(move || {
-                    let progress =
-                        Progress::from_start(progress_reporter.as_ref(), report_interval, start);
-                    progress_loop.run(progress, || reporter_state.progress_counters());
-                })
-            };
+            let reporter_state = Arc::clone(&state);
+            let progress =
+                Progress::from_start(self.reporter.as_ref(), self.report_interval, start);
+            let running_progress = RunningProgressLoop::spawn_scoped(scope, progress, move || {
+                reporter_state.progress_counters()
+            });
+            let worker_progress_points = running_progress.points();
 
             let observer_state = Arc::clone(&state);
             let worker_state = Arc::clone(&state);
-            let worker_progress_notifier = progress_notifier.clone();
-            let report_on_worker_completion = self.report_interval.is_zero();
             actual_count = run_scoped_parallel(
                 tasks,
                 count,
@@ -267,15 +260,10 @@ impl BatchExecutor for ParallelBatchExecutor {
                 move || observer_state.record_task_observed(),
                 move |index, task| {
                     run_parallel_task(&worker_state, index, task);
-                    if report_on_worker_completion {
-                        worker_progress_notifier.running_point();
-                    }
+                    worker_progress_points.running_point();
                 },
             );
-            progress_notifier.stop();
-            if let Err(payload) = progress_handle.join() {
-                resume_unwind(payload);
-            }
+            running_progress.stop_and_join();
         });
 
         let elapsed = progress.elapsed();

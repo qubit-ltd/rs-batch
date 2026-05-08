@@ -12,6 +12,10 @@
 const CARGO_TOML: &str = include_str!("../../Cargo.toml");
 const README_EN: &str = include_str!("../../README.md");
 const README_ZH: &str = include_str!("../../README.zh_CN.md");
+const PARALLEL_BATCH_EXECUTOR: &str =
+    include_str!("../../src/execute/impls/parallel_batch_executor.rs");
+const PARALLEL_BATCH_PROCESSOR: &str =
+    include_str!("../../src/process/impls/parallel_batch_processor.rs");
 
 #[test]
 /// Ensures README dependency snippets stay in sync with Cargo.toml.
@@ -33,6 +37,15 @@ fn test_readme_mentions_current_executor_types() {
     assert!(README_EN.contains("ParallelBatchExecutor"));
     assert!(README_ZH.contains("SequentialBatchExecutor"));
     assert!(README_ZH.contains("ParallelBatchExecutor"));
+}
+
+#[test]
+/// Ensures parallel implementations use the shared scoped progress guard.
+fn test_parallel_progress_reporting_uses_scoped_progress_guard() {
+    assert!(PARALLEL_BATCH_EXECUTOR.contains("RunningProgressLoop::spawn_scoped"));
+    assert!(PARALLEL_BATCH_PROCESSOR.contains("RunningProgressLoop::spawn_scoped"));
+    assert!(!PARALLEL_BATCH_EXECUTOR.contains("RunningProgressLoop::channel()"));
+    assert!(!PARALLEL_BATCH_PROCESSOR.contains("RunningProgressLoop::channel()"));
 }
 
 /// Extracts the first package version entry from Cargo.toml content.
