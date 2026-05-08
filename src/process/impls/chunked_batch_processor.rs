@@ -16,7 +16,6 @@ use std::{
 
 use qubit_progress::{
     Progress,
-    model::ProgressPhase,
     reporter::{
         NoOpProgressReporter,
         ProgressReporter,
@@ -278,11 +277,7 @@ where
         let reporter = Arc::clone(&self.reporter);
         let mut progress = Progress::new(reporter.as_ref(), self.report_interval);
         let state = BatchProcessState::new(count);
-        progress.report_with_elapsed(
-            ProgressPhase::Started,
-            state.progress_counters(),
-            Duration::ZERO,
-        );
+        progress.report_started(state.progress_counters());
         let capacity = cmp::min(self.chunk_size.get(), count.max(1));
         let mut chunk = Vec::with_capacity(capacity);
 
@@ -292,12 +287,8 @@ where
                 if !chunk.is_empty() {
                     self.process_chunk(&mut chunk, &state, &mut progress)?;
                 }
-                let result = state.to_chunked_result(progress.elapsed());
-                progress.report_with_elapsed(
-                    ProgressPhase::Failed,
-                    state.progress_counters(),
-                    result.elapsed(),
-                );
+                let failed = progress.report_failed(state.progress_counters());
+                let result = state.to_chunked_result(failed.elapsed());
                 return Err(ChunkedBatchProcessError::CountExceeded {
                     expected: count,
                     observed_at_least: observed_count,
@@ -314,24 +305,17 @@ where
             self.process_chunk(&mut chunk, &state, &mut progress)?;
         }
 
-        let result = state.to_chunked_result(progress.elapsed());
         if state.observed_count() < count {
-            progress.report_with_elapsed(
-                ProgressPhase::Failed,
-                state.progress_counters(),
-                result.elapsed(),
-            );
+            let failed = progress.report_failed(state.progress_counters());
+            let result = state.to_chunked_result(failed.elapsed());
             Err(ChunkedBatchProcessError::CountShortfall {
                 expected: count,
                 actual: state.observed_count(),
                 result,
             })
         } else {
-            progress.report_with_elapsed(
-                ProgressPhase::Finished,
-                state.progress_counters(),
-                result.elapsed(),
-            );
+            let finished = progress.report_finished(state.progress_counters());
+            let result = state.to_chunked_result(finished.elapsed());
             Ok(result)
         }
     }
@@ -372,12 +356,8 @@ impl<P> ChunkedBatchProcessor<P> {
                 if chunk_result.item_count() != chunk_len
                     || chunk_result.completed_count() != chunk_len
                 {
-                    let result = state.to_chunked_result(progress.elapsed());
-                    progress.report_with_elapsed(
-                        ProgressPhase::Failed,
-                        state.progress_counters(),
-                        result.elapsed(),
-                    );
+                    let failed = progress.report_failed(state.progress_counters());
+                    let result = state.to_chunked_result(failed.elapsed());
                     return Err(ChunkedBatchProcessError::InvalidChunkResult {
                         chunk_index,
                         start_index,
@@ -388,16 +368,12 @@ impl<P> ChunkedBatchProcessor<P> {
                     });
                 }
                 state.record_chunk_processed(chunk_len, chunk_result.processed_count());
-                progress.report_running_if_due(state.running_chunk_progress_counters());
+                let _ = progress.report_running_if_due(state.running_chunk_progress_counters());
                 Ok(())
             }
             Err(source) => {
-                let result = state.to_chunked_result(progress.elapsed());
-                progress.report_with_elapsed(
-                    ProgressPhase::Failed,
-                    state.progress_counters(),
-                    result.elapsed(),
-                );
+                let failed = progress.report_failed(state.progress_counters());
+                let result = state.to_chunked_result(failed.elapsed());
                 Err(ChunkedBatchProcessError::ChunkFailed {
                     chunk_index,
                     start_index,

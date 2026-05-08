@@ -51,7 +51,7 @@ Rayon-backed execution lives in the companion `qubit-rayon-batch` crate.
 
 ```toml
 [dependencies]
-qubit-batch = "0.4.5"
+qubit-batch = "0.5.0"
 ```
 
 Add `qubit-function` when you implement `Runnable`, `Callable`, or `Consumer`
@@ -300,8 +300,9 @@ assert!(result.is_success());
 Panics from task bodies are captured as `BatchTaskError::Panicked`. Panics from
 processor consumers and progress reporters propagate to the caller because they
 are outside the task failure model. Sequential execution and processing report
-progress only between tasks or items; parallel variants report running progress
-periodically from a scoped reporter thread.
+progress only between tasks or items; parallel variants use
+`Progress::spawn_running_reporter` to emit running progress periodically from a
+scoped reporter thread.
 
 The configured `report_interval` is a throttle checked only at
 implementation-defined running progress points. It does not guarantee that a

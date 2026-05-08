@@ -11,10 +11,7 @@ use std::{
     num::NonZeroUsize,
     sync::Arc,
     thread,
-    time::{
-        Duration,
-        Instant,
-    },
+    time::Duration,
 };
 
 use qubit_function::{
@@ -23,8 +20,6 @@ use qubit_function::{
 };
 use qubit_progress::{
     Progress,
-    RunningProgressLoop,
-    model::ProgressPhase,
     reporter::{
         NoOpProgressReporter,
         ProgressReporter,
@@ -283,48 +278,33 @@ where
     {
         let state = Arc::new(BatchProcessState::new(count));
         let progress = Progress::new(self.reporter.as_ref(), self.report_interval);
-        progress.report_with_elapsed(
-            ProgressPhase::Started,
-            state.progress_counters(),
-            Duration::ZERO,
-        );
-        let start = progress.started_at();
+        progress.report_started(state.progress_counters());
 
         if count > 0 {
-            self.process_non_empty(items, count, Arc::clone(&state), start);
+            self.process_non_empty(items, count, Arc::clone(&state), &progress);
         } else if items.into_iter().next().is_some() {
             state.record_item_observed();
         }
 
-        let result = state.to_direct_result(start.elapsed());
         if state.observed_count() < count {
-            progress.report_with_elapsed(
-                ProgressPhase::Failed,
-                state.progress_counters(),
-                result.elapsed(),
-            );
+            let failed = progress.report_failed(state.progress_counters());
+            let result = state.to_direct_result(failed.elapsed());
             Err(BatchProcessError::CountShortfall {
                 expected: count,
                 actual: state.observed_count(),
                 result,
             })
         } else if state.observed_count() > count {
-            progress.report_with_elapsed(
-                ProgressPhase::Failed,
-                state.progress_counters(),
-                result.elapsed(),
-            );
+            let failed = progress.report_failed(state.progress_counters());
+            let result = state.to_direct_result(failed.elapsed());
             Err(BatchProcessError::CountExceeded {
                 expected: count,
                 observed_at_least: state.observed_count(),
                 result,
             })
         } else {
-            progress.report_with_elapsed(
-                ProgressPhase::Finished,
-                state.progress_counters(),
-                result.elapsed(),
-            );
+            let finished = progress.report_finished(state.progress_counters());
+            let result = state.to_direct_result(finished.elapsed());
             Ok(result)
         }
     }
@@ -341,6 +321,7 @@ where
     /// * `items` - Item source for the batch.
     /// * `count` - Declared item count.
     /// * `state` - Shared processing state updated by producer and workers.
+    /// * `progress` - Progress run used to spawn the running reporter.
     ///
     /// # Panics
     ///
@@ -350,17 +331,14 @@ where
         items: I,
         count: usize,
         state: Arc<BatchProcessState>,
-        start: Instant,
+        progress: &Progress<'_>,
     ) where
         I: IntoIterator<Item = Item>,
     {
         thread::scope(|scope| {
             let reporter_state = Arc::clone(&state);
-            let progress =
-                Progress::from_start(self.reporter.as_ref(), self.report_interval, start);
-            let running_progress = RunningProgressLoop::spawn_scoped(scope, progress, move || {
-                reporter_state.progress_counters()
-            });
+            let running_progress =
+                progress.spawn_running_reporter(scope, move || reporter_state.progress_counters());
             let worker_progress_point_handle = running_progress.point_handle();
 
             let worker_count = self.thread_count.get().min(count);

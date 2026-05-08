@@ -19,7 +19,6 @@ use std::{
 use qubit_function::Runnable;
 use qubit_progress::{
     Progress,
-    model::ProgressPhase,
     reporter::{
         NoOpProgressReporter,
         ProgressReporter,
@@ -198,22 +197,13 @@ impl BatchExecutor for SequentialBatchExecutor {
     {
         let state = BatchExecutionState::new(count);
         let mut progress = Progress::new(self.reporter.as_ref(), self.report_interval);
-        progress.report_with_elapsed(
-            ProgressPhase::Started,
-            state.progress_counters(),
-            Duration::ZERO,
-        );
+        progress.report_started(state.progress_counters());
         let mut actual_count = 0;
         for task in tasks {
             actual_count = state.record_task_observed();
             if actual_count > count {
-                let elapsed = progress.elapsed();
-                progress.report_with_elapsed(
-                    ProgressPhase::Failed,
-                    state.progress_counters(),
-                    elapsed,
-                );
-                let outcome = state.into_outcome(elapsed);
+                let failed = progress.report_failed(state.progress_counters());
+                let outcome = state.into_outcome(failed.elapsed());
                 return Err(BatchExecutionError::CountExceeded {
                     expected: count,
                     observed_at_least: actual_count,
@@ -232,24 +222,19 @@ impl BatchExecutor for SequentialBatchExecutor {
                 ),
             }
             // Update the actual task count and report progress if due.
-            progress.report_running_if_due(state.progress_counters());
+            let _ = progress.report_running_if_due(state.progress_counters());
         }
 
-        let elapsed = progress.elapsed();
         if actual_count < count {
-            progress.report_with_elapsed(ProgressPhase::Failed, state.progress_counters(), elapsed);
+            let failed = progress.report_failed(state.progress_counters());
             Err(BatchExecutionError::CountShortfall {
                 expected: count,
                 actual: actual_count,
-                outcome: state.into_outcome(elapsed),
+                outcome: state.into_outcome(failed.elapsed()),
             })
         } else {
-            progress.report_with_elapsed(
-                ProgressPhase::Finished,
-                state.progress_counters(),
-                elapsed,
-            );
-            Ok(state.into_outcome(elapsed))
+            let finished = progress.report_finished(state.progress_counters());
+            Ok(state.into_outcome(finished.elapsed()))
         }
     }
 }
