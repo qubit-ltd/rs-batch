@@ -46,7 +46,7 @@
 
 ```toml
 [dependencies]
-qubit-batch = "0.4.4"
+qubit-batch = "0.4.5"
 ```
 
 当你要直接实现 `Runnable`、`Callable` 或 `Consumer` 类型时，需要额外依赖
