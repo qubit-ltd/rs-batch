@@ -105,9 +105,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-atomic"
-version = "0.11.1"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33d68a50d78ab3da351a5b600dbbf7aa022068e1809d9e5e32b92fd9dc0a46a2"
+checksum = "362cd5e89ec359fd4d5985cd5372af7f22847c489ae533064fc6c9252ecddbd5"
 dependencies = [
  "arc-swap",
  "portable-atomic",
@@ -115,7 +115,7 @@ dependencies = [
 
 [[package]]
 name = "qubit-batch"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "crossbeam-queue",
  "qubit-atomic",
