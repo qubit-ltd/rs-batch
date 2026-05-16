@@ -36,12 +36,13 @@ use crate::support::{
 fn test_chunked_batch_processor_accessors_and_delegate_mutation() {
     let delegate = TestChunkProcessor::success();
     let chunks = delegate.chunks();
-    let mut processor = ChunkedBatchProcessor::new(
+    let mut processor = ChunkedBatchProcessor::builder(
         delegate,
         NonZeroUsize::new(4).expect("chunk size is non-zero"),
     )
-    .with_reporter(NoOpProgressReporter)
-    .with_report_interval(Duration::from_millis(10));
+    .reporter(NoOpProgressReporter)
+    .report_interval(Duration::from_millis(10))
+    .build();
 
     assert_eq!(processor.chunk_size().get(), 4);
     assert_eq!(processor.report_interval(), Duration::from_millis(10));
@@ -51,6 +52,14 @@ fn test_chunked_batch_processor_accessors_and_delegate_mutation() {
 
     let delegate = processor.into_delegate();
     assert!(Arc::ptr_eq(&delegate.chunks(), &chunks));
+
+    let no_reporter_processor = ChunkedBatchProcessor::builder(
+        TestChunkProcessor::success(),
+        NonZeroUsize::new(2).expect("chunk size is non-zero"),
+    )
+    .no_reporter()
+    .build();
+    assert!(Arc::strong_count(no_reporter_processor.reporter()) >= 1);
 }
 
 #[test]
@@ -107,12 +116,13 @@ fn test_chunked_batch_processor_accepts_empty_input() {
 fn test_chunked_batch_processor_reports_progress() {
     let delegate = TestChunkProcessor::success();
     let reporter = Arc::new(RecordingProgressReporter::new());
-    let mut processor = ChunkedBatchProcessor::new(
+    let mut processor = ChunkedBatchProcessor::builder(
         delegate,
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
     )
-    .with_reporter_arc(reporter.clone())
-    .with_report_interval(Duration::ZERO);
+    .reporter_arc(reporter.clone())
+    .report_interval(Duration::ZERO)
+    .build();
 
     processor
         .process_with_count([1, 2, 3], 3)
@@ -145,12 +155,13 @@ fn test_chunked_batch_processor_reports_progress() {
 fn test_chunked_batch_processor_skips_progress_before_interval() {
     let delegate = TestChunkProcessor::success();
     let reporter = Arc::new(RecordingProgressReporter::new());
-    let mut processor = ChunkedBatchProcessor::new(
+    let mut processor = ChunkedBatchProcessor::builder(
         delegate,
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
     )
-    .with_reporter_arc(reporter.clone())
-    .with_report_interval(Duration::from_secs(3_600));
+    .reporter_arc(reporter.clone())
+    .report_interval(Duration::from_secs(3_600))
+    .build();
 
     processor
         .process_with_count([1, 2], 2)
@@ -234,7 +245,7 @@ fn test_chunked_batch_processor_flushes_tail_chunk_before_count_exceeded() {
 #[test]
 fn test_chunked_batch_processor_propagates_tail_chunk_error_before_count_exceeded() {
     let mut processor = ChunkedBatchProcessor::new(
-        TestChunkProcessor::with_outcomes([
+        TestChunkProcessor::outcomes([
             TestChunkOutcome::Success,
             TestChunkOutcome::Failure("tail insert failed"),
         ]),
@@ -403,7 +414,7 @@ impl Error for TestProcessorError {}
 #[test]
 fn test_chunked_batch_processor_wraps_delegate_error() {
     let mut processor = ChunkedBatchProcessor::new(
-        TestChunkProcessor::with_outcomes([TestChunkOutcome::Failure("insert failed")]),
+        TestChunkProcessor::outcomes([TestChunkOutcome::Failure("insert failed")]),
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
     );
 
@@ -432,7 +443,7 @@ fn test_chunked_batch_processor_wraps_delegate_error() {
 #[test]
 fn test_chunked_batch_processor_wraps_partial_chunk_error() {
     let mut processor = ChunkedBatchProcessor::new(
-        TestChunkProcessor::with_outcomes([
+        TestChunkProcessor::outcomes([
             TestChunkOutcome::Success,
             TestChunkOutcome::Failure("partial insert failed"),
         ]),
@@ -465,7 +476,7 @@ fn test_chunked_batch_processor_wraps_partial_chunk_error() {
 #[test]
 fn test_chunked_batch_processor_rejects_invalid_delegate_result() {
     let mut processor = ChunkedBatchProcessor::new(
-        TestChunkProcessor::with_outcomes([TestChunkOutcome::InvalidCompletedCount]),
+        TestChunkProcessor::outcomes([TestChunkOutcome::InvalidCompletedCount]),
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
     );
 
@@ -498,7 +509,7 @@ fn test_chunked_batch_processor_rejects_invalid_delegate_result() {
 #[test]
 fn test_chunked_batch_processor_rejects_invalid_delegate_item_count() {
     let mut processor = ChunkedBatchProcessor::new(
-        TestChunkProcessor::with_outcomes([TestChunkOutcome::InvalidItemCount]),
+        TestChunkProcessor::outcomes([TestChunkOutcome::InvalidItemCount]),
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
     );
 

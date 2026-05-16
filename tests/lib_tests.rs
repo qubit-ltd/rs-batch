@@ -9,18 +9,28 @@
  ******************************************************************************/
 //! Tests for the crate-level public API layout.
 
-use qubit_batch::execute::impls::SequentialBatchExecutor as ExecuteSequentialBatchExecutor;
+use qubit_batch::execute::impls::{
+    SequentialBatchExecutor as ExecuteSequentialBatchExecutor,
+    SequentialBatchExecutorBuilder as ExecuteSequentialBatchExecutorBuilder,
+};
 use qubit_batch::execute::{
     BatchExecutor as ExecuteBatchExecutor,
     BatchOutcome as ExecuteBatchOutcome,
+    SequentialBatchExecutorBuilder as ExecuteModuleSequentialBatchExecutorBuilder,
 };
-use qubit_batch::process::impls::SequentialBatchProcessor as ProcessSequentialBatchProcessor;
+use qubit_batch::process::impls::{
+    ChunkedBatchProcessorBuilder as ProcessImplChunkedBatchProcessorBuilder,
+    SequentialBatchProcessor as ProcessSequentialBatchProcessor,
+    SequentialBatchProcessorBuilder as ProcessImplSequentialBatchProcessorBuilder,
+};
 use qubit_batch::process::{
     BatchProcessResult as ProcessBatchProcessResult,
     BatchProcessResultBuildError as ProcessBatchProcessResultBuildError,
     BatchProcessResultBuilder as ProcessBatchProcessResultBuilder,
     BatchProcessor as ProcessBatchProcessor,
+    ChunkedBatchProcessorBuilder as ProcessChunkedBatchProcessorBuilder,
     ParallelBatchProcessorBuildError as ProcessParallelBatchProcessorBuildError,
+    SequentialBatchProcessorBuilder as ProcessSequentialBatchProcessorBuilder,
 };
 use qubit_batch::{
     BatchExecutor,
@@ -29,9 +39,12 @@ use qubit_batch::{
     BatchProcessResultBuildError,
     BatchProcessResultBuilder,
     BatchProcessor,
+    ChunkedBatchProcessorBuilder,
     ParallelBatchProcessorBuildError,
     SequentialBatchExecutor,
+    SequentialBatchExecutorBuilder,
     SequentialBatchProcessor,
+    SequentialBatchProcessorBuilder,
 };
 
 #[test]
@@ -57,4 +70,24 @@ fn test_core_types_are_exported_from_crate_root_and_grouped_modules() {
     let _root_parallel_processor_build_error: Option<ParallelBatchProcessorBuildError> = None;
     let _process_parallel_processor_build_error: Option<ProcessParallelBatchProcessorBuildError> =
         None;
+    let _root_sequential_executor_builder: Option<SequentialBatchExecutorBuilder> = None;
+    let _execute_sequential_executor_builder: Option<ExecuteSequentialBatchExecutorBuilder> = None;
+    let _execute_module_sequential_executor_builder: Option<
+        ExecuteModuleSequentialBatchExecutorBuilder,
+    > = None;
+    let _root_sequential_processor_builder: Option<SequentialBatchProcessorBuilder<i32>> = None;
+    let _process_sequential_processor_builder: Option<ProcessSequentialBatchProcessorBuilder<i32>> =
+        None;
+    let _process_impl_sequential_processor_builder: Option<
+        ProcessImplSequentialBatchProcessorBuilder<i32>,
+    > = None;
+    let _root_chunked_processor_builder: Option<
+        ChunkedBatchProcessorBuilder<SequentialBatchProcessor<i32>>,
+    > = None;
+    let _process_chunked_processor_builder: Option<
+        ProcessChunkedBatchProcessorBuilder<SequentialBatchProcessor<i32>>,
+    > = None;
+    let _process_impl_chunked_processor_builder: Option<
+        ProcessImplChunkedBatchProcessorBuilder<SequentialBatchProcessor<i32>>,
+    > = None;
 }

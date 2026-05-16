@@ -21,11 +21,12 @@ use crate::support::TestChunkProcessor;
 
 #[test]
 fn test_batch_processor_chunked_accessors() {
-    let processor = ChunkedBatchProcessor::new(
+    let processor = ChunkedBatchProcessor::builder(
         TestChunkProcessor::success(),
         NonZeroUsize::new(3).expect("non-zero chunk size"),
     )
-    .with_report_interval(Duration::from_millis(25));
+    .report_interval(Duration::from_millis(25))
+    .build();
 
     assert_eq!(processor.chunk_size().get(), 3);
     assert_eq!(processor.report_interval(), Duration::from_millis(25));

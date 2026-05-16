@@ -41,7 +41,7 @@ impl TestChunkProcessor {
         Self::default()
     }
 
-    pub fn with_outcomes<I>(outcomes: I) -> Self
+    pub fn outcomes<I>(outcomes: I) -> Self
     where
         I: IntoIterator<Item = TestChunkOutcome>,
     {

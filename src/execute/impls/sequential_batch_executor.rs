@@ -19,10 +19,7 @@ use std::{
 use qubit_function::Runnable;
 use qubit_progress::{
     Progress,
-    reporter::{
-        NoOpProgressReporter,
-        ProgressReporter,
-    },
+    reporter::ProgressReporter,
 };
 
 use crate::{
@@ -34,6 +31,8 @@ use crate::{
         panic_payload_to_error,
     },
 };
+
+use super::SequentialBatchExecutorBuilder;
 
 /// Executes a whole batch sequentially on the caller thread.
 ///
@@ -58,9 +57,9 @@ use crate::{
 #[derive(Clone)]
 pub struct SequentialBatchExecutor {
     /// Interval between progress callbacks while the batch is running.
-    report_interval: Duration,
+    pub(crate) report_interval: Duration,
     /// Reporter receiving batch lifecycle callbacks.
-    reporter: Arc<dyn ProgressReporter>,
+    pub(crate) reporter: Arc<dyn ProgressReporter>,
 }
 
 impl SequentialBatchExecutor {
@@ -71,60 +70,20 @@ impl SequentialBatchExecutor {
     ///
     /// # Returns
     ///
-    /// A sequential batch executor using [`NoOpProgressReporter`].
+    /// A sequential batch executor using no-op progress reporting.
     #[inline]
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Returns a copy configured with the supplied progress reporter.
-    ///
-    /// # Parameters
-    ///
-    /// * `reporter` - Progress reporter used for later executions.
+    /// Creates a builder for configuring a sequential batch executor.
     ///
     /// # Returns
     ///
-    /// A new executor that shares the supplied reporter.
+    /// A builder initialized with default settings.
     #[inline]
-    pub fn with_reporter<R>(self, reporter: R) -> Self
-    where
-        R: ProgressReporter + 'static,
-    {
-        self.with_reporter_arc(Arc::new(reporter))
-    }
-
-    /// Returns a copy configured with the supplied progress reporter.
-    ///
-    /// # Parameters
-    ///
-    /// * `reporter` - Shared progress reporter used for later executions.
-    ///
-    /// # Returns
-    ///
-    /// A new executor that shares the supplied reporter.
-    #[inline]
-    pub fn with_reporter_arc(self, reporter: Arc<dyn ProgressReporter>) -> Self {
-        Self { reporter, ..self }
-    }
-
-    /// Returns a copy configured with the supplied progress-report interval.
-    ///
-    /// # Parameters
-    ///
-    /// * `report_interval` - Minimum time between due-based running progress
-    ///   callbacks. [`Duration::ZERO`] reports at every sequential
-    ///   between-task progress point.
-    ///
-    /// # Returns
-    ///
-    /// A new executor using `report_interval`.
-    #[inline]
-    pub fn with_report_interval(self, report_interval: Duration) -> Self {
-        Self {
-            report_interval,
-            ..self
-        }
+    pub fn builder() -> SequentialBatchExecutorBuilder {
+        SequentialBatchExecutorBuilder::default()
     }
 
     /// Returns the configured progress-report interval.
@@ -153,13 +112,10 @@ impl Default for SequentialBatchExecutor {
     ///
     /// # Returns
     ///
-    /// A sequential batch executor using [`NoOpProgressReporter`].
+    /// A sequential batch executor using no-op progress reporting.
     #[inline]
     fn default() -> Self {
-        Self {
-            report_interval: Self::DEFAULT_REPORT_INTERVAL,
-            reporter: Arc::new(NoOpProgressReporter),
-        }
+        Self::builder().build()
     }
 }
 

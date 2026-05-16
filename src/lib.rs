@@ -72,6 +72,7 @@ pub use execute::{
     ParallelBatchExecutorBuildError,
     ParallelBatchExecutorBuilder,
     SequentialBatchExecutor,
+    SequentialBatchExecutorBuilder,
 };
 pub use process::{
     BatchProcessError,
@@ -81,8 +82,10 @@ pub use process::{
     BatchProcessor,
     ChunkedBatchProcessError,
     ChunkedBatchProcessor,
+    ChunkedBatchProcessorBuilder,
     ParallelBatchProcessor,
     ParallelBatchProcessorBuildError,
     ParallelBatchProcessorBuilder,
     SequentialBatchProcessor,
+    SequentialBatchProcessorBuilder,
 };

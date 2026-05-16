@@ -14,8 +14,10 @@ mod parallel_batch_executor;
 mod parallel_batch_executor_build_error;
 mod parallel_batch_executor_builder;
 mod sequential_batch_executor;
+mod sequential_batch_executor_builder;
 
 pub use parallel_batch_executor::ParallelBatchExecutor;
 pub use parallel_batch_executor_build_error::ParallelBatchExecutorBuildError;
 pub use parallel_batch_executor_builder::ParallelBatchExecutorBuilder;
 pub use sequential_batch_executor::SequentialBatchExecutor;
+pub use sequential_batch_executor_builder::SequentialBatchExecutorBuilder;

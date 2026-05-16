@@ -16,10 +16,7 @@ use std::{
 
 use qubit_progress::{
     Progress,
-    reporter::{
-        NoOpProgressReporter,
-        ProgressReporter,
-    },
+    reporter::ProgressReporter,
 };
 
 use crate::process::{
@@ -28,6 +25,8 @@ use crate::process::{
     BatchProcessor,
     ChunkedBatchProcessError,
 };
+
+use super::ChunkedBatchProcessorBuilder;
 
 /// Processes input items by submitting fixed-size chunks to a delegate.
 ///
@@ -99,13 +98,13 @@ use crate::process::{
 ///
 pub struct ChunkedBatchProcessor<P> {
     /// Delegate processor receiving each chunk.
-    delegate: P,
+    pub(crate) delegate: P,
     /// Maximum number of items submitted to the delegate at once.
-    chunk_size: NonZeroUsize,
+    pub(crate) chunk_size: NonZeroUsize,
     /// Minimum interval between progress callbacks.
-    report_interval: Duration,
+    pub(crate) report_interval: Duration,
     /// Reporter receiving batch lifecycle callbacks.
-    reporter: Arc<dyn ProgressReporter>,
+    pub(crate) reporter: Arc<dyn ProgressReporter>,
 }
 
 impl<P> ChunkedBatchProcessor<P> {
@@ -121,7 +120,7 @@ impl<P> ChunkedBatchProcessor<P> {
     ///
     /// # Returns
     ///
-    /// A chunked processor using [`NoOpProgressReporter`].
+    /// A chunked processor using no-op progress reporting.
     ///
     /// # Type Constraints
     ///
@@ -133,62 +132,22 @@ impl<P> ChunkedBatchProcessor<P> {
     /// only process items for item types that the delegate actually supports.
     #[inline]
     pub fn new(delegate: P, chunk_size: NonZeroUsize) -> Self {
-        Self {
-            delegate,
-            chunk_size,
-            report_interval: Self::DEFAULT_REPORT_INTERVAL,
-            reporter: Arc::new(NoOpProgressReporter),
-        }
+        Self::builder(delegate, chunk_size).build()
     }
 
-    /// Returns a copy configured with the supplied progress reporter.
+    /// Creates a builder for configuring a chunked batch processor.
     ///
     /// # Parameters
     ///
-    /// * `reporter` - Progress reporter used for later processing calls.
+    /// * `delegate` - Processor receiving each chunk.
+    /// * `chunk_size` - Maximum number of items submitted in one chunk.
     ///
     /// # Returns
     ///
-    /// This processor configured with `reporter`.
+    /// A builder initialized with default settings.
     #[inline]
-    pub fn with_reporter<R>(self, reporter: R) -> Self
-    where
-        R: ProgressReporter + 'static,
-    {
-        self.with_reporter_arc(Arc::new(reporter))
-    }
-
-    /// Returns a copy configured with the supplied progress reporter.
-    ///
-    /// # Parameters
-    ///
-    /// * `reporter` - Shared progress reporter used for later processing calls.
-    ///
-    /// # Returns
-    ///
-    /// This processor configured with `reporter`.
-    #[inline]
-    pub fn with_reporter_arc(self, reporter: Arc<dyn ProgressReporter>) -> Self {
-        Self { reporter, ..self }
-    }
-
-    /// Returns a copy configured with the supplied progress-report interval.
-    ///
-    /// # Parameters
-    ///
-    /// * `report_interval` - Minimum time between due-based running progress
-    ///   callbacks. [`Duration::ZERO`] reports at every completed-chunk
-    ///   progress point.
-    ///
-    /// # Returns
-    ///
-    /// This processor configured with `report_interval`.
-    #[inline]
-    pub fn with_report_interval(self, report_interval: Duration) -> Self {
-        Self {
-            report_interval,
-            ..self
-        }
+    pub fn builder(delegate: P, chunk_size: NonZeroUsize) -> ChunkedBatchProcessorBuilder<P> {
+        ChunkedBatchProcessorBuilder::new(delegate, chunk_size)
     }
 
     /// Returns the configured chunk size.
