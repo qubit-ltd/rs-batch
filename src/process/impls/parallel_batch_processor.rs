@@ -34,13 +34,15 @@ use crate::process::{
 };
 use crate::utils::run_scoped_parallel;
 
-/// Processes batch items in parallel on scoped standard threads.
+/// Processes batch items with sequential fallback and scoped standard threads.
 ///
 /// The processor stores the supplied consumer as an [`ArcConsumer`] so every
-/// worker can share it safely. Worker threads are scoped to each
-/// [`BatchProcessor::process`] call, therefore input items may borrow data from
-/// the caller as long as they are [`Send`]. Running progress is reported from a
-/// scoped reporter thread while workers update shared counters.
+/// worker can share it safely. By default, small batches run sequentially to
+/// avoid thread setup overhead. Larger batches use scoped worker threads for
+/// each [`BatchProcessor::process`] call, therefore input items may borrow data
+/// from the caller as long as they are [`Send`]. Running progress is reported
+/// between items on the sequential path and from a scoped reporter thread on
+/// the parallel path.
 ///
 /// # Type Parameters
 ///
@@ -68,7 +70,8 @@ use crate::utils::run_scoped_parallel;
 /// let mut processor = ParallelBatchProcessor::new(move |item: &usize| {
 ///     total_for_consumer.fetch_add(*item, Ordering::Relaxed);
 /// })
-/// .with_thread_count(NonZeroUsize::new(2).expect("thread count should be non-zero"));
+/// .with_thread_count(NonZeroUsize::new(2).expect("thread count should be non-zero"))
+/// .with_sequential_threshold(0);
 ///
 /// let result = processor
 ///     .process([1, 2, 3], 3)
@@ -82,6 +85,8 @@ pub struct ParallelBatchProcessor<Item> {
     consumer: ArcConsumer<Item>,
     /// Fixed worker-thread count used by each processing call.
     thread_count: NonZeroUsize,
+    /// Maximum batch size that still uses sequential processing.
+    sequential_threshold: usize,
     /// Minimum interval between progress callbacks.
     report_interval: Duration,
     /// Reporter receiving batch lifecycle callbacks.
@@ -91,6 +96,9 @@ pub struct ParallelBatchProcessor<Item> {
 impl<Item> ParallelBatchProcessor<Item> {
     /// Default interval between progress callbacks.
     pub const DEFAULT_REPORT_INTERVAL: Duration = Duration::from_secs(5);
+
+    /// Default maximum batch size that still uses sequential processing.
+    pub const DEFAULT_SEQUENTIAL_THRESHOLD: usize = 100;
 
     /// Creates a parallel consumer-backed batch processor.
     ///
@@ -111,6 +119,7 @@ impl<Item> ParallelBatchProcessor<Item> {
             consumer: consumer.into_arc(),
             thread_count: NonZeroUsize::new(Self::default_thread_count())
                 .expect("default parallel processor thread count should be non-zero"),
+            sequential_threshold: Self::DEFAULT_SEQUENTIAL_THRESHOLD,
             report_interval: Self::DEFAULT_REPORT_INTERVAL,
             reporter: Arc::new(NoOpProgressReporter),
         }
@@ -140,6 +149,23 @@ impl<Item> ParallelBatchProcessor<Item> {
     #[inline]
     pub const fn with_thread_count(mut self, thread_count: NonZeroUsize) -> Self {
         self.thread_count = thread_count;
+        self
+    }
+
+    /// Returns a copy configured with the supplied sequential fallback threshold.
+    ///
+    /// # Parameters
+    ///
+    /// * `sequential_threshold` - Maximum declared item count that still runs on
+    ///   the caller thread. Use `0` when every non-empty batch should use scoped
+    ///   workers.
+    ///
+    /// # Returns
+    ///
+    /// This processor configured with `sequential_threshold`.
+    #[inline]
+    pub const fn with_sequential_threshold(mut self, sequential_threshold: usize) -> Self {
+        self.sequential_threshold = sequential_threshold;
         self
     }
 
@@ -179,8 +205,9 @@ impl<Item> ParallelBatchProcessor<Item> {
     /// # Parameters
     ///
     /// * `report_interval` - Minimum time between due-based running progress
-    ///   callbacks. [`Duration::ZERO`] reports on worker completion signals
-    ///   without periodic polling.
+    ///   callbacks. [`Duration::ZERO`] reports at every sequential between-item
+    ///   progress point or on parallel worker completion signals without periodic
+    ///   polling.
     ///
     /// # Returns
     ///
@@ -201,6 +228,16 @@ impl<Item> ParallelBatchProcessor<Item> {
     #[inline]
     pub const fn thread_count(&self) -> usize {
         self.thread_count.get()
+    }
+
+    /// Returns the configured sequential fallback threshold.
+    ///
+    /// # Returns
+    ///
+    /// The maximum item count that still runs sequentially.
+    #[inline]
+    pub const fn sequential_threshold(&self) -> usize {
+        self.sequential_threshold
     }
 
     /// Returns the configured progress-report interval.
@@ -250,7 +287,7 @@ where
 {
     type Error = BatchProcessError;
 
-    /// Processes items on fixed-width scoped standard threads.
+    /// Processes items sequentially for small batches or on scoped workers.
     ///
     /// # Parameters
     ///
@@ -270,18 +307,22 @@ where
     ///
     /// # Panics
     ///
-    /// Propagates any panic raised by the stored consumer from a worker thread,
-    /// or by the configured progress reporter.
+    /// Propagates any panic raised by the stored consumer from the caller thread
+    /// or a worker thread, or by the configured progress reporter.
     fn process<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
     {
         let state = Arc::new(BatchProcessState::new(count));
-        let progress = Progress::new(self.reporter.as_ref(), self.report_interval);
+        let mut progress = Progress::new(self.reporter.as_ref(), self.report_interval);
         progress.report_started(state.progress_counters());
 
         if count > 0 {
-            self.process_non_empty(items, count, Arc::clone(&state), &progress);
+            if count <= self.sequential_threshold {
+                self.process_sequential(items, count, state.as_ref(), &mut progress);
+            } else {
+                self.process_parallel_non_empty(items, count, Arc::clone(&state), &progress);
+            }
         } else if items.into_iter().next().is_some() {
             state.record_item_observed();
         }
@@ -314,6 +355,39 @@ impl<Item> ParallelBatchProcessor<Item>
 where
     Item: Send,
 {
+    /// Processes a declared batch on the caller thread.
+    ///
+    /// # Parameters
+    ///
+    /// * `items` - Item source for the batch.
+    /// * `count` - Declared item count.
+    /// * `state` - Processing state updated by this method.
+    /// * `progress` - Progress run used for between-item running callbacks.
+    ///
+    /// # Panics
+    ///
+    /// Propagates any panic raised while invoking the stored consumer.
+    fn process_sequential<I>(
+        &self,
+        items: I,
+        count: usize,
+        state: &BatchProcessState,
+        progress: &mut Progress<'_>,
+    ) where
+        I: IntoIterator<Item = Item>,
+    {
+        for item in items {
+            let observed_count = state.record_item_observed();
+            if observed_count > count {
+                break;
+            }
+            state.record_item_started();
+            self.consumer.accept(&item);
+            state.record_item_processed();
+            let _ = progress.report_running_if_due(state.progress_counters());
+        }
+    }
+
     /// Processes a non-empty declared batch through scoped workers.
     ///
     /// # Parameters
@@ -326,7 +400,7 @@ where
     /// # Panics
     ///
     /// Propagates any worker panic raised while invoking the stored consumer.
-    fn process_non_empty<I>(
+    fn process_parallel_non_empty<I>(
         &self,
         items: I,
         count: usize,

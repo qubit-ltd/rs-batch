@@ -31,6 +31,7 @@ use qubit_atomic::{
 use qubit_batch::{
     BatchProcessError,
     BatchProcessor,
+    ParallelBatchExecutor,
     ParallelBatchProcessor,
 };
 use qubit_function::Consumer;
@@ -68,9 +69,11 @@ fn test_parallel_batch_processor_consumer_accessors() {
 fn test_parallel_batch_processor_accessors_and_value_reporter() {
     let processor = ParallelBatchProcessor::new(|_item: &i32| {})
         .with_reporter(RecordingProgressReporter::new())
+        .with_sequential_threshold(7)
         .with_report_interval(Duration::from_millis(25));
 
     assert_eq!(processor.report_interval(), Duration::from_millis(25));
+    assert_eq!(processor.sequential_threshold(), 7);
     assert!(Arc::strong_count(processor.reporter()) >= 1);
 }
 
@@ -103,6 +106,14 @@ fn test_parallel_batch_processor_processes_items() {
         processor.thread_count(),
         ParallelBatchProcessor::<i32>::default_thread_count()
     );
+    assert_eq!(
+        ParallelBatchProcessor::<i32>::DEFAULT_SEQUENTIAL_THRESHOLD,
+        ParallelBatchExecutor::DEFAULT_SEQUENTIAL_THRESHOLD
+    );
+    assert_eq!(
+        processor.sequential_threshold(),
+        ParallelBatchProcessor::<i32>::DEFAULT_SEQUENTIAL_THRESHOLD
+    );
 }
 
 #[test]
@@ -112,6 +123,7 @@ fn test_parallel_batch_processor_reports_progress() {
         thread::sleep(Duration::from_millis(20));
     })
     .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
+    .with_sequential_threshold(0)
     .with_reporter_arc(reporter.clone())
     .with_report_interval(Duration::from_millis(5));
 
@@ -147,6 +159,7 @@ fn test_parallel_batch_processor_reports_progress_with_zero_interval() {
     let reporter = Arc::new(RecordingProgressReporter::new());
     let mut processor = ParallelBatchProcessor::new(|_item: &i32| {})
         .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
+        .with_sequential_threshold(0)
         .with_reporter_arc(reporter.clone())
         .with_report_interval(Duration::ZERO);
 
@@ -194,16 +207,44 @@ fn test_parallel_batch_processor_uses_configured_thread_count() {
         thread::sleep(Duration::from_millis(20));
         active_by_consumer.dec();
     })
-    .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"));
+    .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
+    .with_sequential_threshold(0);
 
     let result = processor
         .process(vec![0, 1, 2, 3, 4, 5], 6)
         .expect("parallel processing should succeed");
 
     assert_eq!(processor.thread_count(), 2);
+    assert_eq!(processor.sequential_threshold(), 0);
     assert_eq!(result.completed_count(), 6);
     assert!(max_active_count.load() > 1);
     assert!(max_active_count.load() <= 2);
+}
+
+#[test]
+fn test_parallel_batch_processor_uses_sequential_threshold() {
+    let active_count = ArcAtomicCount::zero();
+    let max_active_count = ArcAtomic::new(0usize);
+    let active_by_consumer = active_count.clone();
+    let max_by_consumer = max_active_count.clone();
+    let mut processor = ParallelBatchProcessor::new(move |_item: &i32| {
+        let active = active_by_consumer.inc();
+        max_by_consumer.fetch_max(active);
+        thread::sleep(Duration::from_millis(1));
+        active_by_consumer.dec();
+    })
+    .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"));
+
+    let result = processor
+        .process(vec![0, 1, 2, 3, 4, 5], 6)
+        .expect("small batch should process through the sequential fallback");
+
+    assert_eq!(
+        processor.sequential_threshold(),
+        ParallelBatchProcessor::<i32>::DEFAULT_SEQUENTIAL_THRESHOLD
+    );
+    assert_eq!(result.completed_count(), 6);
+    assert_eq!(max_active_count.load(), 1);
 }
 
 #[test]
@@ -213,7 +254,8 @@ fn test_parallel_batch_processor_supports_non_static_items() {
     let mut processor = ParallelBatchProcessor::new(|item: &BorrowedItem<'_>| {
         item.counter.inc();
     })
-    .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"));
+    .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
+    .with_sequential_threshold(0);
     let items = [
         BorrowedItem { counter: &first },
         BorrowedItem { counter: &second },
@@ -333,7 +375,8 @@ fn test_parallel_batch_processor_propagates_worker_panic_after_channel_backpress
             panic!("{PANIC_MESSAGE}");
         }
     })
-    .with_thread_count(NonZeroUsize::new(1).expect("thread count is non-zero"));
+    .with_thread_count(NonZeroUsize::new(1).expect("thread count is non-zero"))
+    .with_sequential_threshold(0);
 
     let payload = catch_unwind(AssertUnwindSafe(|| {
         processor.process((0..64).collect::<Vec<_>>(), 64)
