@@ -31,7 +31,7 @@ fn test_parallel_batch_executor_records_original_failure_indexes() {
     ];
 
     let outcome = executor
-        .execute(tasks, 4)
+        .execute_with_count(tasks, 4)
         .expect("task failures should stay in the batch outcome");
     let mut failure_indexes = outcome
         .failures()

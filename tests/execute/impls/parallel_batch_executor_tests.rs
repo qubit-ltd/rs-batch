@@ -97,7 +97,7 @@ fn test_parallel_batch_executor_executes_with_configured_parallelism() {
         .collect::<Vec<_>>();
 
     let result = executor
-        .execute(tasks, 6)
+        .execute_with_count(tasks, 6)
         .expect("parallel batch should succeed");
 
     assert_eq!(result.completed_count(), 6);
@@ -127,7 +127,7 @@ fn test_parallel_batch_executor_uses_sequential_threshold() {
         .collect::<Vec<_>>();
 
     let result = executor
-        .execute(tasks, 4)
+        .execute_with_count(tasks, 4)
         .expect("threshold fallback should succeed");
 
     assert_eq!(result.completed_count(), 4);
@@ -149,7 +149,7 @@ fn test_parallel_batch_executor_supports_non_static_tasks() {
     ];
 
     let result = executor
-        .execute(tasks, 2)
+        .execute_with_count(tasks, 2)
         .expect("borrowed tasks should execute");
 
     assert_eq!(result.succeeded_count(), 2);
@@ -171,7 +171,7 @@ fn test_parallel_batch_executor_collects_failures_and_panics() {
     ];
 
     let result = executor
-        .execute(tasks, 3)
+        .execute_with_count(tasks, 3)
         .expect("task failures should stay in the batch result");
 
     assert_eq!(result.completed_count(), 3);
@@ -197,7 +197,7 @@ fn test_parallel_batch_executor_reports_count_shortfall() {
     let tasks = vec![TestTask::succeed(), TestTask::succeed()];
 
     let error = executor
-        .execute(tasks, 3)
+        .execute_with_count(tasks, 3)
         .expect_err("shortfall should be reported");
 
     match error {
@@ -228,7 +228,7 @@ fn test_parallel_batch_executor_reports_count_exceeded() {
     ];
 
     let error = executor
-        .execute(tasks, 2)
+        .execute_with_count(tasks, 2)
         .expect_err("overflow should be reported");
 
     match error {
@@ -262,7 +262,7 @@ fn test_parallel_batch_executor_reports_progress() {
     ];
 
     let result = executor
-        .execute(tasks, 3)
+        .execute_with_count(tasks, 3)
         .expect("parallel batch should succeed");
     let events = reporter.events();
 
@@ -302,7 +302,7 @@ fn test_parallel_batch_executor_reports_progress_with_zero_interval() {
     ];
 
     let result = executor
-        .execute(tasks, 3)
+        .execute_with_count(tasks, 3)
         .expect("parallel batch should succeed");
     let events = reporter.events();
 
@@ -331,7 +331,7 @@ fn test_parallel_batch_executor_propagates_progress_reporter_finish_panic() {
         .expect("parallel executor should build");
     let tasks = vec![TestTask::succeed()];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute(tasks, 1)))
+    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
         .expect_err("progress reporter finish panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
@@ -355,7 +355,7 @@ fn test_parallel_batch_executor_propagates_progress_reporter_process_panic() {
         TestTask::sleep_success(Duration::from_millis(50)),
     ];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute(tasks, 2)))
+    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 2)))
         .expect_err("progress reporter process panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));

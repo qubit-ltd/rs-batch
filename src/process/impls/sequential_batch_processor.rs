@@ -53,8 +53,8 @@ use crate::process::{
 /// });
 ///
 /// let result = processor
-///     .process([1, 2, 3], 3)
-///     .expect("iterator should yield exactly three items");
+///     .process([1, 2, 3])
+///     .expect("array length should be exact");
 ///
 /// assert!(result.is_success());
 /// ```
@@ -208,7 +208,11 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
     ///
     /// Propagates any panic raised by the stored consumer or the configured
     /// progress reporter.
-    fn process<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(
+        &mut self,
+        items: I,
+        count: usize,
+    ) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
     {

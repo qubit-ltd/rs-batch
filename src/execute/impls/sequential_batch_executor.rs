@@ -47,11 +47,11 @@ use crate::{
 /// };
 ///
 /// let outcome = SequentialBatchExecutor::new()
-///     .for_each(["a", "b", "c"], 3, |item| {
+///     .for_each(["a", "b", "c"], |item| {
 ///         assert!(!item.is_empty());
 ///         Ok::<(), &'static str>(())
 ///     })
-///     .expect("iterator should yield exactly three items");
+///     .expect("array length should be exact");
 ///
 /// assert!(outcome.is_success());
 /// ```
@@ -185,7 +185,7 @@ impl BatchExecutor for SequentialBatchExecutor {
     ///
     /// Panics from tasks are captured in the result. Panics from the configured
     /// progress reporter are propagated to the caller.
-    fn execute<T, E, I>(
+    fn execute_with_count<T, E, I>(
         &self,
         tasks: I,
         count: usize,

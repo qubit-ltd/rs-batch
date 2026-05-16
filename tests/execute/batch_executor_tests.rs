@@ -19,7 +19,7 @@ use crate::support::TestTask;
 fn test_batch_executor_trait_execute_dispatches_to_sequential_executor() {
     fn execute_one<E: BatchExecutor>(executor: &E) -> usize {
         executor
-            .execute(vec![TestTask::succeed()], 1)
+            .execute(vec![TestTask::succeed()])
             .expect("task should succeed")
             .completed_count()
     }

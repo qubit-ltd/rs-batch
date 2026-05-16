@@ -28,7 +28,7 @@ fn test_batch_counter_supports_execution_and_processing_counts() {
         .build()
         .expect("parallel executor should build");
     let outcome = executor
-        .execute(
+        .execute_with_count(
             [
                 TestTask::sleep_success(Duration::from_millis(1)),
                 TestTask::succeed(),
@@ -37,10 +37,11 @@ fn test_batch_counter_supports_execution_and_processing_counts() {
         )
         .expect("parallel execution should succeed");
 
-    let mut processor =
-        ParallelBatchProcessor::new(|_item: &i32| {}).with_thread_count(NonZeroUsizeExt::two());
+    let mut processor = ParallelBatchProcessor::builder(|_item: &i32| {})
+        .thread_count(NonZeroUsizeExt::two())
+        .build();
     let process_result = processor
-        .process(vec![1, 2], 2)
+        .process_with_count(vec![1, 2], 2)
         .expect("parallel processing should succeed");
 
     assert_eq!(outcome.completed_count(), 2);

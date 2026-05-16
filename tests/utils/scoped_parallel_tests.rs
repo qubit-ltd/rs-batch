@@ -24,16 +24,17 @@ use qubit_batch::{
 fn test_scoped_parallel_runner_preserves_item_processing() {
     let accepted = Arc::new(Mutex::new(Vec::new()));
     let accepted_by_consumer = Arc::clone(&accepted);
-    let mut processor = ParallelBatchProcessor::new(move |item: &i32| {
+    let mut processor = ParallelBatchProcessor::builder(move |item: &i32| {
         accepted_by_consumer
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .push(*item);
     })
-    .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"));
+    .thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
+    .build();
 
     let result = processor
-        .process(vec![1, 2, 3, 4], 4)
+        .process_with_count(vec![1, 2, 3, 4], 4)
         .expect("parallel processing should succeed");
     let mut accepted = accepted
         .lock()

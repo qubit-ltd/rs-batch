@@ -73,7 +73,7 @@ fn test_sequential_batch_processor_processes_items_in_order() {
     });
 
     let result = processor
-        .process(vec![1, 2, 3], 3)
+        .process_with_count(vec![1, 2, 3], 3)
         .expect("sequential processing should succeed");
 
     assert_eq!(result.item_count(), 3);
@@ -98,7 +98,7 @@ fn test_sequential_batch_processor_reports_progress() {
     .with_report_interval(Duration::from_millis(1));
 
     let result = processor
-        .process(vec![1, 2, 3], 3)
+        .process_with_count(vec![1, 2, 3], 3)
         .expect("sequential processing should succeed");
     let events = reporter.events();
 
@@ -129,7 +129,7 @@ fn test_sequential_batch_processor_reports_progress_with_zero_interval() {
         .with_report_interval(Duration::ZERO);
 
     let result = processor
-        .process(vec![1, 2], 2)
+        .process_with_count(vec![1, 2], 2)
         .expect("sequential processing should succeed");
     let events = reporter.events();
 
@@ -151,7 +151,7 @@ fn test_sequential_batch_processor_accepts_empty_input() {
     });
 
     let result = processor
-        .process(Vec::<i32>::new(), 0)
+        .process_with_count(Vec::<i32>::new(), 0)
         .expect("empty sequential processing should succeed");
 
     assert_eq!(result.item_count(), 0);
@@ -172,7 +172,7 @@ fn test_sequential_batch_processor_reports_count_exceeded() {
     });
 
     let error = processor
-        .process(vec![1, 2, 3], 2)
+        .process_with_count(vec![1, 2, 3], 2)
         .expect_err("extra input should be reported");
 
     match error {
@@ -209,7 +209,7 @@ fn test_sequential_batch_processor_reports_count_shortfall() {
     });
 
     let error = processor
-        .process(vec![1, 2], 3)
+        .process_with_count(vec![1, 2], 3)
         .expect_err("short input should be reported");
 
     match error {

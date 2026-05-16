@@ -55,11 +55,11 @@ use super::indexed_task::run_parallel_task;
 ///     .expect("parallel executor configuration should be valid");
 ///
 /// let outcome = executor
-///     .for_each(0..4, 4, |value| {
+///     .for_each(0..4, |value| {
 ///         assert!(value < 4);
 ///         Ok::<(), &'static str>(())
 ///     })
-///     .expect("range length should match the declared count");
+///     .expect("range length should be exact");
 ///
 /// assert!(outcome.is_success());
 /// ```
@@ -215,7 +215,7 @@ impl BatchExecutor for ParallelBatchExecutor {
     ///
     /// Panics from tasks are captured in the result. Panics from the configured
     /// progress reporter are propagated to the caller.
-    fn execute<T, E, I>(
+    fn execute_with_count<T, E, I>(
         &self,
         tasks: I,
         count: usize,
@@ -226,7 +226,7 @@ impl BatchExecutor for ParallelBatchExecutor {
         E: Send,
     {
         if count <= self.sequential_threshold || self.thread_count <= 1 {
-            return self.sequential_executor().execute(tasks, count);
+            return self.sequential_executor().execute_with_count(tasks, count);
         }
 
         let state = Arc::new(BatchExecutionState::new(count));

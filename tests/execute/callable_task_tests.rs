@@ -10,14 +10,51 @@
 //! Integration tests for [`BatchExecutor::call`](qubit_batch::BatchExecutor::call)
 //! and the internal callable runnable wrapper.
 
+use std::panic::{
+    AssertUnwindSafe,
+    catch_unwind,
+};
+
+use qubit_function::Runnable;
+
 use qubit_batch::{
     BatchExecutionError,
     BatchExecutor,
+    BatchOutcome,
+    BatchOutcomeBuilder,
     ParallelBatchExecutor,
     SequentialBatchExecutor,
 };
 
-use crate::support::TestCallable;
+use crate::support::{
+    TestCallable,
+    panic_payload_message,
+};
+
+struct OverconsumingExecutor;
+
+impl BatchExecutor for OverconsumingExecutor {
+    fn execute_with_count<T, E, I>(
+        &self,
+        tasks: I,
+        count: usize,
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    where
+        I: IntoIterator<Item = T>,
+        T: Runnable<E> + Send,
+        E: Send,
+    {
+        for mut task in tasks.into_iter().take(count.saturating_add(1)) {
+            let _ = task.run();
+        }
+        let outcome = BatchOutcomeBuilder::builder(count)
+            .completed_count(count)
+            .succeeded_count(count)
+            .build()
+            .expect("synthetic outcome counters should be valid");
+        Ok(outcome)
+    }
+}
 
 #[test]
 fn test_sequential_batch_executor_calls_callables_and_collects_values() {
@@ -28,21 +65,39 @@ fn test_sequential_batch_executor_calls_callables_and_collects_values() {
         TestCallable::returning(30),
     ];
 
-    let result = executor.call(tasks, 3).expect("call batch should succeed");
+    let result = executor
+        .call_with_count(tasks, 3)
+        .expect("call batch should succeed");
 
     assert_eq!(result.outcome().completed_count(), 3);
     assert_eq!(result.values(), &[Some(10), Some(20), Some(30)]);
     assert_eq!(result.into_values(), vec![Some(10), Some(20), Some(30)]);
 
     let tasks = vec![TestCallable::returning(40)];
-    let result = executor.call(tasks, 1).expect("call batch should succeed");
+    let result = executor
+        .call_with_count(tasks, 1)
+        .expect("call batch should succeed");
     assert_eq!(result.into_outcome().completed_count(), 1);
 
     let tasks = vec![TestCallable::returning(50)];
-    let result = executor.call(tasks, 1).expect("call batch should succeed");
+    let result = executor
+        .call_with_count(tasks, 1)
+        .expect("call batch should succeed");
     let (outcome, values) = result.into_parts();
     assert_eq!(outcome.completed_count(), 1);
     assert_eq!(values, vec![Some(50)]);
+}
+
+#[test]
+fn test_batch_executor_call_derives_count_from_exact_iterator() {
+    let executor = SequentialBatchExecutor::new();
+
+    let result = executor
+        .call([TestCallable::returning(10), TestCallable::returning(20)])
+        .expect("array length should be exact");
+
+    assert_eq!(result.outcome().completed_count(), 2);
+    assert_eq!(result.values(), &[Some(10), Some(20)]);
 }
 
 #[test]
@@ -56,7 +111,7 @@ fn test_sequential_batch_executor_call_preserves_failure_indexes() {
     ];
 
     let result = executor
-        .call(tasks, 4)
+        .call_with_count(tasks, 4)
         .expect("callable failures should stay in the batch result");
 
     assert_eq!(result.values(), &[Some(10), None, None, Some(40)]);
@@ -76,7 +131,7 @@ fn test_sequential_batch_executor_call_collects_many_values_by_index() {
         .collect::<Vec<_>>();
 
     let result = executor
-        .call(tasks, COUNT)
+        .call_with_count(tasks, COUNT)
         .expect("large callable batch should succeed");
 
     assert_eq!(result.outcome().completed_count(), COUNT);
@@ -101,7 +156,7 @@ fn test_parallel_batch_executor_call_collects_values_by_index() {
     ];
 
     let result = executor
-        .call(tasks, 4)
+        .call_with_count(tasks, 4)
         .expect("callable failures should stay in the batch result");
 
     assert_eq!(result.values(), &[Some(10), None, None, Some(40)]);
@@ -121,7 +176,7 @@ fn test_parallel_batch_executor_call_reports_count_mismatches() {
         .expect("parallel executor should build");
 
     let shortfall = executor
-        .call(vec![TestCallable::returning(10)], 2)
+        .call_with_count(vec![TestCallable::returning(10)], 2)
         .expect_err("call shortfall should be reported");
     match shortfall {
         BatchExecutionError::CountShortfall {
@@ -137,7 +192,7 @@ fn test_parallel_batch_executor_call_reports_count_mismatches() {
     }
 
     let exceeded = executor
-        .call(
+        .call_with_count(
             vec![
                 TestCallable::returning(10),
                 TestCallable::returning(20),
@@ -158,4 +213,22 @@ fn test_parallel_batch_executor_call_reports_count_mismatches() {
         }
         other => panic!("unexpected error: {other:?}"),
     }
+}
+
+#[test]
+fn test_batch_executor_call_panics_when_callable_wrapper_reports_out_of_range_index() {
+    let executor = OverconsumingExecutor;
+
+    let payload = catch_unwind(AssertUnwindSafe(|| {
+        let _ = executor.call_with_count(
+            vec![TestCallable::returning(10), TestCallable::returning(20)],
+            1,
+        );
+    }))
+    .expect_err("out-of-range callable output should panic");
+
+    assert_eq!(
+        panic_payload_message(payload.as_ref()),
+        Some("callable index must be within the declared count")
+    );
 }

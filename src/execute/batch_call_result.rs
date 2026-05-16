@@ -31,8 +31,8 @@ use crate::BatchOutcome;
 /// }
 ///
 /// let result = SequentialBatchExecutor::new()
-///     .call([count_users, count_orders], 2)
-///     .expect("callable count should match");
+///     .call([count_users, count_orders])
+///     .expect("array length should be exact");
 ///
 /// assert!(result.outcome().is_success());
 /// assert_eq!(result.values(), &[Some(3), Some(5)]);
