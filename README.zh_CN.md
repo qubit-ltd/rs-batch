@@ -34,7 +34,9 @@
 - `ParallelBatchExecutor` 使用固定宽度的 scoped 标准线程执行任务。
 - `BatchProcessor` 直接处理数据项，不要求先把数据项包装为任务。
 - `SequentialBatchProcessor` 和 `ParallelBatchProcessor` 对每个数据项调用一个
-  `qubit-function` `Consumer`，并支持进度上报。
+  `qubit-function` `Consumer`，并支持进度上报。`ParallelBatchProcessor::new(...)`
+  会把声明数据项数不超过 100 的批次留在调用线程中处理，较大批次才使用 scoped
+  worker。
 - `ChunkedBatchProcessor` 把一个逻辑批次拆成固定大小的 chunk，并把每个 chunk
   委托给另一个 `BatchProcessor`。delegate 对某个 chunk 返回 `Ok` 时，必须报告
   `item_count == chunk_len` 且 `completed_count == chunk_len`；当底层操作报告
@@ -346,6 +348,9 @@ match error {
   声明任务数不超过 100 的批次使用顺序回退。使用
   `ParallelBatchExecutor::builder().sequential_threshold(0)` 可让所有非空批次都走
   并行 worker。
+- `ParallelBatchProcessor::new(...)` 使用可用 CPU 并行度，并采用同样的 100 项顺序
+  回退。使用 `.with_sequential_threshold(0)` 可让所有非空数据项批次都走 scoped
+  worker。
 - `BatchOutcome::failures()` 返回按从 0 开始的任务下标排序的失败记录。
 - `BatchCallResult::values()` 只为成功 callable 保存 `Some(value)`；失败或 panic
   的 callable 位置为 `None`。

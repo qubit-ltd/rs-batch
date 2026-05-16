@@ -39,6 +39,8 @@ consumes the supplied iterator once and returns a structured result.
   tasks.
 - `SequentialBatchProcessor` and `ParallelBatchProcessor` invoke a
   `qubit-function` `Consumer` per item and support progress reporting.
+  `ParallelBatchProcessor::new(...)` keeps batches with 100 or fewer declared
+  items on the caller thread and uses scoped workers for larger batches.
 - `ChunkedBatchProcessor` splits one logical batch into fixed-size chunks and
   delegates each chunk to another `BatchProcessor`. A delegate that returns
   `Ok` for a chunk must report `item_count == chunk_len` and
@@ -363,6 +365,9 @@ Important result semantics:
   standard threads, and a sequential fallback for batches with 100 or fewer
   declared tasks. Use `ParallelBatchExecutor::builder().sequential_threshold(0)`
   to force parallel workers for every non-empty batch.
+- `ParallelBatchProcessor::new(...)` uses available CPU parallelism and the same
+  100-item sequential fallback. Use `.with_sequential_threshold(0)` to force
+  scoped workers for every non-empty item batch.
 - `BatchOutcome::failures()` returns failure records sorted by zero-based task
   index.
 - `BatchCallResult::values()` stores `Some(value)` only for successful
