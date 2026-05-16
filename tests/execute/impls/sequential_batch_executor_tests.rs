@@ -68,12 +68,15 @@ fn test_sequential_batch_executor_accepts_non_debug_errors() {
 
 #[test]
 fn test_sequential_batch_executor_accessors_and_value_reporter() {
-    let executor = SequentialBatchExecutor::new()
-        .with_reporter(RecordingProgressReporter::new())
-        .with_report_interval(Duration::from_millis(25));
+    let executor = SequentialBatchExecutor::builder()
+        .reporter(RecordingProgressReporter::new())
+        .report_interval(Duration::from_millis(25))
+        .build();
+    let no_reporter_executor = SequentialBatchExecutor::builder().no_reporter().build();
 
     assert_eq!(executor.report_interval(), Duration::from_millis(25));
     assert!(Arc::strong_count(executor.reporter()) >= 1);
+    assert!(Arc::strong_count(no_reporter_executor.reporter()) >= 1);
 }
 
 #[test]
@@ -165,9 +168,10 @@ fn test_sequential_batch_executor_reports_count_exceeded() {
 #[test]
 fn test_sequential_batch_executor_reports_progress() {
     let reporter = Arc::new(RecordingProgressReporter::new());
-    let executor = SequentialBatchExecutor::new()
-        .with_reporter_arc(reporter.clone())
-        .with_report_interval(Duration::from_millis(10));
+    let executor = SequentialBatchExecutor::builder()
+        .reporter_arc(reporter.clone())
+        .report_interval(Duration::from_millis(10))
+        .build();
     let tasks = vec![
         TestTask::sleep_success(Duration::from_millis(20)),
         TestTask::sleep_success(Duration::from_millis(20)),
@@ -202,9 +206,10 @@ fn test_sequential_batch_executor_reports_progress() {
 #[test]
 fn test_sequential_batch_executor_reports_progress_with_zero_interval() {
     let reporter = Arc::new(RecordingProgressReporter::new());
-    let executor = SequentialBatchExecutor::new()
-        .with_reporter_arc(reporter.clone())
-        .with_report_interval(Duration::ZERO);
+    let executor = SequentialBatchExecutor::builder()
+        .reporter_arc(reporter.clone())
+        .report_interval(Duration::ZERO)
+        .build();
     let tasks = vec![TestTask::succeed(), TestTask::succeed()];
 
     let result = executor
@@ -227,10 +232,12 @@ fn test_sequential_batch_executor_reports_progress_with_zero_interval() {
 #[test]
 fn test_sequential_batch_executor_propagates_progress_reporter_start_panic() {
     const PANIC_MESSAGE: &str = "progress reporter start panic";
-    let executor = SequentialBatchExecutor::new().with_reporter(PanickingProgressReporter::new(
-        ProgressPanicPhase::Start,
-        PANIC_MESSAGE,
-    ));
+    let executor = SequentialBatchExecutor::builder()
+        .reporter(PanickingProgressReporter::new(
+            ProgressPanicPhase::Start,
+            PANIC_MESSAGE,
+        ))
+        .build();
     let tasks = vec![TestTask::succeed()];
 
     let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
@@ -242,12 +249,13 @@ fn test_sequential_batch_executor_propagates_progress_reporter_start_panic() {
 #[test]
 fn test_sequential_batch_executor_propagates_progress_reporter_process_panic() {
     const PANIC_MESSAGE: &str = "progress reporter process panic";
-    let executor = SequentialBatchExecutor::new()
-        .with_reporter(PanickingProgressReporter::new(
+    let executor = SequentialBatchExecutor::builder()
+        .reporter(PanickingProgressReporter::new(
             ProgressPanicPhase::Process,
             PANIC_MESSAGE,
         ))
-        .with_report_interval(Duration::from_nanos(1));
+        .report_interval(Duration::from_nanos(1))
+        .build();
     let tasks = vec![TestTask::sleep_success(Duration::from_millis(1))];
 
     let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
@@ -259,10 +267,12 @@ fn test_sequential_batch_executor_propagates_progress_reporter_process_panic() {
 #[test]
 fn test_sequential_batch_executor_propagates_progress_reporter_finish_panic() {
     const PANIC_MESSAGE: &str = "progress reporter finish panic";
-    let executor = SequentialBatchExecutor::new().with_reporter(PanickingProgressReporter::new(
-        ProgressPanicPhase::Finish,
-        PANIC_MESSAGE,
-    ));
+    let executor = SequentialBatchExecutor::builder()
+        .reporter(PanickingProgressReporter::new(
+            ProgressPanicPhase::Finish,
+            PANIC_MESSAGE,
+        ))
+        .build();
     let tasks = vec![TestTask::succeed()];
 
     let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))

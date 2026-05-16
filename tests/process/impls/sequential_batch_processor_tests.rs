@@ -53,12 +53,17 @@ fn test_sequential_batch_processor_consumer_accessors() {
 
 #[test]
 fn test_sequential_batch_processor_accessors_and_value_reporter() {
-    let processor = SequentialBatchProcessor::new(|_item: &i32| {})
-        .with_reporter(RecordingProgressReporter::new())
-        .with_report_interval(Duration::from_millis(25));
+    let processor = SequentialBatchProcessor::builder(|_item: &i32| {})
+        .reporter(RecordingProgressReporter::new())
+        .report_interval(Duration::from_millis(25))
+        .build();
+    let no_reporter_processor = SequentialBatchProcessor::builder(|_item: &i32| {})
+        .no_reporter()
+        .build();
 
     assert_eq!(processor.report_interval(), Duration::from_millis(25));
     assert!(Arc::strong_count(processor.reporter()) >= 1);
+    assert!(Arc::strong_count(no_reporter_processor.reporter()) >= 1);
 }
 
 #[test]
@@ -91,11 +96,12 @@ fn test_sequential_batch_processor_processes_items_in_order() {
 #[test]
 fn test_sequential_batch_processor_reports_progress() {
     let reporter = Arc::new(RecordingProgressReporter::new());
-    let mut processor = SequentialBatchProcessor::new(|_item: &i32| {
+    let mut processor = SequentialBatchProcessor::builder(|_item: &i32| {
         std::thread::sleep(Duration::from_millis(2));
     })
-    .with_reporter_arc(reporter.clone())
-    .with_report_interval(Duration::from_millis(1));
+    .reporter_arc(reporter.clone())
+    .report_interval(Duration::from_millis(1))
+    .build();
 
     let result = processor
         .process_with_count(vec![1, 2, 3], 3)
@@ -124,9 +130,10 @@ fn test_sequential_batch_processor_reports_progress() {
 #[test]
 fn test_sequential_batch_processor_reports_progress_with_zero_interval() {
     let reporter = Arc::new(RecordingProgressReporter::new());
-    let mut processor = SequentialBatchProcessor::new(|_item: &i32| {})
-        .with_reporter_arc(reporter.clone())
-        .with_report_interval(Duration::ZERO);
+    let mut processor = SequentialBatchProcessor::builder(|_item: &i32| {})
+        .reporter_arc(reporter.clone())
+        .report_interval(Duration::ZERO)
+        .build();
 
     let result = processor
         .process_with_count(vec![1, 2], 2)

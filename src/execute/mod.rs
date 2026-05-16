@@ -37,4 +37,5 @@ pub use impls::{
     ParallelBatchExecutorBuildError,
     ParallelBatchExecutorBuilder,
     SequentialBatchExecutor,
+    SequentialBatchExecutorBuilder,
 };

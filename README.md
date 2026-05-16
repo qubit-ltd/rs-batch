@@ -258,6 +258,12 @@ as `ChunkedBatchProcessError::InvalidChunkResult`.
 `ParallelBatchProcessor`, and `ChunkedBatchProcessor` can all attach custom
 reporters.
 
+Configuration is builder-only. Use `SequentialBatchExecutor::builder()`,
+`ParallelBatchExecutor::builder()`, `SequentialBatchProcessor::builder(...)`,
+`ParallelBatchProcessor::builder(...)`, or `ChunkedBatchProcessor::builder(...)`
+when customizing reporters, report intervals, worker counts, thresholds, or
+chunked processor options.
+
 ```rust
 use std::time::Duration;
 
@@ -295,9 +301,10 @@ impl ProgressReporter for ConsoleReporter {
     }
 }
 
-let executor = SequentialBatchExecutor::new()
-    .with_reporter(ConsoleReporter)
-    .with_report_interval(Duration::from_millis(250));
+let executor = SequentialBatchExecutor::builder()
+    .reporter(ConsoleReporter)
+    .report_interval(Duration::from_millis(250))
+    .build();
 
 let result = executor
     .for_each(["a", "b", "c"], |_item| Ok::<(), &'static str>(()))
@@ -371,6 +378,8 @@ Important result semantics:
 
 - `SequentialBatchExecutor::new()` runs tasks deterministically on the caller
   thread in iterator order.
+- Custom progress reporters and report intervals are configured through builder
+  APIs; direct `new()` constructors keep default progress settings.
 - `ParallelBatchExecutor::default()` uses available CPU parallelism, scoped
   standard threads, and a sequential fallback for batches with 100 or fewer
   declared tasks. Use `ParallelBatchExecutor::builder().sequential_threshold(0)`

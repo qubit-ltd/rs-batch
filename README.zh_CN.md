@@ -247,6 +247,11 @@ assert_eq!(result.chunk_count(), 3);
 `SequentialBatchExecutor`、`ParallelBatchExecutor`、`SequentialBatchProcessor`、
 `ParallelBatchProcessor` 和 `ChunkedBatchProcessor` 都可以挂接自定义上报器。
 
+配置统一走 builder API。自定义上报器、上报间隔、worker 数、阈值或 chunked
+processor 选项时，使用 `SequentialBatchExecutor::builder()`、
+`ParallelBatchExecutor::builder()`、`SequentialBatchProcessor::builder(...)`、
+`ParallelBatchProcessor::builder(...)` 或 `ChunkedBatchProcessor::builder(...)`。
+
 ```rust
 use std::time::Duration;
 
@@ -284,9 +289,10 @@ impl ProgressReporter for ConsoleReporter {
     }
 }
 
-let executor = SequentialBatchExecutor::new()
-    .with_reporter(ConsoleReporter)
-    .with_report_interval(Duration::from_millis(250));
+let executor = SequentialBatchExecutor::builder()
+    .reporter(ConsoleReporter)
+    .report_interval(Duration::from_millis(250))
+    .build();
 
 let result = executor
     .for_each(["a", "b", "c"], |_item| Ok::<(), &'static str>(()))
@@ -351,6 +357,8 @@ match error {
 ## API 速览
 
 - `SequentialBatchExecutor::new()` 在调用线程中按迭代器顺序确定性执行任务。
+- 自定义进度上报器和上报间隔统一通过 builder API 配置；直接 `new()` 构造器保留
+  默认进度设置。
 - `ParallelBatchExecutor::default()` 使用可用 CPU 并行度、scoped 标准线程，并对
   声明任务数不超过 100 的批次使用顺序回退。使用
   `ParallelBatchExecutor::builder().sequential_threshold(0)` 可让所有非空批次都走

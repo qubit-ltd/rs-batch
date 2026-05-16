@@ -169,9 +169,10 @@ impl ParallelBatchExecutor {
     ///
     /// A sequential executor used for small batches.
     fn sequential_executor(&self) -> SequentialBatchExecutor {
-        SequentialBatchExecutor::new()
-            .with_report_interval(self.report_interval)
-            .with_reporter_arc(Arc::clone(&self.reporter))
+        SequentialBatchExecutor::builder()
+            .report_interval(self.report_interval)
+            .reporter_arc(Arc::clone(&self.reporter))
+            .build()
     }
 }
 

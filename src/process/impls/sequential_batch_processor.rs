@@ -18,10 +18,7 @@ use qubit_function::{
 };
 use qubit_progress::{
     Progress,
-    reporter::{
-        NoOpProgressReporter,
-        ProgressReporter,
-    },
+    reporter::ProgressReporter,
 };
 
 use crate::process::{
@@ -30,6 +27,8 @@ use crate::process::{
     BatchProcessState,
     BatchProcessor,
 };
+
+use super::SequentialBatchProcessorBuilder;
 
 /// Processes batch items sequentially by invoking a [`Consumer`] per item.
 ///
@@ -60,11 +59,11 @@ use crate::process::{
 /// ```
 pub struct SequentialBatchProcessor<Item> {
     /// Consumer called once for each accepted item.
-    consumer: BoxConsumer<Item>,
+    pub(crate) consumer: BoxConsumer<Item>,
     /// Interval between progress callbacks while the batch is running.
-    report_interval: Duration,
+    pub(crate) report_interval: Duration,
     /// Reporter receiving batch lifecycle callbacks.
-    reporter: Arc<dyn ProgressReporter>,
+    pub(crate) reporter: Arc<dyn ProgressReporter>,
 }
 
 impl<Item> SequentialBatchProcessor<Item> {
@@ -85,61 +84,25 @@ impl<Item> SequentialBatchProcessor<Item> {
     where
         C: Consumer<Item> + 'static,
     {
-        Self {
-            consumer: consumer.into_box(),
-            report_interval: Self::DEFAULT_REPORT_INTERVAL,
-            reporter: Arc::new(NoOpProgressReporter),
-        }
+        Self::builder(consumer).build()
     }
 
-    /// Returns a copy configured with the supplied progress reporter.
+    /// Creates a builder for configuring a sequential consumer-backed
+    /// processor.
     ///
     /// # Parameters
     ///
-    /// * `reporter` - Progress reporter used for later processing calls.
+    /// * `consumer` - Consumer invoked once for each input item.
     ///
     /// # Returns
     ///
-    /// This processor configured with `reporter`.
+    /// A builder initialized with default settings.
     #[inline]
-    pub fn with_reporter<R>(self, reporter: R) -> Self
+    pub fn builder<C>(consumer: C) -> SequentialBatchProcessorBuilder<Item>
     where
-        R: ProgressReporter + 'static,
+        C: Consumer<Item> + 'static,
     {
-        self.with_reporter_arc(Arc::new(reporter))
-    }
-
-    /// Returns a copy configured with the supplied progress reporter.
-    ///
-    /// # Parameters
-    ///
-    /// * `reporter` - Shared progress reporter used for later processing calls.
-    ///
-    /// # Returns
-    ///
-    /// This processor configured with `reporter`.
-    #[inline]
-    pub fn with_reporter_arc(self, reporter: Arc<dyn ProgressReporter>) -> Self {
-        Self { reporter, ..self }
-    }
-
-    /// Returns a copy configured with the supplied progress-report interval.
-    ///
-    /// # Parameters
-    ///
-    /// * `report_interval` - Minimum time between due-based running progress
-    ///   callbacks. [`Duration::ZERO`] reports at every sequential
-    ///   between-item progress point.
-    ///
-    /// # Returns
-    ///
-    /// This processor configured with `report_interval`.
-    #[inline]
-    pub fn with_report_interval(self, report_interval: Duration) -> Self {
-        Self {
-            report_interval,
-            ..self
-        }
+        SequentialBatchProcessorBuilder::new(consumer)
     }
 
     /// Returns the configured progress-report interval.
