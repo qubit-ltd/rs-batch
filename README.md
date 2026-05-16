@@ -56,7 +56,7 @@ Rayon-backed execution lives in the companion `qubit-rayon-batch` crate.
 
 ```toml
 [dependencies]
-qubit-batch = "0.7"
+qubit-batch = "0.8"
 ```
 
 Add `qubit-function` when you implement `Runnable`, `Callable`, or `Consumer`
@@ -377,8 +377,8 @@ Important result semantics:
   to force parallel workers for every non-empty batch.
 - `ParallelBatchProcessor::new(...)` uses available CPU parallelism and the same
   100-item sequential fallback. Use
-  `ParallelBatchProcessor::builder(...).sequential_threshold(0)` to force scoped
-  workers for every non-empty item batch.
+  `ParallelBatchProcessor::builder(...).sequential_threshold(0).build()` to
+  force scoped workers for every non-empty item batch.
 - `BatchOutcome::failures()` returns failure records sorted by zero-based task
   index.
 - `BatchCallResult::values()` stores `Some(value)` only for successful

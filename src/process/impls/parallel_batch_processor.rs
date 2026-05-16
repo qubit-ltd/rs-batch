@@ -49,7 +49,6 @@ use super::parallel_batch_processor_builder::ParallelBatchProcessorBuilder;
 ///
 /// ```rust
 /// use std::{
-///     num::NonZeroUsize,
 ///     sync::{
 ///         Arc,
 ///         atomic::{
@@ -69,9 +68,10 @@ use super::parallel_batch_processor_builder::ParallelBatchProcessorBuilder;
 /// let mut processor = ParallelBatchProcessor::builder(move |item: &usize| {
 ///     total_for_consumer.fetch_add(*item, Ordering::Relaxed);
 /// })
-/// .thread_count(NonZeroUsize::new(2).expect("thread count should be non-zero"))
+/// .thread_count(2)
 /// .sequential_threshold(0)
-/// .build();
+/// .build()
+/// .expect("parallel processor configuration should be valid");
 ///
 /// let result = processor
 ///     .process([1, 2, 3])
@@ -115,7 +115,9 @@ impl<Item> ParallelBatchProcessor<Item> {
     where
         C: Consumer<Item> + Send + Sync + 'static,
     {
-        Self::builder(consumer).build()
+        Self::builder(consumer)
+            .build()
+            .expect("default parallel batch processor should build")
     }
 
     /// Creates a builder for configuring a parallel consumer-backed processor.
