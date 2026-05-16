@@ -25,7 +25,7 @@ use crate::BatchOutcome;
 /// };
 ///
 /// let error = SequentialBatchExecutor::new()
-///     .for_each([10, 20], 3, |_value| Ok::<(), &'static str>(()))
+///     .for_each_with_count([10, 20], 3, |_value| Ok::<(), &'static str>(()))
 ///     .expect_err("iterator should yield fewer items than declared");
 ///
 /// assert!(error.is_count_shortfall());

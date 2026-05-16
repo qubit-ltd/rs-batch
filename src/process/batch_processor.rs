@@ -9,7 +9,7 @@
  ******************************************************************************/
 use super::BatchProcessResult;
 
-/// Processes a declared batch of data items.
+/// Processes a batch of data items.
 ///
 /// This trait models processors that receive data items directly. A processor
 /// may insert records into a database, send them to a remote service, or apply
@@ -29,7 +29,11 @@ use super::BatchProcessResult;
 /// impl BatchProcessor<i32> for CountItems {
 ///     type Error = &'static str;
 ///
-///     fn process<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+///     fn process_with_count<I>(
+///         &mut self,
+///         items: I,
+///         count: usize,
+///     ) -> Result<BatchProcessResult, Self::Error>
 ///     where
 ///         I: IntoIterator<Item = i32>,
 ///     {
@@ -45,8 +49,8 @@ use super::BatchProcessResult;
 /// }
 ///
 /// let result = CountItems
-///     .process([1, 2, 3], 3)
-///     .expect("processor should accept the batch");
+///     .process([1, 2, 3])
+///     .expect("array length should be exact");
 ///
 /// assert!(result.is_success());
 /// ```
@@ -59,7 +63,33 @@ pub trait BatchProcessor<Item> {
     /// Error returned by this processor.
     type Error;
 
-    /// Processes `items` as one declared batch.
+    /// Processes `items` as one batch using its exact iterator length.
+    ///
+    /// # Parameters
+    ///
+    /// * `items` - Data source for this batch. Its iterator must report the
+    ///   remaining item count exactly.
+    ///
+    /// # Returns
+    ///
+    /// The result returned by [`Self::process_with_count`] after deriving the
+    /// declared count from the iterator length.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Self::Error`] if the processor rejects the batch or if the
+    /// iterator violates its exact length contract while being consumed.
+    fn process<I>(&mut self, items: I) -> Result<BatchProcessResult, Self::Error>
+    where
+        I: IntoIterator<Item = Item>,
+        I::IntoIter: ExactSizeIterator,
+    {
+        let items = items.into_iter();
+        let count = items.len();
+        self.process_with_count(items, count)
+    }
+
+    /// Processes `items` as one batch with an explicit declared count.
     ///
     /// # Parameters
     ///
@@ -74,7 +104,11 @@ pub trait BatchProcessor<Item> {
     /// # Errors
     ///
     /// Returns [`Self::Error`] when this processor cannot process the batch.
-    fn process<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(
+        &mut self,
+        items: I,
+        count: usize,
+    ) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>;
 }

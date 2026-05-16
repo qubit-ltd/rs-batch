@@ -30,7 +30,7 @@ fn test_batch_execution_state_counts_success_failure_and_panic() {
     ];
 
     let outcome = executor
-        .execute(tasks, 3)
+        .execute_with_count(tasks, 3)
         .expect("task-level failures should stay in the outcome");
 
     assert_eq!(outcome.task_count(), 3);

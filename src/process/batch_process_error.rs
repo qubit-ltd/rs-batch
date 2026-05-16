@@ -26,7 +26,7 @@ use super::BatchProcessResult;
 ///
 /// let mut processor = SequentialBatchProcessor::new(|_item: &i32| {});
 /// let error = processor
-///     .process([1], 2)
+///     .process_with_count([1], 2)
 ///     .expect_err("iterator should yield fewer items than declared");
 ///
 /// match error {

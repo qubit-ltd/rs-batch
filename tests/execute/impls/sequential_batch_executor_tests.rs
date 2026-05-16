@@ -46,7 +46,7 @@ fn test_sequential_batch_executor_executes_successfully() {
     ];
 
     let result = executor
-        .execute(tasks, 3)
+        .execute_with_count(tasks, 3)
         .expect("sequential batch should succeed");
 
     assert_eq!(counter.get(), 3);
@@ -58,7 +58,7 @@ fn test_sequential_batch_executor_executes_successfully() {
 #[test]
 fn test_sequential_batch_executor_accepts_non_debug_errors() {
     let executor = SequentialBatchExecutor::new();
-    let result = executor.execute([NonDebugTask], 1);
+    let result = executor.execute_with_count([NonDebugTask], 1);
 
     match result {
         Ok(outcome) => assert!(outcome.is_success()),
@@ -86,7 +86,7 @@ fn test_sequential_batch_executor_collects_failures_and_panics() {
     ];
 
     let result = executor
-        .execute(tasks, 3)
+        .execute_with_count(tasks, 3)
         .expect("task failures should stay in the batch result");
 
     assert_eq!(result.completed_count(), 3);
@@ -108,7 +108,7 @@ fn test_sequential_batch_executor_records_non_string_panic_without_message() {
     let tasks = vec![TestTask::panic_usize(7)];
 
     let result = executor
-        .execute(tasks, 1)
+        .execute_with_count(tasks, 1)
         .expect("task panic should stay in the batch result");
 
     assert_eq!(result.completed_count(), 1);
@@ -122,7 +122,7 @@ fn test_sequential_batch_executor_reports_count_shortfall() {
     let tasks = vec![TestTask::succeed(), TestTask::succeed()];
 
     let error = executor
-        .execute(tasks, 3)
+        .execute_with_count(tasks, 3)
         .expect_err("shortfall should be reported");
 
     match error {
@@ -145,7 +145,7 @@ fn test_sequential_batch_executor_reports_count_exceeded() {
     let tasks = vec![TestTask::succeed(), TestTask::succeed()];
 
     let error = executor
-        .execute(tasks, 1)
+        .execute_with_count(tasks, 1)
         .expect_err("overflow should be reported");
 
     match error {
@@ -175,7 +175,7 @@ fn test_sequential_batch_executor_reports_progress() {
     ];
 
     let result = executor
-        .execute(tasks, 3)
+        .execute_with_count(tasks, 3)
         .expect("sequential batch should succeed");
     let events = reporter.events();
 
@@ -208,7 +208,7 @@ fn test_sequential_batch_executor_reports_progress_with_zero_interval() {
     let tasks = vec![TestTask::succeed(), TestTask::succeed()];
 
     let result = executor
-        .execute(tasks, 2)
+        .execute_with_count(tasks, 2)
         .expect("sequential batch should succeed");
     let events = reporter.events();
 
@@ -233,7 +233,7 @@ fn test_sequential_batch_executor_propagates_progress_reporter_start_panic() {
     ));
     let tasks = vec![TestTask::succeed()];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute(tasks, 1)))
+    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
         .expect_err("progress reporter start panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
@@ -250,7 +250,7 @@ fn test_sequential_batch_executor_propagates_progress_reporter_process_panic() {
         .with_report_interval(Duration::from_nanos(1));
     let tasks = vec![TestTask::sleep_success(Duration::from_millis(1))];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute(tasks, 1)))
+    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
         .expect_err("progress reporter process panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
@@ -265,7 +265,7 @@ fn test_sequential_batch_executor_propagates_progress_reporter_finish_panic() {
     ));
     let tasks = vec![TestTask::succeed()];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute(tasks, 1)))
+    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
         .expect_err("progress reporter finish panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));

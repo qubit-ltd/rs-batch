@@ -28,19 +28,22 @@ consumes the supplied iterator once and returns a structured result.
 
 - `BatchExecutor` runs fallible tasks. Use `for_each` for item-oriented jobs,
   `execute` for explicit `Runnable` tasks, and `call` for `Callable` tasks that
-  return values.
+  return values. These default APIs derive the declared count from
+  `ExactSizeIterator`; use the matching `*_with_count` API when the count is an
+  explicit contract.
 - `BatchOutcome` is the executor result. It reports task counters, elapsed time,
   and indexed `BatchTaskFailure` entries.
 - `BatchExecutionError` is a batch contract error. It means the iterator count
-  did not match the declared count, and it carries the partial `BatchOutcome`.
+  did not match the explicitly declared count, and it carries the partial
+  `BatchOutcome`.
 - `SequentialBatchExecutor` runs tasks in iterator order on the caller thread.
 - `ParallelBatchExecutor` runs tasks on fixed-width scoped standard threads.
 - `BatchProcessor` processes data items directly instead of wrapping them as
   tasks.
 - `SequentialBatchProcessor` and `ParallelBatchProcessor` invoke a
   `qubit-function` `Consumer` per item and support progress reporting.
-  `ParallelBatchProcessor::new(...)` keeps batches with 100 or fewer declared
-  items on the caller thread and uses scoped workers for larger batches.
+  `ParallelBatchProcessor::new(...)` keeps batches with 100 or fewer items on
+  the caller thread and uses scoped workers for larger batches.
 - `ChunkedBatchProcessor` splits one logical batch into fixed-size chunks and
   delegates each chunk to another `BatchProcessor`. A delegate that returns
   `Ok` for a chunk must report `item_count == chunk_len` and
@@ -85,7 +88,7 @@ let records = [
 ];
 
 let result = executor
-    .for_each(records, 3, |(record_id, email)| {
+    .for_each(records, |(record_id, email)| {
         if email.contains('@') {
             Ok(())
         } else {
@@ -95,7 +98,7 @@ let result = executor
             })
         }
     })
-    .expect("the iterator yielded exactly the declared number of records");
+    .expect("array length should be exact");
 
 assert_eq!(result.task_count(), 3);
 assert_eq!(result.succeeded_count(), 2);
@@ -127,11 +130,11 @@ let executor = ParallelBatchExecutor::builder()
     .expect("parallel executor configuration should be valid");
 
 let result = executor
-    .for_each(0..8, 8, |value| {
+    .for_each(0..8, |value| {
         assert!(value < 8);
         Ok::<(), &'static str>(())
     })
-    .expect("range length should match the declared count");
+    .expect("range length should be exact");
 
 assert!(result.is_success());
 ```
@@ -157,8 +160,8 @@ fn count_orders() -> Result<usize, &'static str> {
 }
 
 let result = SequentialBatchExecutor::new()
-    .call([count_users, count_orders], 2)
-    .expect("callable count should match");
+    .call([count_users, count_orders])
+    .expect("array length should be exact");
 
 assert!(result.outcome().is_success());
 assert_eq!(result.values(), &[Some(3), Some(5)]);
@@ -177,8 +180,8 @@ let mut processor = SequentialBatchProcessor::new(|item: &i32| {
 });
 
 let result = processor
-    .process([1, 2, 3], 3)
-    .expect("the iterator yielded exactly three items");
+    .process([1, 2, 3])
+    .expect("array length should be exact");
 
 assert_eq!(result.completed_count(), 3);
 assert_eq!(result.processed_count(), 3);
@@ -204,7 +207,11 @@ struct InsertChunk;
 impl BatchProcessor<i32> for InsertChunk {
     type Error = &'static str;
 
-    fn process<I>(&mut self, rows: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(
+        &mut self,
+        rows: I,
+        count: usize,
+    ) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = i32>,
     {
@@ -225,8 +232,8 @@ let mut processor = ChunkedBatchProcessor::new(
 );
 
 let result = processor
-    .process([1, 2, 3, 4, 5], 5)
-    .expect("the iterator yielded exactly five items");
+    .process([1, 2, 3, 4, 5])
+    .expect("array length should be exact");
 
 assert_eq!(result.completed_count(), 5);
 assert_eq!(result.processed_count(), 5);
@@ -293,8 +300,8 @@ let executor = SequentialBatchExecutor::new()
     .with_report_interval(Duration::from_millis(250));
 
 let result = executor
-    .for_each(["a", "b", "c"], 3, |_item| Ok::<(), &'static str>(()))
-    .expect("item count should match");
+    .for_each(["a", "b", "c"], |_item| Ok::<(), &'static str>(()))
+    .expect("array length should be exact");
 
 assert!(result.is_success());
 ```
@@ -318,9 +325,12 @@ create a tight refresh loop.
 
 ## Count Contract
 
-Execution and processing APIs require a declared count. This lets the API report
-stable totals before consuming lazy iterators and return partial results when a
-producer yields the wrong number of items.
+Execution and processing APIs derive the declared count automatically when the
+input iterator implements `ExactSizeIterator`. Use `execute_with_count`,
+`call_with_count`, `for_each_with_count`, or `process_with_count` when the count
+is a separate contract. This still lets the API report stable totals before
+consuming lazy iterators and return partial results when a producer yields the
+wrong number of items.
 
 ```rust
 use qubit_batch::{
@@ -331,7 +341,7 @@ use qubit_batch::{
 
 let executor = SequentialBatchExecutor::new();
 let error = executor
-    .for_each([10, 20], 3, |_value| Ok::<(), &'static str>(()))
+    .for_each_with_count([10, 20], 3, |_value| Ok::<(), &'static str>(()))
     .expect_err("the iterator yielded fewer items than declared");
 
 match error {
@@ -366,8 +376,9 @@ Important result semantics:
   declared tasks. Use `ParallelBatchExecutor::builder().sequential_threshold(0)`
   to force parallel workers for every non-empty batch.
 - `ParallelBatchProcessor::new(...)` uses available CPU parallelism and the same
-  100-item sequential fallback. Use `.with_sequential_threshold(0)` to force
-  scoped workers for every non-empty item batch.
+  100-item sequential fallback. Use
+  `ParallelBatchProcessor::builder(...).sequential_threshold(0)` to force scoped
+  workers for every non-empty item batch.
 - `BatchOutcome::failures()` returns failure records sorted by zero-based task
   index.
 - `BatchCallResult::values()` stores `Some(value)` only for successful

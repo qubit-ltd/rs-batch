@@ -67,14 +67,22 @@ fn test_parallel_batch_processor_consumer_accessors() {
 
 #[test]
 fn test_parallel_batch_processor_accessors_and_value_reporter() {
-    let processor = ParallelBatchProcessor::new(|_item: &i32| {})
-        .with_reporter(RecordingProgressReporter::new())
-        .with_sequential_threshold(7)
-        .with_report_interval(Duration::from_millis(25));
+    let processor = ParallelBatchProcessor::builder(|_item: &i32| {})
+        .reporter(RecordingProgressReporter::new())
+        .sequential_threshold(7)
+        .report_interval(Duration::from_millis(25))
+        .build();
+    let no_reporter_processor = ParallelBatchProcessor::builder(|_item: &i32| {})
+        .no_reporter()
+        .build();
 
     assert_eq!(processor.report_interval(), Duration::from_millis(25));
     assert_eq!(processor.sequential_threshold(), 7);
     assert!(Arc::strong_count(processor.reporter()) >= 1);
+    assert_eq!(
+        no_reporter_processor.report_interval(),
+        ParallelBatchProcessor::<i32>::DEFAULT_REPORT_INTERVAL
+    );
 }
 
 #[test]
@@ -89,7 +97,7 @@ fn test_parallel_batch_processor_processes_items() {
     });
 
     let result = processor
-        .process(vec![1, 2, 3, 4], 4)
+        .process_with_count(vec![1, 2, 3, 4], 4)
         .expect("parallel processing should succeed");
     let mut values = accepted
         .lock()
@@ -119,16 +127,17 @@ fn test_parallel_batch_processor_processes_items() {
 #[test]
 fn test_parallel_batch_processor_reports_progress() {
     let reporter = Arc::new(RecordingProgressReporter::new());
-    let mut processor = ParallelBatchProcessor::new(|_item: &i32| {
+    let mut processor = ParallelBatchProcessor::builder(|_item: &i32| {
         thread::sleep(Duration::from_millis(20));
     })
-    .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
-    .with_sequential_threshold(0)
-    .with_reporter_arc(reporter.clone())
-    .with_report_interval(Duration::from_millis(5));
+    .thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
+    .sequential_threshold(0)
+    .reporter_arc(reporter.clone())
+    .report_interval(Duration::from_millis(5))
+    .build();
 
     let result = processor
-        .process(vec![1, 2, 3, 4], 4)
+        .process_with_count(vec![1, 2, 3, 4], 4)
         .expect("parallel processing should succeed");
     let events = reporter.events();
 
@@ -157,14 +166,15 @@ fn test_parallel_batch_processor_reports_progress() {
 #[test]
 fn test_parallel_batch_processor_reports_progress_with_zero_interval() {
     let reporter = Arc::new(RecordingProgressReporter::new());
-    let mut processor = ParallelBatchProcessor::new(|_item: &i32| {})
-        .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
-        .with_sequential_threshold(0)
-        .with_reporter_arc(reporter.clone())
-        .with_report_interval(Duration::ZERO);
+    let mut processor = ParallelBatchProcessor::builder(|_item: &i32| {})
+        .thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
+        .sequential_threshold(0)
+        .reporter_arc(reporter.clone())
+        .report_interval(Duration::ZERO)
+        .build();
 
     let result = processor
-        .process(vec![1, 2, 3], 3)
+        .process_with_count(vec![1, 2, 3], 3)
         .expect("parallel processing should succeed");
     let events = reporter.events();
 
@@ -186,7 +196,7 @@ fn test_parallel_batch_processor_accepts_empty_input() {
     });
 
     let result = processor
-        .process(Vec::<i32>::new(), 0)
+        .process_with_count(Vec::<i32>::new(), 0)
         .expect("empty parallel processing should succeed");
 
     assert_eq!(result.item_count(), 0);
@@ -201,17 +211,18 @@ fn test_parallel_batch_processor_uses_configured_thread_count() {
     let max_active_count = ArcAtomic::new(0usize);
     let active_by_consumer = active_count.clone();
     let max_by_consumer = max_active_count.clone();
-    let mut processor = ParallelBatchProcessor::new(move |_item: &i32| {
+    let mut processor = ParallelBatchProcessor::builder(move |_item: &i32| {
         let active = active_by_consumer.inc();
         max_by_consumer.fetch_max(active);
         thread::sleep(Duration::from_millis(20));
         active_by_consumer.dec();
     })
-    .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
-    .with_sequential_threshold(0);
+    .thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
+    .sequential_threshold(0)
+    .build();
 
     let result = processor
-        .process(vec![0, 1, 2, 3, 4, 5], 6)
+        .process_with_count(vec![0, 1, 2, 3, 4, 5], 6)
         .expect("parallel processing should succeed");
 
     assert_eq!(processor.thread_count(), 2);
@@ -227,16 +238,17 @@ fn test_parallel_batch_processor_uses_sequential_threshold() {
     let max_active_count = ArcAtomic::new(0usize);
     let active_by_consumer = active_count.clone();
     let max_by_consumer = max_active_count.clone();
-    let mut processor = ParallelBatchProcessor::new(move |_item: &i32| {
+    let mut processor = ParallelBatchProcessor::builder(move |_item: &i32| {
         let active = active_by_consumer.inc();
         max_by_consumer.fetch_max(active);
         thread::sleep(Duration::from_millis(1));
         active_by_consumer.dec();
     })
-    .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"));
+    .thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
+    .build();
 
     let result = processor
-        .process(vec![0, 1, 2, 3, 4, 5], 6)
+        .process_with_count(vec![0, 1, 2, 3, 4, 5], 6)
         .expect("small batch should process through the sequential fallback");
 
     assert_eq!(
@@ -251,18 +263,19 @@ fn test_parallel_batch_processor_uses_sequential_threshold() {
 fn test_parallel_batch_processor_supports_non_static_items() {
     let first = AtomicCount::zero();
     let second = AtomicCount::zero();
-    let mut processor = ParallelBatchProcessor::new(|item: &BorrowedItem<'_>| {
+    let mut processor = ParallelBatchProcessor::builder(|item: &BorrowedItem<'_>| {
         item.counter.inc();
     })
-    .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
-    .with_sequential_threshold(0);
+    .thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
+    .sequential_threshold(0)
+    .build();
     let items = [
         BorrowedItem { counter: &first },
         BorrowedItem { counter: &second },
     ];
 
     let result = processor
-        .process(items, 2)
+        .process_with_count(items, 2)
         .expect("borrowed items should process");
 
     assert_eq!(result.processed_count(), 2);
@@ -274,16 +287,17 @@ fn test_parallel_batch_processor_supports_non_static_items() {
 fn test_parallel_batch_processor_reports_count_exceeded() {
     let accepted = Arc::new(Mutex::new(Vec::new()));
     let accepted_by_consumer = Arc::clone(&accepted);
-    let mut processor = ParallelBatchProcessor::new(move |item: &i32| {
+    let mut processor = ParallelBatchProcessor::builder(move |item: &i32| {
         accepted_by_consumer
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .push(*item);
     })
-    .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"));
+    .thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
+    .build();
 
     let error = processor
-        .process(vec![1, 2, 3], 2)
+        .process_with_count(vec![1, 2, 3], 2)
         .expect_err("extra input should be reported");
 
     match error {
@@ -309,7 +323,7 @@ fn test_parallel_batch_processor_reports_count_exceeded_before_first_item() {
     });
 
     let error = processor
-        .process(vec![1], 0)
+        .process_with_count(vec![1], 0)
         .expect_err("extra input should be reported before any consumer call");
 
     match error {
@@ -330,11 +344,12 @@ fn test_parallel_batch_processor_reports_count_exceeded_before_first_item() {
 
 #[test]
 fn test_parallel_batch_processor_reports_count_shortfall() {
-    let mut processor = ParallelBatchProcessor::new(|_item: &i32| {})
-        .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"));
+    let mut processor = ParallelBatchProcessor::builder(|_item: &i32| {})
+        .thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
+        .build();
 
     let error = processor
-        .process(vec![1, 2], 3)
+        .process_with_count(vec![1, 2], 3)
         .expect_err("short input should be reported");
 
     match error {
@@ -356,13 +371,16 @@ fn test_parallel_batch_processor_reports_count_shortfall() {
 #[test]
 fn test_parallel_batch_processor_propagates_consumer_panic() {
     const PANIC_MESSAGE: &str = "parallel processor consumer panic";
-    let mut processor = ParallelBatchProcessor::new(|_item: &i32| {
+    let mut processor = ParallelBatchProcessor::builder(|_item: &i32| {
         panic!("{PANIC_MESSAGE}");
     })
-    .with_thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"));
+    .thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
+    .build();
 
-    let payload = catch_unwind(AssertUnwindSafe(|| processor.process(vec![1], 1)))
-        .expect_err("consumer panic should be propagated");
+    let payload = catch_unwind(AssertUnwindSafe(|| {
+        processor.process_with_count(vec![1], 1)
+    }))
+    .expect_err("consumer panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }
@@ -370,16 +388,17 @@ fn test_parallel_batch_processor_propagates_consumer_panic() {
 #[test]
 fn test_parallel_batch_processor_propagates_worker_panic_after_channel_backpressure() {
     const PANIC_MESSAGE: &str = "parallel processor backpressure panic";
-    let mut processor = ParallelBatchProcessor::new(|item: &i32| {
+    let mut processor = ParallelBatchProcessor::builder(|item: &i32| {
         if *item == 0 {
             panic!("{PANIC_MESSAGE}");
         }
     })
-    .with_thread_count(NonZeroUsize::new(1).expect("thread count is non-zero"))
-    .with_sequential_threshold(0);
+    .thread_count(NonZeroUsize::new(1).expect("thread count is non-zero"))
+    .sequential_threshold(0)
+    .build();
 
     let payload = catch_unwind(AssertUnwindSafe(|| {
-        processor.process((0..64).collect::<Vec<_>>(), 64)
+        processor.process_with_count((0..64).collect::<Vec<_>>(), 64)
     }))
     .expect_err("worker panic should be propagated without blocking the producer");
 

@@ -65,7 +65,11 @@ use crate::process::{
 /// impl BatchProcessor<i32> for InsertChunk {
 ///     type Error = &'static str;
 ///
-///     fn process<I>(&mut self, rows: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+///     fn process_with_count<I>(
+///         &mut self,
+///         rows: I,
+///         count: usize,
+///     ) -> Result<BatchProcessResult, Self::Error>
 ///     where
 ///         I: IntoIterator<Item = i32>,
 ///     {
@@ -86,8 +90,8 @@ use crate::process::{
 /// );
 ///
 /// let result = processor
-///     .process([1, 2, 3, 4, 5], 5)
-///     .expect("iterator should yield exactly five items");
+///     .process([1, 2, 3, 4, 5])
+///     .expect("array length should be exact");
 ///
 /// assert_eq!(result.completed_count(), 5);
 /// assert_eq!(result.chunk_count(), 3);
@@ -270,7 +274,11 @@ where
     /// Returns [`ChunkedBatchProcessError`] when the source count does not
     /// match `count`, when the delegate fails for one chunk, or when a delegate
     /// `Ok` result does not describe the submitted chunk.
-    fn process<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(
+        &mut self,
+        items: I,
+        count: usize,
+    ) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
     {
@@ -351,7 +359,7 @@ impl<P> ChunkedBatchProcessor<P> {
         let start_index = state.completed_count();
         let chunk_index = state.chunk_count();
         let current_chunk = std::mem::take(chunk);
-        match self.delegate.process(current_chunk, chunk_len) {
+        match self.delegate.process_with_count(current_chunk, chunk_len) {
             Ok(chunk_result) => {
                 if chunk_result.item_count() != chunk_len
                     || chunk_result.completed_count() != chunk_len

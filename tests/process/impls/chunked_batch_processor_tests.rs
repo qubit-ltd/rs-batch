@@ -63,7 +63,7 @@ fn test_chunked_batch_processor_submits_items_in_chunks() {
     );
 
     let result = processor
-        .process([1, 2, 3, 4, 5], 5)
+        .process_with_count([1, 2, 3, 4, 5], 5)
         .expect("chunked processing should succeed");
 
     assert_eq!(result.item_count(), 5);
@@ -88,7 +88,7 @@ fn test_chunked_batch_processor_accepts_empty_input() {
     );
 
     let result = processor
-        .process([], 0)
+        .process_with_count([], 0)
         .expect("empty batch should succeed");
 
     assert_eq!(result.item_count(), 0);
@@ -115,7 +115,7 @@ fn test_chunked_batch_processor_reports_progress() {
     .with_report_interval(Duration::ZERO);
 
     processor
-        .process([1, 2, 3], 3)
+        .process_with_count([1, 2, 3], 3)
         .expect("chunked processing should succeed");
 
     let events = reporter.events();
@@ -153,7 +153,7 @@ fn test_chunked_batch_processor_skips_progress_before_interval() {
     .with_report_interval(Duration::from_secs(3_600));
 
     processor
-        .process([1, 2], 2)
+        .process_with_count([1, 2], 2)
         .expect("chunked processing should succeed");
 
     let events = reporter.events();
@@ -178,7 +178,7 @@ fn test_chunked_batch_processor_reports_count_exceeded() {
     );
 
     let error = processor
-        .process([1, 2, 3], 2)
+        .process_with_count([1, 2, 3], 2)
         .expect_err("extra input should be reported");
 
     match error {
@@ -206,7 +206,7 @@ fn test_chunked_batch_processor_flushes_tail_chunk_before_count_exceeded() {
     );
 
     let error = processor
-        .process([1, 2, 3, 4], 3)
+        .process_with_count([1, 2, 3, 4], 3)
         .expect_err("extra input should be reported after flushing declared tail");
 
     match error {
@@ -232,6 +232,39 @@ fn test_chunked_batch_processor_flushes_tail_chunk_before_count_exceeded() {
 }
 
 #[test]
+fn test_chunked_batch_processor_propagates_tail_chunk_error_before_count_exceeded() {
+    let mut processor = ChunkedBatchProcessor::new(
+        TestChunkProcessor::with_outcomes([
+            TestChunkOutcome::Success,
+            TestChunkOutcome::Failure("tail insert failed"),
+        ]),
+        NonZeroUsize::new(2).expect("chunk size is non-zero"),
+    );
+
+    let error = processor
+        .process_with_count([1, 2, 3, 4], 3)
+        .expect_err("tail chunk failure should be reported before count overflow");
+
+    match error {
+        ChunkedBatchProcessError::ChunkFailed {
+            chunk_index,
+            start_index,
+            chunk_len,
+            source,
+            result,
+        } => {
+            assert_eq!(chunk_index, 1);
+            assert_eq!(start_index, 2);
+            assert_eq!(chunk_len, 1);
+            assert_eq!(source, "tail insert failed");
+            assert_eq!(result.completed_count(), 2);
+            assert_eq!(result.chunk_count(), 1);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
 fn test_chunked_batch_processor_reports_count_exceeded_before_first_chunk() {
     let delegate = TestChunkProcessor::success();
     let mut processor = ChunkedBatchProcessor::new(
@@ -240,7 +273,7 @@ fn test_chunked_batch_processor_reports_count_exceeded_before_first_chunk() {
     );
 
     let error = processor
-        .process([1], 0)
+        .process_with_count([1], 0)
         .expect_err("extra input should be reported before any chunk");
 
     match error {
@@ -267,7 +300,7 @@ fn test_chunked_batch_processor_reports_count_shortfall() {
     );
 
     let error = processor
-        .process([1, 2, 3], 5)
+        .process_with_count([1, 2, 3], 5)
         .expect_err("short input should be reported");
 
     match error {
@@ -375,7 +408,7 @@ fn test_chunked_batch_processor_wraps_delegate_error() {
     );
 
     let error = processor
-        .process([1, 2, 3], 3)
+        .process_with_count([1, 2, 3], 3)
         .expect_err("delegate failure should be reported");
 
     match error {
@@ -407,7 +440,7 @@ fn test_chunked_batch_processor_wraps_partial_chunk_error() {
     );
 
     let error = processor
-        .process([1, 2, 3], 3)
+        .process_with_count([1, 2, 3], 3)
         .expect_err("partial chunk failure should be reported");
 
     match error {
@@ -437,7 +470,7 @@ fn test_chunked_batch_processor_rejects_invalid_delegate_result() {
     );
 
     let error = processor
-        .process([1, 2], 2)
+        .process_with_count([1, 2], 2)
         .expect_err("delegate result should describe the submitted chunk");
 
     match error {
@@ -470,7 +503,7 @@ fn test_chunked_batch_processor_rejects_invalid_delegate_item_count() {
     );
 
     let error = processor
-        .process([1, 2], 2)
+        .process_with_count([1, 2], 2)
         .expect_err("delegate result should describe the submitted chunk");
 
     match error {

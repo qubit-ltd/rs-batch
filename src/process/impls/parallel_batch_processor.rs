@@ -20,10 +20,7 @@ use qubit_function::{
 };
 use qubit_progress::{
     Progress,
-    reporter::{
-        NoOpProgressReporter,
-        ProgressReporter,
-    },
+    reporter::ProgressReporter,
 };
 
 use crate::process::{
@@ -33,6 +30,8 @@ use crate::process::{
     BatchProcessor,
 };
 use crate::utils::run_scoped_parallel;
+
+use super::parallel_batch_processor_builder::ParallelBatchProcessorBuilder;
 
 /// Processes batch items with sequential fallback and scoped standard threads.
 ///
@@ -67,30 +66,31 @@ use crate::utils::run_scoped_parallel;
 ///
 /// let total = Arc::new(AtomicUsize::new(0));
 /// let total_for_consumer = Arc::clone(&total);
-/// let mut processor = ParallelBatchProcessor::new(move |item: &usize| {
+/// let mut processor = ParallelBatchProcessor::builder(move |item: &usize| {
 ///     total_for_consumer.fetch_add(*item, Ordering::Relaxed);
 /// })
-/// .with_thread_count(NonZeroUsize::new(2).expect("thread count should be non-zero"))
-/// .with_sequential_threshold(0);
+/// .thread_count(NonZeroUsize::new(2).expect("thread count should be non-zero"))
+/// .sequential_threshold(0)
+/// .build();
 ///
 /// let result = processor
-///     .process([1, 2, 3], 3)
-///     .expect("iterator should yield exactly three items");
+///     .process([1, 2, 3])
+///     .expect("array length should be exact");
 ///
 /// assert!(result.is_success());
 /// assert_eq!(total.load(Ordering::Relaxed), 6);
 /// ```
 pub struct ParallelBatchProcessor<Item> {
     /// Consumer shared by all scoped workers.
-    consumer: ArcConsumer<Item>,
+    pub(crate) consumer: ArcConsumer<Item>,
     /// Fixed worker-thread count used by each processing call.
-    thread_count: NonZeroUsize,
+    pub(crate) thread_count: NonZeroUsize,
     /// Maximum batch size that still uses sequential processing.
-    sequential_threshold: usize,
+    pub(crate) sequential_threshold: usize,
     /// Minimum interval between progress callbacks.
-    report_interval: Duration,
+    pub(crate) report_interval: Duration,
     /// Reporter receiving batch lifecycle callbacks.
-    reporter: Arc<dyn ProgressReporter>,
+    pub(crate) reporter: Arc<dyn ProgressReporter>,
 }
 
 impl<Item> ParallelBatchProcessor<Item> {
@@ -115,14 +115,24 @@ impl<Item> ParallelBatchProcessor<Item> {
     where
         C: Consumer<Item> + Send + Sync + 'static,
     {
-        Self {
-            consumer: consumer.into_arc(),
-            thread_count: NonZeroUsize::new(Self::default_thread_count())
-                .expect("default parallel processor thread count should be non-zero"),
-            sequential_threshold: Self::DEFAULT_SEQUENTIAL_THRESHOLD,
-            report_interval: Self::DEFAULT_REPORT_INTERVAL,
-            reporter: Arc::new(NoOpProgressReporter),
-        }
+        Self::builder(consumer).build()
+    }
+
+    /// Creates a builder for configuring a parallel consumer-backed processor.
+    ///
+    /// # Parameters
+    ///
+    /// * `consumer` - Thread-safe consumer invoked once for each accepted item.
+    ///
+    /// # Returns
+    ///
+    /// A builder initialized with default settings.
+    #[inline]
+    pub fn builder<C>(consumer: C) -> ParallelBatchProcessorBuilder<Item>
+    where
+        C: Consumer<Item> + Send + Sync + 'static,
+    {
+        ParallelBatchProcessorBuilder::new(consumer)
     }
 
     /// Returns the default worker-thread count.
@@ -135,89 +145,6 @@ impl<Item> ParallelBatchProcessor<Item> {
         thread::available_parallelism()
             .map(usize::from)
             .unwrap_or(1)
-    }
-
-    /// Returns a copy configured with a fixed worker-thread count.
-    ///
-    /// # Parameters
-    ///
-    /// * `thread_count` - Non-zero number of scoped worker threads.
-    ///
-    /// # Returns
-    ///
-    /// This processor configured to use `thread_count` workers per call.
-    #[inline]
-    pub const fn with_thread_count(mut self, thread_count: NonZeroUsize) -> Self {
-        self.thread_count = thread_count;
-        self
-    }
-
-    /// Returns a copy configured with the supplied sequential fallback threshold.
-    ///
-    /// # Parameters
-    ///
-    /// * `sequential_threshold` - Maximum declared item count that still runs on
-    ///   the caller thread. Use `0` when every non-empty batch should use scoped
-    ///   workers.
-    ///
-    /// # Returns
-    ///
-    /// This processor configured with `sequential_threshold`.
-    #[inline]
-    pub const fn with_sequential_threshold(mut self, sequential_threshold: usize) -> Self {
-        self.sequential_threshold = sequential_threshold;
-        self
-    }
-
-    /// Returns a copy configured with the supplied progress reporter.
-    ///
-    /// # Parameters
-    ///
-    /// * `reporter` - Progress reporter used for later processing calls.
-    ///
-    /// # Returns
-    ///
-    /// This processor configured with `reporter`.
-    #[inline]
-    pub fn with_reporter<R>(self, reporter: R) -> Self
-    where
-        R: ProgressReporter + 'static,
-    {
-        self.with_reporter_arc(Arc::new(reporter))
-    }
-
-    /// Returns a copy configured with the supplied progress reporter.
-    ///
-    /// # Parameters
-    ///
-    /// * `reporter` - Shared progress reporter used for later processing calls.
-    ///
-    /// # Returns
-    ///
-    /// This processor configured with `reporter`.
-    #[inline]
-    pub fn with_reporter_arc(self, reporter: Arc<dyn ProgressReporter>) -> Self {
-        Self { reporter, ..self }
-    }
-
-    /// Returns a copy configured with the supplied progress-report interval.
-    ///
-    /// # Parameters
-    ///
-    /// * `report_interval` - Minimum time between due-based running progress
-    ///   callbacks. [`Duration::ZERO`] reports at every sequential between-item
-    ///   progress point or on parallel worker completion signals without periodic
-    ///   polling.
-    ///
-    /// # Returns
-    ///
-    /// This processor configured with `report_interval`.
-    #[inline]
-    pub fn with_report_interval(self, report_interval: Duration) -> Self {
-        Self {
-            report_interval,
-            ..self
-        }
     }
 
     /// Returns the configured worker-thread count.
@@ -309,7 +236,11 @@ where
     ///
     /// Propagates any panic raised by the stored consumer from the caller thread
     /// or a worker thread, or by the configured progress reporter.
-    fn process<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(
+        &mut self,
+        items: I,
+        count: usize,
+    ) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
     {

@@ -28,5 +28,6 @@ pub use chunked_batch_process_error::ChunkedBatchProcessError;
 pub use impls::{
     ChunkedBatchProcessor,
     ParallelBatchProcessor,
+    ParallelBatchProcessorBuilder,
     SequentialBatchProcessor,
 };

@@ -23,11 +23,11 @@
 //! };
 //!
 //! let outcome: BatchOutcome<&'static str> = SequentialBatchExecutor::new()
-//!     .for_each([1, 2, 3], 3, |value| {
+//!     .for_each([1, 2, 3], |value| {
 //!         assert!(value > 0);
 //!         Ok::<(), &'static str>(())
 //!     })
-//!     .expect("iterator should yield exactly three items");
+//!     .expect("array length should be exact");
 //!
 //! assert!(outcome.is_success());
 //! ```
@@ -82,5 +82,6 @@ pub use process::{
     ChunkedBatchProcessError,
     ChunkedBatchProcessor,
     ParallelBatchProcessor,
+    ParallelBatchProcessorBuilder,
     SequentialBatchProcessor,
 };
