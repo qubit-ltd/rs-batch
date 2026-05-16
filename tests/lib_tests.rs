@@ -20,6 +20,7 @@ use qubit_batch::process::{
     BatchProcessResultBuildError as ProcessBatchProcessResultBuildError,
     BatchProcessResultBuilder as ProcessBatchProcessResultBuilder,
     BatchProcessor as ProcessBatchProcessor,
+    ParallelBatchProcessorBuildError as ProcessParallelBatchProcessorBuildError,
 };
 use qubit_batch::{
     BatchExecutor,
@@ -28,6 +29,7 @@ use qubit_batch::{
     BatchProcessResultBuildError,
     BatchProcessResultBuilder,
     BatchProcessor,
+    ParallelBatchProcessorBuildError,
     SequentialBatchExecutor,
     SequentialBatchProcessor,
 };
@@ -52,4 +54,7 @@ fn test_core_types_are_exported_from_crate_root_and_grouped_modules() {
     let _process_result_builder = ProcessBatchProcessResultBuilder::builder(0);
     let _root_process_result_build_error: Option<BatchProcessResultBuildError> = None;
     let _process_result_build_error: Option<ProcessBatchProcessResultBuildError> = None;
+    let _root_parallel_processor_build_error: Option<ParallelBatchProcessorBuildError> = None;
+    let _process_parallel_processor_build_error: Option<ProcessParallelBatchProcessorBuildError> =
+        None;
 }

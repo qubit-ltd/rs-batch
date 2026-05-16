@@ -23,6 +23,7 @@ use qubit_progress::reporter::{
 };
 
 use super::ParallelBatchProcessor;
+use super::ParallelBatchProcessorBuildError;
 
 /// Builder for [`ParallelBatchProcessor`].
 ///
@@ -30,14 +31,13 @@ use super::ParallelBatchProcessor;
 /// threshold, progress interval, or reporter should be customized.
 ///
 /// ```rust
-/// use std::num::NonZeroUsize;
-///
 /// use qubit_batch::ParallelBatchProcessor;
 ///
 /// let processor = ParallelBatchProcessor::builder(|_item: &i32| {})
-///     .thread_count(NonZeroUsize::new(2).expect("thread count should be non-zero"))
+///     .thread_count(2)
 ///     .sequential_threshold(0)
-///     .build();
+///     .build()
+///     .expect("parallel processor configuration should be valid");
 ///
 /// assert_eq!(processor.thread_count(), 2);
 /// assert_eq!(processor.sequential_threshold(), 0);
@@ -46,7 +46,7 @@ pub struct ParallelBatchProcessorBuilder<Item> {
     /// Consumer shared by all scoped workers.
     consumer: ArcConsumer<Item>,
     /// Fixed worker-thread count used by each processing call.
-    thread_count: NonZeroUsize,
+    thread_count: usize,
     /// Maximum batch size that still uses sequential processing.
     sequential_threshold: usize,
     /// Minimum interval between progress callbacks.
@@ -72,8 +72,7 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     {
         Self {
             consumer: consumer.into_arc(),
-            thread_count: NonZeroUsize::new(ParallelBatchProcessor::<Item>::default_thread_count())
-                .expect("default parallel processor thread count should be non-zero"),
+            thread_count: ParallelBatchProcessor::<Item>::default_thread_count(),
             sequential_threshold: ParallelBatchProcessor::<Item>::DEFAULT_SEQUENTIAL_THRESHOLD,
             report_interval: ParallelBatchProcessor::<Item>::DEFAULT_REPORT_INTERVAL,
             reporter: Arc::new(NoOpProgressReporter),
@@ -84,13 +83,13 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     ///
     /// # Parameters
     ///
-    /// * `thread_count` - Non-zero number of scoped worker threads.
+    /// * `thread_count` - Number of scoped worker threads to use.
     ///
     /// # Returns
     ///
     /// This builder for fluent configuration.
     #[inline]
-    pub const fn thread_count(mut self, thread_count: NonZeroUsize) -> Self {
+    pub const fn thread_count(mut self, thread_count: usize) -> Self {
         self.thread_count = thread_count;
         self
     }
@@ -174,19 +173,26 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
         self
     }
 
-    /// Builds a [`ParallelBatchProcessor`].
+    /// Builds a validated [`ParallelBatchProcessor`].
     ///
     /// # Returns
     ///
-    /// A parallel batch processor with this builder's configuration.
+    /// A parallel batch processor when the configuration is valid.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ParallelBatchProcessorBuildError`] when the worker count is
+    /// zero.
     #[inline]
-    pub fn build(self) -> ParallelBatchProcessor<Item> {
-        ParallelBatchProcessor {
+    pub fn build(self) -> Result<ParallelBatchProcessor<Item>, ParallelBatchProcessorBuildError> {
+        let thread_count = NonZeroUsize::new(self.thread_count)
+            .ok_or(ParallelBatchProcessorBuildError::ZeroThreadCount)?;
+        Ok(ParallelBatchProcessor {
             consumer: self.consumer,
-            thread_count: self.thread_count,
+            thread_count,
             sequential_threshold: self.sequential_threshold,
             report_interval: self.report_interval,
             reporter: self.reporter,
-        }
+        })
     }
 }

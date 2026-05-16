@@ -38,8 +38,9 @@ fn test_batch_counter_supports_execution_and_processing_counts() {
         .expect("parallel execution should succeed");
 
     let mut processor = ParallelBatchProcessor::builder(|_item: &i32| {})
-        .thread_count(NonZeroUsizeExt::two())
-        .build();
+        .thread_count(2)
+        .build()
+        .expect("parallel processor should build");
     let process_result = processor
         .process_with_count(vec![1, 2], 2)
         .expect("parallel processing should succeed");
@@ -48,18 +49,4 @@ fn test_batch_counter_supports_execution_and_processing_counts() {
     assert_eq!(outcome.succeeded_count(), 2);
     assert_eq!(process_result.completed_count(), 2);
     assert_eq!(process_result.processed_count(), 2);
-}
-
-/// Helpers for concise non-zero constants in tests.
-struct NonZeroUsizeExt;
-
-impl NonZeroUsizeExt {
-    /// Returns a non-zero value of two.
-    ///
-    /// # Returns
-    ///
-    /// A non-zero worker count.
-    fn two() -> std::num::NonZeroUsize {
-        std::num::NonZeroUsize::new(2).expect("two is non-zero")
-    }
 }

@@ -9,7 +9,6 @@
  ******************************************************************************/
 //! Behavioral coverage for scoped parallel utility behavior.
 
-use std::num::NonZeroUsize;
 use std::sync::{
     Arc,
     Mutex,
@@ -30,8 +29,9 @@ fn test_scoped_parallel_runner_preserves_item_processing() {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .push(*item);
     })
-    .thread_count(NonZeroUsize::new(2).expect("thread count is non-zero"))
-    .build();
+    .thread_count(2)
+    .build()
+    .expect("parallel processor should build");
 
     let result = processor
         .process_with_count(vec![1, 2, 3, 4], 4)

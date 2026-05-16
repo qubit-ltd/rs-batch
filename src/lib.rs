@@ -82,6 +82,7 @@ pub use process::{
     ChunkedBatchProcessError,
     ChunkedBatchProcessor,
     ParallelBatchProcessor,
+    ParallelBatchProcessorBuildError,
     ParallelBatchProcessorBuilder,
     SequentialBatchProcessor,
 };

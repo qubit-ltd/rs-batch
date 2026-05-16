@@ -49,7 +49,7 @@
 
 ```toml
 [dependencies]
-qubit-batch = "0.7"
+qubit-batch = "0.8"
 ```
 
 当你要直接实现 `Runnable`、`Callable` 或 `Consumer` 类型时，需要额外依赖
@@ -356,8 +356,8 @@ match error {
   `ParallelBatchExecutor::builder().sequential_threshold(0)` 可让所有非空批次都走
   并行 worker。
 - `ParallelBatchProcessor::new(...)` 使用可用 CPU 并行度，并采用同样的 100 项顺序
-  回退。使用 `ParallelBatchProcessor::builder(...).sequential_threshold(0)` 可让
-  所有非空数据项批次都走 scoped worker。
+  回退。使用 `ParallelBatchProcessor::builder(...).sequential_threshold(0).build()`
+  可让所有非空数据项批次都走 scoped worker。
 - `BatchOutcome::failures()` 返回按从 0 开始的任务下标排序的失败记录。
 - `BatchCallResult::values()` 只为成功 callable 保存 `Some(value)`；失败或 panic
   的 callable 位置为 `None`。
