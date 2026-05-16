@@ -105,9 +105,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-atomic"
-version = "0.13.1"
+version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e07b017b3889ac91605be4082f5e79c5955b63fd1016b4f6e474e5c43dcc912"
+checksum = "abecff594481eaf9f3a51e87c9d135f55cc2af8fc8a11ac44b318d18f00f026c"
 dependencies = [
  "arc-swap",
  "portable-atomic",
@@ -126,9 +126,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-function"
-version = "0.14.0"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39f9fde97fdf9a6773e9fbb959985eb99b2c3ca421dabecd94231b78a05372a6"
+checksum = "bdaca4b4d98337a50815c2bc41d6a2bf2b5fa230bff17dc659113c7aa3b630b5"
 dependencies = [
  "parking_lot",
  "pastey",
