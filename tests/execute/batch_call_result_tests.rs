@@ -21,10 +21,7 @@ fn test_batch_call_result_accessors_and_parts() {
         .completed_count(2)
         .succeeded_count(1)
         .panicked_count(1)
-        .failures(vec![BatchTaskFailure::new(
-            1,
-            BatchTaskError::panicked("panic"),
-        )])
+        .failures(vec![BatchTaskFailure::new(1, BatchTaskError::panicked("panic"))])
         .build()
         .expect("outcome should be valid");
     let result = BatchCallResult::new(outcome.clone(), vec![Some(10), None]);

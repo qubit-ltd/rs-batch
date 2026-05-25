@@ -59,11 +59,7 @@ impl TestChunkProcessor {
 impl BatchProcessor<i32> for TestChunkProcessor {
     type Error = &'static str;
 
-    fn process_with_count<I>(
-        &mut self,
-        items: I,
-        count: usize,
-    ) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = i32>,
     {

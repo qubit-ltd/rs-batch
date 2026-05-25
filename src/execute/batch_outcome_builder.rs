@@ -226,18 +226,20 @@ fn validate_outcome_invariants<E>(
     panicked_count: usize,
     failures: &[BatchTaskFailure<E>],
 ) -> Result<(), BatchOutcomeBuildError> {
-    let failure_count = failed_count.checked_add(panicked_count).ok_or(
-        BatchOutcomeBuildError::FailureCountOverflow {
-            failed_count,
-            panicked_count,
-        },
-    )?;
-    let terminal_count = succeeded_count.checked_add(failure_count).ok_or(
-        BatchOutcomeBuildError::TerminalCountOverflow {
-            succeeded_count,
-            failure_count,
-        },
-    )?;
+    let failure_count =
+        failed_count
+            .checked_add(panicked_count)
+            .ok_or(BatchOutcomeBuildError::FailureCountOverflow {
+                failed_count,
+                panicked_count,
+            })?;
+    let terminal_count =
+        succeeded_count
+            .checked_add(failure_count)
+            .ok_or(BatchOutcomeBuildError::TerminalCountOverflow {
+                succeeded_count,
+                failure_count,
+            })?;
 
     if completed_count > task_count {
         return Err(BatchOutcomeBuildError::CompletedCountExceeded {
@@ -281,9 +283,7 @@ fn validate_failure_details<E>(
             });
         }
         if !observed_indexes.insert(failure.index()) {
-            return Err(BatchOutcomeBuildError::DuplicateFailureIndex {
-                index: failure.index(),
-            });
+            return Err(BatchOutcomeBuildError::DuplicateFailureIndex { index: failure.index() });
         }
         match failure.error() {
             BatchTaskError::Failed(_) => observed_failed_count += 1,

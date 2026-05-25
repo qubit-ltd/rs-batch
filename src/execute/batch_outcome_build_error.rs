@@ -53,9 +53,7 @@ pub enum BatchOutcomeBuildError {
     },
 
     /// Adding successful and failed task counts overflowed.
-    #[error(
-        "terminal task counts must not overflow: succeeded_count {succeeded_count}, failure_count {failure_count}"
-    )]
+    #[error("terminal task counts must not overflow: succeeded_count {succeeded_count}, failure_count {failure_count}")]
     TerminalCountOverflow {
         /// Number of successful tasks.
         succeeded_count: usize,
@@ -81,9 +79,7 @@ pub enum BatchOutcomeBuildError {
     },
 
     /// Detailed failure records do not match the aggregate failure count.
-    #[error(
-        "failure detail count must equal failed + panicked counts: expected {expected}, actual {actual}"
-    )]
+    #[error("failure detail count must equal failed + panicked counts: expected {expected}, actual {actual}")]
     FailureDetailCountMismatch {
         /// Expected number of failure details.
         expected: usize,
@@ -92,9 +88,7 @@ pub enum BatchOutcomeBuildError {
     },
 
     /// A failure detail index is outside the declared task range.
-    #[error(
-        "failure index must be less than declared task count: index {index}, task_count {task_count}"
-    )]
+    #[error("failure index must be less than declared task count: index {index}, task_count {task_count}")]
     FailureIndexOutOfRange {
         /// Out-of-range failure index.
         index: usize,

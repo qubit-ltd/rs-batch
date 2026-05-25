@@ -57,9 +57,7 @@ pub enum BatchExecutionError<E> {
     },
 
     /// The task source yielded more tasks than the declared task count.
-    #[error(
-        "batch task count exceeded: expected {expected}, observed at least {observed_at_least}"
-    )]
+    #[error("batch task count exceeded: expected {expected}, observed at least {observed_at_least}")]
     CountExceeded {
         /// Declared task count.
         expected: usize,

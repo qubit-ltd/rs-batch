@@ -93,27 +93,41 @@ impl RecordingProgressReporter {
 
 impl ProgressReporter for RecordingProgressReporter {
     fn report(&self, event: &QubitProgressEvent) {
-        let counters = event.counters();
-        let total_count = counters.total_count().unwrap_or(counters.completed_count());
+        let counter = event
+            .counters()
+            .first()
+            .expect("batch progress event should contain one counter");
+        let total_count = progress_count_to_usize(counter.total_count().unwrap_or(counter.completed_count()));
         let recorded = match event.phase() {
             ProgressPhase::Started => ProgressEvent::Start { total_count },
             ProgressPhase::Running => ProgressEvent::Process {
                 total_count,
-                active_count: counters.active_count(),
-                completed_count: counters.completed_count(),
+                active_count: progress_count_to_usize(counter.active_count()),
+                completed_count: progress_count_to_usize(counter.completed_count()),
             },
-            ProgressPhase::Finished | ProgressPhase::Failed | ProgressPhase::Canceled => {
-                ProgressEvent::Finish {
-                    total_count,
-                    completed_count: counters.completed_count(),
-                }
-            }
+            ProgressPhase::Finished | ProgressPhase::Failed | ProgressPhase::Canceled => ProgressEvent::Finish {
+                total_count,
+                completed_count: progress_count_to_usize(counter.completed_count()),
+            },
         };
         self.events
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .push(recorded);
     }
+}
+
+/// Converts a progress counter value into the platform test count type.
+///
+/// # Parameters
+///
+/// * `count` - Counter value reported by `qubit-progress`.
+///
+/// # Returns
+///
+/// The same count represented as `usize`.
+fn progress_count_to_usize(count: u64) -> usize {
+    usize::try_from(count).expect("test progress count should fit usize")
 }
 
 /// Progress reporter that panics from one configured lifecycle callback.

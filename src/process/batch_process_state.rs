@@ -10,9 +10,15 @@
 use std::time::Duration;
 
 use qubit_atomic::AtomicCount;
-use qubit_progress::model::ProgressCounters;
+use qubit_progress::model::ProgressCounter;
 
 use crate::BatchProcessResult;
+
+/// Metric id used for item progress counters.
+pub(crate) const PROCESS_PROGRESS_METRIC_ID: &str = "items";
+
+/// Metric display name used for item progress counters.
+pub(crate) const PROCESS_PROGRESS_METRIC_NAME: &str = "Items";
 
 /// Shared state collected while a batch processor is running.
 pub(crate) struct BatchProcessState {
@@ -160,17 +166,20 @@ impl BatchProcessState {
             .expect("chunked batch process state should collect consistent counters")
     }
 
-    /// Returns generic progress counters for this processing state.
+    /// Returns progress counters for this processing state.
     ///
     /// # Returns
     ///
-    /// Counters suitable for progress reporting.
+    /// A single item counter suitable for progress reporting.
     #[inline]
-    pub(crate) fn progress_counters(&self) -> ProgressCounters {
-        ProgressCounters::new(Some(self.item_count))
-            .with_active_count(self.active_count.get())
-            .with_completed_count(self.completed_count.get())
-            .with_succeeded_count(self.processed_count.get())
+    pub(crate) fn progress_counters(&self) -> Vec<ProgressCounter> {
+        vec![
+            ProgressCounter::new(PROCESS_PROGRESS_METRIC_ID)
+                .total(self.item_count as u64)
+                .active(self.active_count.get() as u64)
+                .completed(self.completed_count.get() as u64)
+                .succeeded(self.processed_count.get() as u64),
+        ]
     }
 
     /// Returns progress counters for in-flight chunk completion reports.
@@ -179,10 +188,13 @@ impl BatchProcessState {
     ///
     /// Counters matching chunked processor running-event semantics.
     #[inline]
-    pub(crate) fn running_chunk_progress_counters(&self) -> ProgressCounters {
-        ProgressCounters::new(Some(self.item_count))
-            .with_completed_count(self.completed_count.get())
-            .with_succeeded_count(self.completed_count.get())
+    pub(crate) fn running_chunk_progress_counters(&self) -> Vec<ProgressCounter> {
+        vec![
+            ProgressCounter::new(PROCESS_PROGRESS_METRIC_ID)
+                .total(self.item_count as u64)
+                .completed(self.completed_count.get() as u64)
+                .succeeded(self.completed_count.get() as u64),
+        ]
     }
 }
 

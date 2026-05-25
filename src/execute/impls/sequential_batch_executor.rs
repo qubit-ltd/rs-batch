@@ -28,6 +28,8 @@ use crate::{
     execute::{
         BatchExecutionState,
         BatchExecutor,
+        EXECUTION_PROGRESS_METRIC_ID,
+        EXECUTION_PROGRESS_METRIC_NAME,
         panic_payload_to_error,
     },
 };
@@ -141,24 +143,25 @@ impl BatchExecutor for SequentialBatchExecutor {
     ///
     /// Panics from tasks are captured in the result. Panics from the configured
     /// progress reporter are propagated to the caller.
-    fn execute_with_count<T, E, I>(
-        &self,
-        tasks: I,
-        count: usize,
-    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    fn execute_with_count<T, E, I>(&self, tasks: I, count: usize) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = T>,
         T: Runnable<E> + Send,
         E: Send,
     {
         let state = BatchExecutionState::new(count);
-        let mut progress = Progress::new(self.reporter.as_ref(), self.report_interval);
-        progress.report_started(state.progress_counters());
+        let mut progress = Progress::single_metric(
+            self.reporter.as_ref(),
+            self.report_interval,
+            EXECUTION_PROGRESS_METRIC_ID,
+            EXECUTION_PROGRESS_METRIC_NAME,
+        );
+        progress.report_started(|event| event.counters(state.progress_counters()));
         let mut actual_count = 0;
         for task in tasks {
             actual_count = state.record_task_observed();
             if actual_count > count {
-                let failed = progress.report_failed(state.progress_counters());
+                let failed = progress.report_failed(|event| event.counters(state.progress_counters()));
                 let outcome = state.into_outcome(failed.elapsed());
                 return Err(BatchExecutionError::CountExceeded {
                     expected: count,
@@ -172,24 +175,21 @@ impl BatchExecutor for SequentialBatchExecutor {
             match catch_unwind(AssertUnwindSafe(|| task.run())) {
                 Ok(Ok(())) => state.record_task_succeeded(),
                 Ok(Err(error)) => state.record_task_failed(actual_count - 1, error),
-                Err(payload) => state.record_task_panicked(
-                    actual_count - 1,
-                    panic_payload_to_error(payload.as_ref()),
-                ),
+                Err(payload) => state.record_task_panicked(actual_count - 1, panic_payload_to_error(payload.as_ref())),
             }
             // Update the actual task count and report progress if due.
-            let _ = progress.report_running_if_due(state.progress_counters());
+            let _ = progress.report_running_if_due(|event| event.counters(state.progress_counters()));
         }
 
         if actual_count < count {
-            let failed = progress.report_failed(state.progress_counters());
+            let failed = progress.report_failed(|event| event.counters(state.progress_counters()));
             Err(BatchExecutionError::CountShortfall {
                 expected: count,
                 actual: actual_count,
                 outcome: state.into_outcome(failed.elapsed()),
             })
         } else {
-            let finished = progress.report_finished(state.progress_counters());
+            let finished = progress.report_finished(|event| event.counters(state.progress_counters()));
             Ok(state.into_outcome(finished.elapsed()))
         }
     }

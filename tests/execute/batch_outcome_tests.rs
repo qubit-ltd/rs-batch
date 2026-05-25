@@ -22,7 +22,7 @@ use qubit_batch::{
     BatchTaskError,
     BatchTaskFailure,
 };
-use qubit_progress::ProgressCounters;
+use qubit_progress::ProgressCounter;
 
 #[test]
 fn test_batch_outcome_builder_builds_valid_outcome() {
@@ -67,12 +67,15 @@ fn test_batch_outcome_progress_counters_reflects_terminal_counts() {
         .expect("builder should validate consistent counters");
 
     let counters = outcome.progress_counters();
-    let expected = ProgressCounters::new(Some(5))
-        .with_completed_count(4)
-        .with_succeeded_count(2)
-        .with_failed_count(2);
+    let expected = vec![
+        ProgressCounter::new("tasks")
+            .total(5)
+            .completed(4)
+            .succeeded(2)
+            .failed(2),
+    ];
     assert_eq!(counters, expected);
-    assert_eq!(counters.active_count(), 0);
+    assert_eq!(counters[0].active_count(), 0);
 }
 
 #[test]
@@ -133,8 +136,7 @@ fn test_batch_outcome_rejects_failure_detail_mismatches() {
         Err(BatchOutcomeBuildError::FailureIndexOutOfRange { .. })
     ));
 
-    let failure: BatchTaskFailure<&'static str> =
-        BatchTaskFailure::new(0, BatchTaskError::panicked("panic"));
+    let failure: BatchTaskFailure<&'static str> = BatchTaskFailure::new(0, BatchTaskError::panicked("panic"));
     assert!(matches!(
         BatchOutcomeBuilder::builder(2)
             .completed_count(1)

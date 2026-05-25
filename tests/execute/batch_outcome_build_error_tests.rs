@@ -21,13 +21,6 @@ fn test_batch_outcome_build_error_terminal_count_mismatch() {
         .build()
         .expect_err("terminal count mismatch should be rejected");
 
-    assert!(matches!(
-        error,
-        BatchOutcomeBuildError::TerminalCountMismatch { .. }
-    ));
-    assert!(
-        error
-            .to_string()
-            .contains("completed task count must equal")
-    );
+    assert!(matches!(error, BatchOutcomeBuildError::TerminalCountMismatch { .. }));
+    assert!(error.to_string().contains("completed task count must equal"));
 }

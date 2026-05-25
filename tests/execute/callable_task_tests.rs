@@ -34,11 +34,7 @@ use crate::support::{
 struct OverconsumingExecutor;
 
 impl BatchExecutor for OverconsumingExecutor {
-    fn execute_with_count<T, E, I>(
-        &self,
-        tasks: I,
-        count: usize,
-    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    fn execute_with_count<T, E, I>(&self, tasks: I, count: usize) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = T>,
         T: Runnable<E> + Send,
@@ -65,24 +61,18 @@ fn test_sequential_batch_executor_calls_callables_and_collects_values() {
         TestCallable::returning(30),
     ];
 
-    let result = executor
-        .call_with_count(tasks, 3)
-        .expect("call batch should succeed");
+    let result = executor.call_with_count(tasks, 3).expect("call batch should succeed");
 
     assert_eq!(result.outcome().completed_count(), 3);
     assert_eq!(result.values(), &[Some(10), Some(20), Some(30)]);
     assert_eq!(result.into_values(), vec![Some(10), Some(20), Some(30)]);
 
     let tasks = vec![TestCallable::returning(40)];
-    let result = executor
-        .call_with_count(tasks, 1)
-        .expect("call batch should succeed");
+    let result = executor.call_with_count(tasks, 1).expect("call batch should succeed");
     assert_eq!(result.into_outcome().completed_count(), 1);
 
     let tasks = vec![TestCallable::returning(50)];
-    let result = executor
-        .call_with_count(tasks, 1)
-        .expect("call batch should succeed");
+    let result = executor.call_with_count(tasks, 1).expect("call batch should succeed");
     let (outcome, values) = result.into_parts();
     assert_eq!(outcome.completed_count(), 1);
     assert_eq!(values, vec![Some(50)]);
@@ -220,10 +210,7 @@ fn test_batch_executor_call_panics_when_callable_wrapper_reports_out_of_range_in
     let executor = OverconsumingExecutor;
 
     let payload = catch_unwind(AssertUnwindSafe(|| {
-        let _ = executor.call_with_count(
-            vec![TestCallable::returning(10), TestCallable::returning(20)],
-            1,
-        );
+        let _ = executor.call_with_count(vec![TestCallable::returning(10), TestCallable::returning(20)], 1);
     }))
     .expect_err("out-of-range callable output should panic");
 

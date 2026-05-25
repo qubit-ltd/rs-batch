@@ -52,8 +52,7 @@ fn test_batch_task_error_builds_from_string_panic_payloads() {
 
 #[test]
 fn test_batch_task_error_builds_from_non_string_panic_payloads() {
-    let payload = catch_unwind(AssertUnwindSafe(|| panic_any(7usize)))
-        .expect_err("panic payload should be captured");
+    let payload = catch_unwind(AssertUnwindSafe(|| panic_any(7usize))).expect_err("panic payload should be captured");
     let error = BatchTaskError::<&'static str>::from_panic_payload(payload.as_ref());
     assert!(error.is_panicked());
     assert_eq!(error.panic_message(), None);

@@ -60,10 +60,7 @@ where
     O: Fn() -> usize,
     F: Fn(usize, T) + Sync,
 {
-    assert!(
-        worker_count > 0,
-        "scoped parallel worker count must be positive"
-    );
+    assert!(worker_count > 0, "scoped parallel worker count must be positive");
     let mut observed_count = 0usize;
     thread::scope(|scope| {
         let (work_sender, work_receiver) = mpsc::sync_channel(worker_count);
@@ -111,10 +108,8 @@ where
 /// * `work_receiver` - Shared receiver protected because standard receivers are
 ///   not `Sync`.
 /// * `run_item` - Callback invoked for each accepted work item.
-fn run_scoped_worker<T, F>(
-    work_receiver: Arc<Mutex<mpsc::Receiver<ScopedWorkItem<T>>>>,
-    run_item: &F,
-) where
+fn run_scoped_worker<T, F>(work_receiver: Arc<Mutex<mpsc::Receiver<ScopedWorkItem<T>>>>, run_item: &F)
+where
     F: Fn(usize, T),
 {
     loop {
