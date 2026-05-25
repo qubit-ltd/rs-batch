@@ -109,11 +109,7 @@ pub trait BatchExecutor: Send + Sync {
     /// Panics from the configured
     /// [`qubit_progress::reporter::ProgressReporter`] are propagated to the
     /// caller.
-    fn execute_with_count<T, E, I>(
-        &self,
-        tasks: I,
-        count: usize,
-    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    fn execute_with_count<T, E, I>(&self, tasks: I, count: usize) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = T>,
         T: Runnable<E> + Send,
@@ -219,11 +215,7 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// Returns [`BatchExecutionError`] only if the iterator violates its exact
     /// length contract while being consumed.
-    fn for_each<Item, E, I, F>(
-        &self,
-        items: I,
-        action: F,
-    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    fn for_each<Item, E, I, F>(&self, items: I, action: F) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = Item>,
         I::IntoIter: ExactSizeIterator,

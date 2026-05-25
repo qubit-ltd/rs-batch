@@ -184,10 +184,7 @@ fn test_sequential_batch_executor_reports_progress() {
     let events = reporter.events();
 
     assert_eq!(result.completed_count(), 3);
-    assert!(matches!(
-        events.first(),
-        Some(ProgressEvent::Start { total_count: 3 })
-    ));
+    assert!(matches!(events.first(), Some(ProgressEvent::Start { total_count: 3 })));
     assert!(events.iter().any(|event| matches!(
         event,
         ProgressEvent::Process {
@@ -233,10 +230,7 @@ fn test_sequential_batch_executor_reports_progress_with_zero_interval() {
 fn test_sequential_batch_executor_propagates_progress_reporter_start_panic() {
     const PANIC_MESSAGE: &str = "progress reporter start panic";
     let executor = SequentialBatchExecutor::builder()
-        .reporter(PanickingProgressReporter::new(
-            ProgressPanicPhase::Start,
-            PANIC_MESSAGE,
-        ))
+        .reporter(PanickingProgressReporter::new(ProgressPanicPhase::Start, PANIC_MESSAGE))
         .build();
     let tasks = vec![TestTask::succeed()];
 

@@ -47,7 +47,12 @@ fn test_batch_execution_state_counts_success_failure_and_panic() {
 fn test_batch_execution_state_public_api_builds_outcome() {
     let state = BatchExecutionState::<&'static str>::new(2);
 
-    assert_eq!(state.progress_counters().total_count(), Some(2));
+    let counters = state.progress_counters();
+    let counter = counters
+        .first()
+        .expect("execution state should produce one progress counter");
+    assert_eq!(counter.metric_id(), "tasks");
+    assert_eq!(counter.total_count(), Some(2));
     assert_eq!(state.record_task_observed(), 1);
     state.record_task_started();
     state.record_task_succeeded();
@@ -56,9 +61,12 @@ fn test_batch_execution_state_public_api_builds_outcome() {
     state.record_task_panicked(1, BatchTaskError::panicked("boom"));
 
     let counters = state.progress_counters();
-    assert_eq!(counters.completed_count(), 2);
-    assert_eq!(counters.succeeded_count(), 1);
-    assert_eq!(counters.failed_count(), 1);
+    let counter = counters
+        .first()
+        .expect("execution state should produce one progress counter");
+    assert_eq!(counter.completed_count(), 2);
+    assert_eq!(counter.succeeded_count(), 1);
+    assert_eq!(counter.failed_count(), 1);
 
     let outcome = state.into_outcome(Duration::from_millis(7));
     assert_eq!(outcome.task_count(), 2);

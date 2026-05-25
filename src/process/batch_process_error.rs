@@ -52,9 +52,7 @@ pub enum BatchProcessError {
     },
 
     /// The input source yielded more items than the declared item count.
-    #[error(
-        "batch item count exceeded: expected {expected}, observed at least {observed_at_least}"
-    )]
+    #[error("batch item count exceeded: expected {expected}, observed at least {observed_at_least}")]
     CountExceeded {
         /// Declared item count.
         expected: usize,

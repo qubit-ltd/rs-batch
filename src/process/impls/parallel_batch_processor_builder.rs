@@ -185,8 +185,8 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     /// zero.
     #[inline]
     pub fn build(self) -> Result<ParallelBatchProcessor<Item>, ParallelBatchProcessorBuildError> {
-        let thread_count = NonZeroUsize::new(self.thread_count)
-            .ok_or(ParallelBatchProcessorBuildError::ZeroThreadCount)?;
+        let thread_count =
+            NonZeroUsize::new(self.thread_count).ok_or(ParallelBatchProcessorBuildError::ZeroThreadCount)?;
         Ok(ParallelBatchProcessor {
             consumer: self.consumer,
             thread_count,

@@ -14,7 +14,7 @@ use std::sync::{
 use std::time::Duration;
 
 use qubit_atomic::AtomicCount;
-use qubit_progress::model::ProgressCounters;
+use qubit_progress::model::ProgressCounter;
 
 use crate::{
     BatchOutcome,
@@ -22,6 +22,12 @@ use crate::{
     BatchTaskError,
     BatchTaskFailure,
 };
+
+/// Metric id used for task progress counters.
+pub(crate) const EXECUTION_PROGRESS_METRIC_ID: &str = "tasks";
+
+/// Metric display name used for task progress counters.
+pub(crate) const EXECUTION_PROGRESS_METRIC_NAME: &str = "Tasks";
 
 /// Shared state collected while a batch executor is running.
 pub struct BatchExecutionState<E> {
@@ -110,8 +116,7 @@ impl<E> BatchExecutionState<E> {
         self.active_count.dec();
         self.completed_count.inc();
         self.failed_count.inc();
-        Self::lock_failures(&self.failures)
-            .push(BatchTaskFailure::new(index, BatchTaskError::Failed(error)));
+        Self::lock_failures(&self.failures).push(BatchTaskFailure::new(index, BatchTaskError::Failed(error)));
     }
 
     /// Records one task panic.
@@ -132,22 +137,21 @@ impl<E> BatchExecutionState<E> {
         Self::lock_failures(&self.failures).push(BatchTaskFailure::new(index, error));
     }
 
-    /// Returns generic progress counters for this execution state.
+    /// Returns progress counters for this execution state.
     ///
     /// # Returns
     ///
-    /// Counters suitable for progress reporting.
+    /// A single task counter suitable for progress reporting.
     #[inline]
-    pub fn progress_counters(&self) -> ProgressCounters {
-        ProgressCounters::new(Some(self.task_count))
-            .with_active_count(self.active_count.get())
-            .with_completed_count(self.completed_count.get())
-            .with_succeeded_count(self.succeeded_count.get())
-            .with_failed_count(
-                self.failed_count
-                    .get()
-                    .saturating_add(self.panicked_count.get()),
-            )
+    pub fn progress_counters(&self) -> Vec<ProgressCounter> {
+        vec![
+            ProgressCounter::new(EXECUTION_PROGRESS_METRIC_ID)
+                .total(self.task_count as u64)
+                .active(self.active_count.get() as u64)
+                .completed(self.completed_count.get() as u64)
+                .succeeded(self.succeeded_count.get() as u64)
+                .failed(self.failed_count.get().saturating_add(self.panicked_count.get()) as u64),
+        ]
     }
 
     /// Consumes this state and builds a batch outcome.
@@ -185,11 +189,7 @@ impl<E> BatchExecutionState<E> {
     /// # Returns
     ///
     /// A guard for the failure list.
-    fn lock_failures(
-        failures: &Mutex<Vec<BatchTaskFailure<E>>>,
-    ) -> MutexGuard<'_, Vec<BatchTaskFailure<E>>> {
-        failures
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    fn lock_failures(failures: &Mutex<Vec<BatchTaskFailure<E>>>) -> MutexGuard<'_, Vec<BatchTaskFailure<E>>> {
+        failures.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 }

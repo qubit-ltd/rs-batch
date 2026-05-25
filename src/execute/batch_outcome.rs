@@ -12,12 +12,14 @@ use std::{
     time::Duration,
 };
 
-use qubit_progress::model::ProgressCounters;
+use qubit_progress::model::ProgressCounter;
 
 use crate::{
     BatchOutcomeBuilder,
     BatchTaskFailure,
 };
+
+use super::EXECUTION_PROGRESS_METRIC_ID;
 
 /// Final or partial outcome produced by one batch execution.
 ///
@@ -150,21 +152,23 @@ impl<E> BatchOutcome<E> {
         self.failed_count + self.panicked_count
     }
 
-    /// Builds generic progress counters from this outcome for terminal progress
-    /// reporting.
+    /// Builds progress counters from this outcome for terminal progress reporting.
     ///
     /// # Returns
     ///
-    /// Counters with total set to [`Self::task_count`], completed to
+    /// A single task counter with total set to [`Self::task_count`], completed to
     /// [`Self::completed_count`], succeeded to [`Self::succeeded_count`], and
     /// failed to [`Self::failure_count`] (errors plus panics). Active count
     /// stays zero because the batch has finished.
     #[inline]
-    pub fn progress_counters(&self) -> ProgressCounters {
-        ProgressCounters::new(Some(self.task_count()))
-            .with_completed_count(self.completed_count())
-            .with_succeeded_count(self.succeeded_count())
-            .with_failed_count(self.failure_count())
+    pub fn progress_counters(&self) -> Vec<ProgressCounter> {
+        vec![
+            ProgressCounter::new(EXECUTION_PROGRESS_METRIC_ID)
+                .total(self.task_count() as u64)
+                .completed(self.completed_count() as u64)
+                .succeeded(self.succeeded_count() as u64)
+                .failed(self.failure_count() as u64),
+        ]
     }
 
     /// Returns the total monotonic elapsed duration.
@@ -194,9 +198,7 @@ impl<E> BatchOutcome<E> {
     /// `true` if the batch has no failures and every declared task completed.
     #[inline]
     pub const fn is_success(&self) -> bool {
-        self.completed_count == self.task_count
-            && self.failed_count == 0
-            && self.panicked_count == 0
+        self.completed_count == self.task_count && self.failed_count == 0 && self.panicked_count == 0
     }
 
     /// Consumes this outcome and returns its failure list.

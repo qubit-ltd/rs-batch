@@ -104,11 +104,7 @@ pub trait BatchProcessor<Item> {
     /// # Errors
     ///
     /// Returns [`Self::Error`] when this processor cannot process the batch.
-    fn process_with_count<I>(
-        &mut self,
-        items: I,
-        count: usize,
-    ) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>;
 }

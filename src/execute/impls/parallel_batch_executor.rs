@@ -22,6 +22,8 @@ use crate::BatchOutcome;
 use crate::execute::{
     BatchExecutionState,
     BatchExecutor,
+    EXECUTION_PROGRESS_METRIC_ID,
+    EXECUTION_PROGRESS_METRIC_NAME,
     SequentialBatchExecutor,
 };
 use crate::utils::run_scoped_parallel;
@@ -89,9 +91,7 @@ impl ParallelBatchExecutor {
     /// The available CPU parallelism, or `1` if it cannot be detected.
     #[inline]
     pub fn default_thread_count() -> usize {
-        thread::available_parallelism()
-            .map(usize::from)
-            .unwrap_or(1)
+        thread::available_parallelism().map(usize::from).unwrap_or(1)
     }
 
     /// Creates a builder for configuring a parallel batch executor.
@@ -216,11 +216,7 @@ impl BatchExecutor for ParallelBatchExecutor {
     ///
     /// Panics from tasks are captured in the result. Panics from the configured
     /// progress reporter are propagated to the caller.
-    fn execute_with_count<T, E, I>(
-        &self,
-        tasks: I,
-        count: usize,
-    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    fn execute_with_count<T, E, I>(&self, tasks: I, count: usize) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = T>,
         T: Runnable<E> + Send,
@@ -231,15 +227,19 @@ impl BatchExecutor for ParallelBatchExecutor {
         }
 
         let state = Arc::new(BatchExecutionState::new(count));
-        let progress = Progress::new(self.reporter.as_ref(), self.report_interval);
-        progress.report_started(state.progress_counters());
+        let progress = Progress::single_metric(
+            self.reporter.as_ref(),
+            self.report_interval,
+            EXECUTION_PROGRESS_METRIC_ID,
+            EXECUTION_PROGRESS_METRIC_NAME,
+        );
+        progress.report_started(|event| event.counters(state.progress_counters()));
         let mut actual_count = 0usize;
         let worker_count = self.thread_count.min(count);
 
         thread::scope(|scope| {
             let reporter_state = Arc::clone(&state);
-            let running_progress =
-                progress.spawn_running_reporter(scope, move || reporter_state.progress_counters());
+            let running_progress = progress.spawn_running_reporter(scope, move || reporter_state.progress_counters());
             let running_point_handle = running_progress.point_handle();
 
             let observer_state = Arc::clone(&state);
@@ -257,10 +257,9 @@ impl BatchExecutor for ParallelBatchExecutor {
             running_progress.stop_and_join();
         });
 
-        let state = Arc::into_inner(state)
-            .expect("parallel batch execution state should have a single owner");
+        let state = Arc::into_inner(state).expect("parallel batch execution state should have a single owner");
         if actual_count < count {
-            let failed = progress.report_failed(state.progress_counters());
+            let failed = progress.report_failed(|event| event.counters(state.progress_counters()));
             let result = state.into_outcome(failed.elapsed());
             Err(BatchExecutionError::CountShortfall {
                 expected: count,
@@ -268,7 +267,7 @@ impl BatchExecutor for ParallelBatchExecutor {
                 outcome: result,
             })
         } else if actual_count > count {
-            let failed = progress.report_failed(state.progress_counters());
+            let failed = progress.report_failed(|event| event.counters(state.progress_counters()));
             let result = state.into_outcome(failed.elapsed());
             Err(BatchExecutionError::CountExceeded {
                 expected: count,
@@ -276,7 +275,7 @@ impl BatchExecutor for ParallelBatchExecutor {
                 outcome: result,
             })
         } else {
-            let finished = progress.report_finished(state.progress_counters());
+            let finished = progress.report_finished(|event| event.counters(state.progress_counters()));
             let result = state.into_outcome(finished.elapsed());
             Ok(result)
         }

@@ -25,6 +25,10 @@ pub mod impls;
 pub use batch_call_result::BatchCallResult;
 pub use batch_execution_error::BatchExecutionError;
 pub use batch_execution_state::BatchExecutionState;
+pub(crate) use batch_execution_state::{
+    EXECUTION_PROGRESS_METRIC_ID,
+    EXECUTION_PROGRESS_METRIC_NAME,
+};
 pub use batch_executor::BatchExecutor;
 pub use batch_outcome::BatchOutcome;
 pub use batch_outcome_build_error::BatchOutcomeBuildError;
