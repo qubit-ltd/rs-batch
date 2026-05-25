@@ -49,7 +49,7 @@
 
 ```toml
 [dependencies]
-qubit-batch = "0.8"
+qubit-batch = "0.9"
 ```
 
 当你要直接实现 `Runnable`、`Callable` 或 `Consumer` 类型时，需要额外依赖
@@ -269,20 +269,22 @@ struct ConsoleReporter;
 
 impl ProgressReporter for ConsoleReporter {
     fn report(&self, event: &ProgressEvent) {
-        let counters = event.counters();
-        let total = counters.total_count().unwrap_or(counters.completed_count());
+        let counter = event
+            .counter("tasks")
+            .expect("batch progress events contain task counters");
+        let total = counter.total_count().unwrap_or(counter.completed_count());
         match event.phase() {
             ProgressPhase::Started => println!("starting {total} tasks"),
             ProgressPhase::Running => println!(
                 "completed {}/{total}, active {}, elapsed {:?}",
-                counters.completed_count(),
-                counters.active_count(),
+                counter.completed_count(),
+                counter.active_count(),
                 event.elapsed(),
             ),
             ProgressPhase::Finished => println!("finished {total} tasks in {:?}", event.elapsed()),
             ProgressPhase::Failed | ProgressPhase::Canceled => println!(
                 "stopped after {}/{total} tasks in {:?}",
-                counters.completed_count(),
+                counter.completed_count(),
                 event.elapsed(),
             ),
         }
