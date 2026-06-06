@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Tests for batch outcomes and execution state.
 
 use std::{
@@ -136,7 +134,8 @@ fn test_batch_outcome_rejects_failure_detail_mismatches() {
         Err(BatchOutcomeBuildError::FailureIndexOutOfRange { .. })
     ));
 
-    let failure: BatchTaskFailure<&'static str> = BatchTaskFailure::new(0, BatchTaskError::panicked("panic"));
+    let failure: BatchTaskFailure<&'static str> =
+        BatchTaskFailure::new(0, BatchTaskError::panicked("panic"));
     assert!(matches!(
         BatchOutcomeBuilder::builder(2)
             .completed_count(1)
@@ -218,7 +217,8 @@ fn test_batch_task_error_helpers_display_and_source() {
     assert_eq!(panicked.to_string(), "task panicked: panic");
     assert!(panicked.source().is_none());
 
-    let panicked_without_message = BatchTaskError::<TestError>::panicked_without_message();
+    let panicked_without_message =
+        BatchTaskError::<TestError>::panicked_without_message();
     assert_eq!(panicked_without_message.panic_message(), None);
     assert_eq!(panicked_without_message.to_string(), "task panicked");
 }

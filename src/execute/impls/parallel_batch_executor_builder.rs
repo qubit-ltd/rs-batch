@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use std::{
     sync::Arc,
     time::Duration,
@@ -77,7 +75,10 @@ impl ParallelBatchExecutorBuilder {
     ///
     /// This builder for fluent configuration.
     #[inline]
-    pub const fn sequential_threshold(mut self, sequential_threshold: usize) -> Self {
+    pub const fn sequential_threshold(
+        mut self,
+        sequential_threshold: usize,
+    ) -> Self {
         self.sequential_threshold = sequential_threshold;
         self
     }
@@ -153,7 +154,9 @@ impl ParallelBatchExecutorBuilder {
     ///
     /// Returns [`ParallelBatchExecutorBuildError`] when the worker count is
     /// zero.
-    pub fn build(self) -> Result<ParallelBatchExecutor, ParallelBatchExecutorBuildError> {
+    pub fn build(
+        self,
+    ) -> Result<ParallelBatchExecutor, ParallelBatchExecutorBuildError> {
         if self.thread_count == 0 {
             return Err(ParallelBatchExecutorBuildError::ZeroThreadCount);
         }
@@ -172,12 +175,14 @@ impl Default for ParallelBatchExecutorBuilder {
     /// # Returns
     ///
     /// A builder using available parallelism, five-second progress intervals,
-    /// sequential fallback for batches at or below [`ParallelBatchExecutor::DEFAULT_SEQUENTIAL_THRESHOLD`],
+    /// sequential fallback for batches at or below
+    /// [`ParallelBatchExecutor::DEFAULT_SEQUENTIAL_THRESHOLD`],
     /// and no-op reporting.
     fn default() -> Self {
         Self {
             thread_count: ParallelBatchExecutor::default_thread_count(),
-            sequential_threshold: ParallelBatchExecutor::DEFAULT_SEQUENTIAL_THRESHOLD,
+            sequential_threshold:
+                ParallelBatchExecutor::DEFAULT_SEQUENTIAL_THRESHOLD,
             report_interval: ParallelBatchExecutor::DEFAULT_REPORT_INTERVAL,
             reporter: Arc::new(NoOpProgressReporter),
         }

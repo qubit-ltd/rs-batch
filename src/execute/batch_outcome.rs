@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use std::{
     fmt,
     time::Duration,
@@ -152,14 +150,16 @@ impl<E> BatchOutcome<E> {
         self.failed_count + self.panicked_count
     }
 
-    /// Builds progress counters from this outcome for terminal progress reporting.
+    /// Builds progress counters from this outcome for terminal progress
+    /// reporting.
     ///
     /// # Returns
     ///
-    /// A single task counter with total set to [`Self::task_count`], completed to
-    /// [`Self::completed_count`], succeeded to [`Self::succeeded_count`], and
-    /// failed to [`Self::failure_count`] (errors plus panics). Active count
-    /// stays zero because the batch has finished.
+    /// A single task counter with total set to [`Self::task_count`], completed
+    /// to [`Self::completed_count`], succeeded to
+    /// [`Self::succeeded_count`], and failed to [`Self::failure_count`]
+    /// (errors plus panics). Active count stays zero because the batch has
+    /// finished.
     #[inline]
     pub fn progress_counters(&self) -> Vec<ProgressCounter> {
         vec![
@@ -198,7 +198,9 @@ impl<E> BatchOutcome<E> {
     /// `true` if the batch has no failures and every declared task completed.
     #[inline]
     pub const fn is_success(&self) -> bool {
-        self.completed_count == self.task_count && self.failed_count == 0 && self.panicked_count == 0
+        self.completed_count == self.task_count
+            && self.failed_count == 0
+            && self.panicked_count == 0
     }
 
     /// Consumes this outcome and returns its failure list.

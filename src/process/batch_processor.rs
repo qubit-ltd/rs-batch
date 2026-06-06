@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use super::BatchProcessResult;
 
 /// Processes a batch of data items.
@@ -58,7 +56,6 @@ use super::BatchProcessResult;
 /// # Type Parameters
 ///
 /// * `Item` - The data item type consumed by this processor.
-///
 pub trait BatchProcessor<Item> {
     /// Error returned by this processor.
     type Error;
@@ -79,7 +76,10 @@ pub trait BatchProcessor<Item> {
     ///
     /// Returns [`Self::Error`] if the processor rejects the batch or if the
     /// iterator violates its exact length contract while being consumed.
-    fn process<I>(&mut self, items: I) -> Result<BatchProcessResult, Self::Error>
+    fn process<I>(
+        &mut self,
+        items: I,
+    ) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
         I::IntoIter: ExactSizeIterator,
@@ -104,7 +104,11 @@ pub trait BatchProcessor<Item> {
     /// # Errors
     ///
     /// Returns [`Self::Error`] when this processor cannot process the batch.
-    fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(
+        &mut self,
+        items: I,
+        count: usize,
+    ) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>;
 }

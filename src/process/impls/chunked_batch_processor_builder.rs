@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use std::{
     num::NonZeroUsize,
     sync::Arc,
@@ -74,7 +72,8 @@ impl<P> ChunkedBatchProcessorBuilder<P> {
         Self {
             delegate,
             chunk_size,
-            report_interval: ChunkedBatchProcessor::<P>::DEFAULT_REPORT_INTERVAL,
+            report_interval:
+                ChunkedBatchProcessor::<P>::DEFAULT_REPORT_INTERVAL,
             reporter: Arc::new(NoOpProgressReporter),
         }
     }

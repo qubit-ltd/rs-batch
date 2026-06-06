@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Tests for [`ParallelBatchProcessor`](qubit_batch::ParallelBatchProcessor).
 
 use std::{
@@ -58,7 +56,9 @@ fn test_parallel_batch_processor_consumer_accessors() {
     consumer.accept(&6);
 
     assert_eq!(
-        *accepted.lock().unwrap_or_else(std::sync::PoisonError::into_inner),
+        *accepted
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner),
         vec![5, 6]
     );
 }
@@ -71,10 +71,11 @@ fn test_parallel_batch_processor_accessors_and_value_reporter() {
         .report_interval(Duration::from_millis(25))
         .build()
         .expect("parallel processor should build");
-    let no_reporter_processor = ParallelBatchProcessor::builder(|_item: &i32| {})
-        .no_reporter()
-        .build()
-        .expect("parallel processor should build");
+    let no_reporter_processor =
+        ParallelBatchProcessor::builder(|_item: &i32| {})
+            .no_reporter()
+            .build()
+            .expect("parallel processor should build");
 
     assert_eq!(processor.report_interval(), Duration::from_millis(25));
     assert_eq!(processor.sequential_threshold(), 7);
@@ -92,7 +93,9 @@ fn test_parallel_batch_processor_rejects_zero_thread_count() {
         .build();
 
     match result {
-        Err(error) => assert_eq!(error, ParallelBatchProcessorBuildError::ZeroThreadCount),
+        Err(error) => {
+            assert_eq!(error, ParallelBatchProcessorBuildError::ZeroThreadCount)
+        }
         Ok(_) => panic!("zero worker count should be rejected"),
     }
 }
@@ -155,7 +158,10 @@ fn test_parallel_batch_processor_reports_progress() {
     let events = reporter.events();
 
     assert_eq!(result.completed_count(), 4);
-    assert!(matches!(events.first(), Some(ProgressEvent::Start { total_count: 4 })));
+    assert!(matches!(
+        events.first(),
+        Some(ProgressEvent::Start { total_count: 4 })
+    ));
     assert!(events.iter().any(|event| matches!(
         event,
         ProgressEvent::Process {
@@ -187,6 +193,34 @@ fn test_parallel_batch_processor_reports_progress_with_zero_interval() {
     let result = processor
         .process_with_count(vec![1, 2, 3], 3)
         .expect("parallel processing should succeed");
+    let events = reporter.events();
+
+    assert_eq!(result.completed_count(), 3);
+    assert!(events.iter().any(|event| matches!(
+        event,
+        ProgressEvent::Process {
+            total_count: 3,
+            completed_count,
+            ..
+        } if *completed_count >= 1
+    )));
+}
+
+#[test]
+fn test_parallel_batch_processor_reports_sequential_progress_with_zero_interval()
+ {
+    let reporter = Arc::new(RecordingProgressReporter::new());
+    let mut processor = ParallelBatchProcessor::builder(|_item: &i32| {})
+        .thread_count(2)
+        .sequential_threshold(3)
+        .reporter_arc(reporter.clone())
+        .report_interval(Duration::ZERO)
+        .build()
+        .expect("parallel processor should build");
+
+    let result = processor
+        .process_with_count(vec![1, 2, 3], 3)
+        .expect("small batch should process through the sequential fallback");
     let events = reporter.events();
 
     assert_eq!(result.completed_count(), 3);
@@ -276,14 +310,18 @@ fn test_parallel_batch_processor_uses_sequential_threshold() {
 fn test_parallel_batch_processor_supports_non_static_items() {
     let first = AtomicCount::zero();
     let second = AtomicCount::zero();
-    let mut processor = ParallelBatchProcessor::builder(|item: &BorrowedItem<'_>| {
-        item.counter.inc();
-    })
-    .thread_count(2)
-    .sequential_threshold(0)
-    .build()
-    .expect("parallel processor should build");
-    let items = [BorrowedItem { counter: &first }, BorrowedItem { counter: &second }];
+    let mut processor =
+        ParallelBatchProcessor::builder(|item: &BorrowedItem<'_>| {
+            item.counter.inc();
+        })
+        .thread_count(2)
+        .sequential_threshold(0)
+        .build()
+        .expect("parallel processor should build");
+    let items = [
+        BorrowedItem { counter: &first },
+        BorrowedItem { counter: &second },
+    ];
 
     let result = processor
         .process_with_count(items, 2)
@@ -391,14 +429,17 @@ fn test_parallel_batch_processor_propagates_consumer_panic() {
     .build()
     .expect("parallel processor should build");
 
-    let payload = catch_unwind(AssertUnwindSafe(|| processor.process_with_count(vec![1], 1)))
-        .expect_err("consumer panic should be propagated");
+    let payload = catch_unwind(AssertUnwindSafe(|| {
+        processor.process_with_count(vec![1], 1)
+    }))
+    .expect_err("consumer panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }
 
 #[test]
-fn test_parallel_batch_processor_propagates_worker_panic_after_channel_backpressure() {
+fn test_parallel_batch_processor_propagates_worker_panic_after_channel_backpressure()
+ {
     const PANIC_MESSAGE: &str = "parallel processor backpressure panic";
     let mut processor = ParallelBatchProcessor::builder(|item: &i32| {
         if *item == 0 {
@@ -413,7 +454,9 @@ fn test_parallel_batch_processor_propagates_worker_panic_after_channel_backpress
     let payload = catch_unwind(AssertUnwindSafe(|| {
         processor.process_with_count((0..64).collect::<Vec<_>>(), 64)
     }))
-    .expect_err("worker panic should be propagated without blocking the producer");
+    .expect_err(
+        "worker panic should be propagated without blocking the producer",
+    );
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }

@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Behavioral coverage for execution and processing state counters.
 
 use std::time::Duration;
@@ -29,7 +27,10 @@ fn test_batch_counter_supports_execution_and_processing_counts() {
         .expect("parallel executor should build");
     let outcome = executor
         .execute_with_count(
-            [TestTask::sleep_success(Duration::from_millis(1)), TestTask::succeed()],
+            [
+                TestTask::sleep_success(Duration::from_millis(1)),
+                TestTask::succeed(),
+            ],
             2,
         )
         .expect("parallel execution should succeed");

@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use thiserror::Error;
 
 use super::BatchProcessResult;
@@ -14,8 +12,8 @@ use super::BatchProcessResult;
 /// Error returned by built-in consumer-backed batch processors.
 ///
 /// The error variants report mismatches between the declared item count and the
-/// number of items yielded by the input source. Each variant carries the partial
-/// result accumulated before the mismatch was detected.
+/// number of items yielded by the input source. Each variant carries the
+/// partial result accumulated before the mismatch was detected.
 ///
 /// ```rust
 /// use qubit_batch::{
@@ -52,7 +50,9 @@ pub enum BatchProcessError {
     },
 
     /// The input source yielded more items than the declared item count.
-    #[error("batch item count exceeded: expected {expected}, observed at least {observed_at_least}")]
+    #[error(
+        "batch item count exceeded: expected {expected}, observed at least {observed_at_least}"
+    )]
     CountExceeded {
         /// Declared item count.
         expected: usize,
@@ -72,7 +72,8 @@ impl BatchProcessError {
     #[inline]
     pub const fn result(&self) -> &BatchProcessResult {
         match self {
-            Self::CountShortfall { result, .. } | Self::CountExceeded { result, .. } => result,
+            Self::CountShortfall { result, .. }
+            | Self::CountExceeded { result, .. } => result,
         }
     }
 
@@ -84,7 +85,8 @@ impl BatchProcessError {
     #[inline]
     pub fn into_result(self) -> BatchProcessResult {
         match self {
-            Self::CountShortfall { result, .. } | Self::CountExceeded { result, .. } => result,
+            Self::CountShortfall { result, .. }
+            | Self::CountExceeded { result, .. } => result,
         }
     }
 }

@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use std::{
     sync::Arc,
     time::Duration,
@@ -34,8 +32,8 @@ use super::SequentialBatchProcessorBuilder;
 
 /// Processes batch items sequentially by invoking a [`Consumer`] per item.
 ///
-/// The processor stores the supplied consumer as a [`BoxConsumer`] and invokes it
-/// on the caller thread in input order. Consumer panics are not caught; they
+/// The processor stores the supplied consumer as a [`BoxConsumer`] and invokes
+/// it on the caller thread in input order. Consumer panics are not caught; they
 /// propagate to the caller and no [`BatchProcessResult`] is produced. Progress
 /// updates are emitted only between items.
 ///
@@ -165,15 +163,20 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
     ///
     /// # Errors
     ///
-    /// Returns [`BatchProcessError::CountShortfall`] when the source ends before
-    /// `count`, or [`BatchProcessError::CountExceeded`] when the source yields an
-    /// extra item. Extra items are observed but not passed to the consumer.
+    /// Returns [`BatchProcessError::CountShortfall`] when the source ends
+    /// before `count`, or [`BatchProcessError::CountExceeded`] when the
+    /// source yields an extra item. Extra items are observed but not passed
+    /// to the consumer.
     ///
     /// # Panics
     ///
     /// Propagates any panic raised by the stored consumer or the configured
     /// progress reporter.
-    fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(
+        &mut self,
+        items: I,
+        count: usize,
+    ) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
     {
@@ -184,12 +187,15 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
             PROCESS_PROGRESS_METRIC_ID,
             PROCESS_PROGRESS_METRIC_NAME,
         );
-        progress.report_started(|event| event.counters(state.progress_counters()));
+        progress
+            .report_started(|event| event.counters(state.progress_counters()));
 
         for item in items {
             let observed_count = state.record_item_observed();
             if observed_count > count {
-                let failed = progress.report_failed(|event| event.counters(state.progress_counters()));
+                let failed = progress.report_failed(|event| {
+                    event.counters(state.progress_counters())
+                });
                 let result = state.to_direct_result(failed.elapsed());
                 return Err(BatchProcessError::CountExceeded {
                     expected: count,
@@ -200,11 +206,15 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
             state.record_item_started();
             self.consumer.accept(&item);
             state.record_item_processed();
-            let _ = progress.report_running_if_due(|event| event.counters(state.progress_counters()));
+            let _ = progress.report_running_if_due(|event| {
+                event.counters(state.progress_counters())
+            });
         }
 
         if state.observed_count() < count {
-            let failed = progress.report_failed(|event| event.counters(state.progress_counters()));
+            let failed = progress.report_failed(|event| {
+                event.counters(state.progress_counters())
+            });
             let result = state.to_direct_result(failed.elapsed());
             Err(BatchProcessError::CountShortfall {
                 expected: count,
@@ -212,7 +222,9 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
                 result,
             })
         } else {
-            let finished = progress.report_finished(|event| event.counters(state.progress_counters()));
+            let finished = progress.report_finished(|event| {
+                event.counters(state.progress_counters())
+            });
             let result = state.to_direct_result(finished.elapsed());
             Ok(result)
         }

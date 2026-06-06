@@ -1,29 +1,32 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! README consistency checks for `qubit-batch`.
 
 const CARGO_TOML: &str = include_str!("../../Cargo.toml");
 const README_EN: &str = include_str!("../../README.md");
 const README_ZH: &str = include_str!("../../README.zh_CN.md");
-const PARALLEL_BATCH_EXECUTOR: &str = include_str!("../../src/execute/impls/parallel_batch_executor.rs");
-const PARALLEL_BATCH_PROCESSOR: &str = include_str!("../../src/process/impls/parallel_batch_processor.rs");
+const PARALLEL_BATCH_EXECUTOR: &str =
+    include_str!("../../src/execute/impls/parallel_batch_executor.rs");
+const PARALLEL_BATCH_PROCESSOR: &str =
+    include_str!("../../src/process/impls/parallel_batch_processor.rs");
 
 #[test]
-/// Ensures README dependency snippets use the same major.minor line as `[package] version`.
+/// Ensures README dependency snippets use the same major.minor line as
+/// `[package] version`.
 fn test_readme_dependency_version_matches_cargo_toml() {
-    let cargo_version = extract_package_version(CARGO_TOML).expect("Failed to extract version from Cargo.toml");
-    let expected = minor_series(cargo_version).expect("Cargo.toml version must have major.minor");
-    let readme_en_version =
-        extract_readme_dependency_version(README_EN).expect("Failed to extract version from README.md");
-    let readme_zh_version =
-        extract_readme_dependency_version(README_ZH).expect("Failed to extract version from README.zh_CN.md");
+    let cargo_version = extract_package_version(CARGO_TOML)
+        .expect("Failed to extract version from Cargo.toml");
+    let expected = minor_series(cargo_version)
+        .expect("Cargo.toml version must have major.minor");
+    let readme_en_version = extract_readme_dependency_version(README_EN)
+        .expect("Failed to extract version from README.md");
+    let readme_zh_version = extract_readme_dependency_version(README_ZH)
+        .expect("Failed to extract version from README.zh_CN.md");
     assert_eq!(readme_en_version, expected.as_str());
     assert_eq!(readme_zh_version, expected.as_str());
 }

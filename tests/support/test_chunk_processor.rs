@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Shared test processor for chunked batch processing.
 
 use std::{
@@ -59,7 +57,11 @@ impl TestChunkProcessor {
 impl BatchProcessor<i32> for TestChunkProcessor {
     type Error = &'static str;
 
-    fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(
+        &mut self,
+        items: I,
+        count: usize,
+    ) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = i32>,
     {

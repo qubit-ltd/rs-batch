@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use std::{
     collections::HashSet,
     time::Duration,
@@ -212,7 +210,9 @@ impl<E> BatchOutcomeBuilder<E> {
     /// Returns [`BatchOutcomeBuildError`] when the counters or failure details
     /// are inconsistent.
     #[inline]
-    pub fn build(self) -> Result<crate::BatchOutcome<E>, BatchOutcomeBuildError> {
+    pub fn build(
+        self,
+    ) -> Result<crate::BatchOutcome<E>, BatchOutcomeBuildError> {
         self.validate().map(crate::BatchOutcome::new)
     }
 }
@@ -226,20 +226,18 @@ fn validate_outcome_invariants<E>(
     panicked_count: usize,
     failures: &[BatchTaskFailure<E>],
 ) -> Result<(), BatchOutcomeBuildError> {
-    let failure_count =
-        failed_count
-            .checked_add(panicked_count)
-            .ok_or(BatchOutcomeBuildError::FailureCountOverflow {
-                failed_count,
-                panicked_count,
-            })?;
-    let terminal_count =
-        succeeded_count
-            .checked_add(failure_count)
-            .ok_or(BatchOutcomeBuildError::TerminalCountOverflow {
-                succeeded_count,
-                failure_count,
-            })?;
+    let failure_count = failed_count.checked_add(panicked_count).ok_or(
+        BatchOutcomeBuildError::FailureCountOverflow {
+            failed_count,
+            panicked_count,
+        },
+    )?;
+    let terminal_count = succeeded_count.checked_add(failure_count).ok_or(
+        BatchOutcomeBuildError::TerminalCountOverflow {
+            succeeded_count,
+            failure_count,
+        },
+    )?;
 
     if completed_count > task_count {
         return Err(BatchOutcomeBuildError::CompletedCountExceeded {
@@ -283,14 +281,18 @@ fn validate_failure_details<E>(
             });
         }
         if !observed_indexes.insert(failure.index()) {
-            return Err(BatchOutcomeBuildError::DuplicateFailureIndex { index: failure.index() });
+            return Err(BatchOutcomeBuildError::DuplicateFailureIndex {
+                index: failure.index(),
+            });
         }
         match failure.error() {
             BatchTaskError::Failed(_) => observed_failed_count += 1,
             BatchTaskError::Panicked { .. } => observed_panicked_count += 1,
         }
     }
-    if observed_failed_count != failed_count || observed_panicked_count != panicked_count {
+    if observed_failed_count != failed_count
+        || observed_panicked_count != panicked_count
+    {
         return Err(BatchOutcomeBuildError::FailureVariantCountMismatch {
             expected_failed: failed_count,
             actual_failed: observed_failed_count,

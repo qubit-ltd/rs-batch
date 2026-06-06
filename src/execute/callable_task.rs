@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use std::sync::Arc;
 
 use crossbeam_queue::SegQueue;
@@ -38,7 +36,11 @@ impl<C, R> CallableTask<C, R> {
     ///
     /// A runnable wrapper that sends successful output with its `index`.
     #[inline]
-    pub(crate) fn new(callable: C, index: usize, outputs: Arc<SegQueue<(usize, R)>>) -> Self {
+    pub(crate) fn new(
+        callable: C,
+        index: usize,
+        outputs: Arc<SegQueue<(usize, R)>>,
+    ) -> Self {
         Self {
             callable: Some(callable),
             index,
@@ -62,7 +64,10 @@ where
     ///
     /// Panics if this wrapper is run more than once.
     fn run(&mut self) -> Result<(), E> {
-        let mut callable = self.callable.take().expect("callable task may only run once");
+        let mut callable = self
+            .callable
+            .take()
+            .expect("callable task may only run once");
         let value = callable.call()?;
         self.outputs.push((self.index, value));
         Ok(())

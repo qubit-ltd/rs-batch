@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 
 use qubit_batch::{
     BatchCallResult,
@@ -21,7 +19,10 @@ fn test_batch_call_result_accessors_and_parts() {
         .completed_count(2)
         .succeeded_count(1)
         .panicked_count(1)
-        .failures(vec![BatchTaskFailure::new(1, BatchTaskError::panicked("panic"))])
+        .failures(vec![BatchTaskFailure::new(
+            1,
+            BatchTaskError::panicked("panic"),
+        )])
         .build()
         .expect("outcome should be valid");
     let result = BatchCallResult::new(outcome.clone(), vec![Some(10), None]);

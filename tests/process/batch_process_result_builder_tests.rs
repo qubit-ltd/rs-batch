@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Tests for [`BatchProcessResultBuilder`](qubit_batch::BatchProcessResultBuilder).
 
 use std::time::Duration;
@@ -63,7 +61,11 @@ fn test_batch_process_result_builder_rejects_invalid_counters() {
             .completed_count(2)
             .processed_count(2)
             .build(),
-        Err(BatchProcessResultBuildError::MissingChunkForCompletedItems { completed_count: 2 })
+        Err(
+            BatchProcessResultBuildError::MissingChunkForCompletedItems {
+                completed_count: 2
+            }
+        )
     ));
     assert!(matches!(
         BatchProcessResultBuilder::builder(3)
