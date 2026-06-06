@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use super::batch_task_error::BatchTaskError;
 
 /// Failure record for one task inside a batch.
@@ -29,7 +27,6 @@ use super::batch_task_error::BatchTaskError;
 /// # Type Parameters
 ///
 /// * `E` - The task-specific error type.
-///
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BatchTaskFailure<E> {
     /// Zero-based task index within the batch.

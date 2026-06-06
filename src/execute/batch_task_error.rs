@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use std::{
     any::Any,
     error::Error,
@@ -33,7 +31,6 @@ use std::{
 /// # Type Parameters
 ///
 /// * `E` - The task-specific error type.
-///
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BatchTaskError<E> {
     /// The task returned its own business error.
@@ -55,8 +52,8 @@ impl<E> BatchTaskError<E> {
     ///
     /// # Returns
     ///
-    /// A panicked task error containing a string message when the payload carries
-    /// one.
+    /// A panicked task error containing a string message when the payload
+    /// carries one.
     #[inline]
     pub fn from_panic_payload(payload: &(dyn Any + Send)) -> Self {
         match panic_payload_message(payload) {
@@ -121,7 +118,9 @@ impl<E> BatchTaskError<E> {
     pub fn panic_message(&self) -> Option<&str> {
         match self {
             Self::Failed(_) | Self::Panicked { message: None } => None,
-            Self::Panicked { message: Some(message) } => Some(message.as_str()),
+            Self::Panicked {
+                message: Some(message),
+            } => Some(message.as_str()),
         }
     }
 }
@@ -143,7 +142,9 @@ where
         match self {
             Self::Failed(error) => write!(f, "task failed: {error}"),
             Self::Panicked { message: None } => f.write_str("task panicked"),
-            Self::Panicked { message: Some(message) } => write!(f, "task panicked: {message}"),
+            Self::Panicked {
+                message: Some(message),
+            } => write!(f, "task panicked: {message}"),
         }
     }
 }
@@ -177,7 +178,9 @@ where
 ///
 /// A panicked task error containing a string message when the payload carries
 /// one.
-pub(crate) fn panic_payload_to_error<E>(payload: &(dyn Any + Send)) -> BatchTaskError<E> {
+pub(crate) fn panic_payload_to_error<E>(
+    payload: &(dyn Any + Send),
+) -> BatchTaskError<E> {
     BatchTaskError::from_panic_payload(payload)
 }
 

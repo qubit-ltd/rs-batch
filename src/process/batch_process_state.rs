@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use std::time::Duration;
 
 use qubit_atomic::AtomicCount;
@@ -89,7 +87,11 @@ impl BatchProcessState {
     /// * `completed_count` - Number of source items completed by the chunk.
     /// * `processed_count` - Delegate-reported processed item count.
     #[inline]
-    pub(crate) fn record_chunk_processed(&self, completed_count: usize, processed_count: usize) {
+    pub(crate) fn record_chunk_processed(
+        &self,
+        completed_count: usize,
+        processed_count: usize,
+    ) {
         self.completed_count.add(completed_count);
         self.processed_count.add(processed_count);
         self.chunk_count.inc();
@@ -135,7 +137,10 @@ impl BatchProcessState {
     ///
     /// A direct processor result containing the current counters.
     #[inline]
-    pub(crate) fn to_direct_result(&self, elapsed: Duration) -> BatchProcessResult {
+    pub(crate) fn to_direct_result(
+        &self,
+        elapsed: Duration,
+    ) -> BatchProcessResult {
         let processed_count = self.processed_count.get();
         BatchProcessResult::builder(self.item_count)
             .completed_count(self.completed_count.get())
@@ -143,7 +148,9 @@ impl BatchProcessState {
             .chunk_count(logical_chunk_count(processed_count))
             .elapsed(elapsed)
             .build()
-            .expect("direct batch process state should collect consistent counters")
+            .expect(
+                "direct batch process state should collect consistent counters",
+            )
     }
 
     /// Converts this state into a chunked processor result.
@@ -156,7 +163,10 @@ impl BatchProcessState {
     ///
     /// A chunked processor result containing the current counters.
     #[inline]
-    pub(crate) fn to_chunked_result(&self, elapsed: Duration) -> BatchProcessResult {
+    pub(crate) fn to_chunked_result(
+        &self,
+        elapsed: Duration,
+    ) -> BatchProcessResult {
         BatchProcessResult::builder(self.item_count)
             .completed_count(self.completed_count.get())
             .processed_count(self.processed_count.get())
@@ -188,7 +198,9 @@ impl BatchProcessState {
     ///
     /// Counters matching chunked processor running-event semantics.
     #[inline]
-    pub(crate) fn running_chunk_progress_counters(&self) -> Vec<ProgressCounter> {
+    pub(crate) fn running_chunk_progress_counters(
+        &self,
+    ) -> Vec<ProgressCounter> {
         vec![
             ProgressCounter::new(PROCESS_PROGRESS_METRIC_ID)
                 .total(self.item_count as u64)

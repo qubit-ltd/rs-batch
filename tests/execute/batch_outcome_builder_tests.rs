@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 
 use std::time::Duration;
 
@@ -87,5 +85,8 @@ fn test_batch_outcome_builder_rejects_duplicate_failure_indexes() {
         .build()
         .expect_err("duplicate failure indexes should be rejected");
 
-    assert_eq!(error, BatchOutcomeBuildError::DuplicateFailureIndex { index: 0 });
+    assert_eq!(
+        error,
+        BatchOutcomeBuildError::DuplicateFailureIndex { index: 0 }
+    );
 }

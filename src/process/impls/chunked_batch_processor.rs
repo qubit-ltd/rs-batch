@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use std::{
     cmp,
     num::NonZeroUsize,
@@ -97,7 +95,6 @@ use super::ChunkedBatchProcessorBuilder;
 /// assert_eq!(result.completed_count(), 5);
 /// assert_eq!(result.chunk_count(), 3);
 /// ```
-///
 pub struct ChunkedBatchProcessor<P> {
     /// Delegate processor receiving each chunk.
     pub(crate) delegate: P,
@@ -129,9 +126,10 @@ impl<P> ChunkedBatchProcessor<P> {
     /// This constructor only stores `delegate`; it intentionally does not
     /// require `P: BatchProcessor<Item>` because the item type is not part of
     /// construction. That bound is enforced when this wrapper is used as a
-    /// [`BatchProcessor<Item>`], such as when calling [`BatchProcessor::process`].
-    /// Therefore, a value can be constructed with any delegate type, but it can
-    /// only process items for item types that the delegate actually supports.
+    /// [`BatchProcessor<Item>`], such as when calling
+    /// [`BatchProcessor::process`]. Therefore, a value can be constructed
+    /// with any delegate type, but it can only process items for item types
+    /// that the delegate actually supports.
     #[inline]
     pub fn new(delegate: P, chunk_size: NonZeroUsize) -> Self {
         Self::builder(delegate, chunk_size).build()
@@ -148,7 +146,10 @@ impl<P> ChunkedBatchProcessor<P> {
     ///
     /// A builder initialized with default settings.
     #[inline]
-    pub fn builder(delegate: P, chunk_size: NonZeroUsize) -> ChunkedBatchProcessorBuilder<P> {
+    pub fn builder(
+        delegate: P,
+        chunk_size: NonZeroUsize,
+    ) -> ChunkedBatchProcessorBuilder<P> {
         ChunkedBatchProcessorBuilder::new(delegate, chunk_size)
     }
 
@@ -235,7 +236,11 @@ where
     /// Returns [`ChunkedBatchProcessError`] when the source count does not
     /// match `count`, when the delegate fails for one chunk, or when a delegate
     /// `Ok` result does not describe the submitted chunk.
-    fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(
+        &mut self,
+        items: I,
+        count: usize,
+    ) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
     {
@@ -247,7 +252,8 @@ where
             PROCESS_PROGRESS_METRIC_NAME,
         );
         let state = BatchProcessState::new(count);
-        progress.report_started(|event| event.counters(state.progress_counters()));
+        progress
+            .report_started(|event| event.counters(state.progress_counters()));
         let capacity = cmp::min(self.chunk_size.get(), count.max(1));
         let mut chunk = Vec::with_capacity(capacity);
 
@@ -257,7 +263,9 @@ where
                 if !chunk.is_empty() {
                     self.process_chunk(&mut chunk, &state, &mut progress)?;
                 }
-                let failed = progress.report_failed(|event| event.counters(state.progress_counters()));
+                let failed = progress.report_failed(|event| {
+                    event.counters(state.progress_counters())
+                });
                 let result = state.to_chunked_result(failed.elapsed());
                 return Err(ChunkedBatchProcessError::CountExceeded {
                     expected: count,
@@ -276,7 +284,9 @@ where
         }
 
         if state.observed_count() < count {
-            let failed = progress.report_failed(|event| event.counters(state.progress_counters()));
+            let failed = progress.report_failed(|event| {
+                event.counters(state.progress_counters())
+            });
             let result = state.to_chunked_result(failed.elapsed());
             Err(ChunkedBatchProcessError::CountShortfall {
                 expected: count,
@@ -284,7 +294,9 @@ where
                 result,
             })
         } else {
-            let finished = progress.report_finished(|event| event.counters(state.progress_counters()));
+            let finished = progress.report_finished(|event| {
+                event.counters(state.progress_counters())
+            });
             let result = state.to_chunked_result(finished.elapsed());
             Ok(result)
         }
@@ -323,8 +335,12 @@ impl<P> ChunkedBatchProcessor<P> {
         let current_chunk = std::mem::take(chunk);
         match self.delegate.process_with_count(current_chunk, chunk_len) {
             Ok(chunk_result) => {
-                if chunk_result.item_count() != chunk_len || chunk_result.completed_count() != chunk_len {
-                    let failed = progress.report_failed(|event| event.counters(state.progress_counters()));
+                if chunk_result.item_count() != chunk_len
+                    || chunk_result.completed_count() != chunk_len
+                {
+                    let failed = progress.report_failed(|event| {
+                        event.counters(state.progress_counters())
+                    });
                     let result = state.to_chunked_result(failed.elapsed());
                     return Err(ChunkedBatchProcessError::InvalidChunkResult {
                         chunk_index,
@@ -335,12 +351,19 @@ impl<P> ChunkedBatchProcessor<P> {
                         result,
                     });
                 }
-                state.record_chunk_processed(chunk_len, chunk_result.processed_count());
-                let _ = progress.report_running_if_due(|event| event.counters(state.running_chunk_progress_counters()));
+                state.record_chunk_processed(
+                    chunk_len,
+                    chunk_result.processed_count(),
+                );
+                let _ = progress.report_running_if_due(|event| {
+                    event.counters(state.running_chunk_progress_counters())
+                });
                 Ok(())
             }
             Err(source) => {
-                let failed = progress.report_failed(|event| event.counters(state.progress_counters()));
+                let failed = progress.report_failed(|event| {
+                    event.counters(state.progress_counters())
+                });
                 let result = state.to_chunked_result(failed.elapsed());
                 Err(ChunkedBatchProcessError::ChunkFailed {
                     chunk_index,

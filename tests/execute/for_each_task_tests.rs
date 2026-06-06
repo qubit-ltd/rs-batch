@@ -1,13 +1,12 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
-//! Integration tests for [`BatchExecutor::for_each`](qubit_batch::BatchExecutor::for_each)
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+//! Integration tests for
+//! [`BatchExecutor::for_each`](qubit_batch::BatchExecutor::for_each)
 //! and the internal per-item runnable wrapper.
 
 use qubit_batch::{
@@ -44,7 +43,11 @@ fn test_sequential_batch_executor_for_each_with_count_reports_mismatches() {
         .expect_err("explicit count mismatch should be reported");
 
     match error {
-        qubit_batch::BatchExecutionError::CountShortfall { expected, actual, .. } => {
+        qubit_batch::BatchExecutionError::CountShortfall {
+            expected,
+            actual,
+            ..
+        } => {
             assert_eq!(expected, 3);
             assert_eq!(actual, 2);
         }

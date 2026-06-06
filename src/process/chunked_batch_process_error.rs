@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use thiserror::Error;
 
 use super::BatchProcessResult;
@@ -49,7 +47,6 @@ use super::BatchProcessResult;
 /// # Type Parameters
 ///
 /// * `E` - Error type returned by the delegate processor.
-///
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum ChunkedBatchProcessError<E> {
     /// The input source ended before the declared item count was reached.
@@ -64,7 +61,9 @@ pub enum ChunkedBatchProcessError<E> {
     },
 
     /// The input source yielded more items than the declared item count.
-    #[error("batch item count exceeded: expected {expected}, observed at least {observed_at_least}")]
+    #[error(
+        "batch item count exceeded: expected {expected}, observed at least {observed_at_least}"
+    )]
     CountExceeded {
         /// Declared item count.
         expected: usize,
@@ -75,7 +74,9 @@ pub enum ChunkedBatchProcessError<E> {
     },
 
     /// The delegate processor failed while processing one chunk.
-    #[error("batch chunk {chunk_index} failed at item {start_index} with {chunk_len} items")]
+    #[error(
+        "batch chunk {chunk_index} failed at item {start_index} with {chunk_len} items"
+    )]
     ChunkFailed {
         /// Zero-based chunk index.
         chunk_index: usize,

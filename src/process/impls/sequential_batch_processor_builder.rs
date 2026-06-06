@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use std::{
     sync::Arc,
     time::Duration,
@@ -65,7 +63,8 @@ impl<Item> SequentialBatchProcessorBuilder<Item> {
     {
         Self {
             consumer: consumer.into_box(),
-            report_interval: SequentialBatchProcessor::<Item>::DEFAULT_REPORT_INTERVAL,
+            report_interval:
+                SequentialBatchProcessor::<Item>::DEFAULT_REPORT_INTERVAL,
             reporter: Arc::new(NoOpProgressReporter),
         }
     }
@@ -75,8 +74,8 @@ impl<Item> SequentialBatchProcessorBuilder<Item> {
     /// # Parameters
     ///
     /// * `report_interval` - Minimum time between due-based running progress
-    ///   callbacks. [`Duration::ZERO`] reports at every sequential
-    ///   between-item progress point.
+    ///   callbacks. [`Duration::ZERO`] reports at every sequential between-item
+    ///   progress point.
     ///
     /// # Returns
     ///

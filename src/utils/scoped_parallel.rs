@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use std::panic::resume_unwind;
 use std::sync::{
     Arc,
@@ -46,7 +44,8 @@ struct ScopedWorkItem<T> {
 ///
 /// # Panics
 ///
-/// Panics if `worker_count` is zero. Propagates panics raised by worker threads.
+/// Panics if `worker_count` is zero. Propagates panics raised by worker
+/// threads.
 pub(crate) fn run_scoped_parallel<I, T, O, F>(
     items: I,
     declared_count: usize,
@@ -60,7 +59,10 @@ where
     O: Fn() -> usize,
     F: Fn(usize, T) + Sync,
 {
-    assert!(worker_count > 0, "scoped parallel worker count must be positive");
+    assert!(
+        worker_count > 0,
+        "scoped parallel worker count must be positive"
+    );
     let mut observed_count = 0usize;
     thread::scope(|scope| {
         let (work_sender, work_receiver) = mpsc::sync_channel(worker_count);
@@ -108,8 +110,10 @@ where
 /// * `work_receiver` - Shared receiver protected because standard receivers are
 ///   not `Sync`.
 /// * `run_item` - Callback invoked for each accepted work item.
-fn run_scoped_worker<T, F>(work_receiver: Arc<Mutex<mpsc::Receiver<ScopedWorkItem<T>>>>, run_item: &F)
-where
+fn run_scoped_worker<T, F>(
+    work_receiver: Arc<Mutex<mpsc::Receiver<ScopedWorkItem<T>>>>,
+    run_item: &F,
+) where
     F: Fn(usize, T),
 {
     loop {

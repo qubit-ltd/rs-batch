@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use thiserror::Error;
 
 use crate::BatchOutcome;
@@ -42,7 +40,6 @@ use crate::BatchOutcome;
 /// # Type Parameters
 ///
 /// * `E` - The task-specific error type stored inside the attached outcome.
-///
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum BatchExecutionError<E> {
     /// The task source ended before the declared task count was reached.
@@ -57,7 +54,9 @@ pub enum BatchExecutionError<E> {
     },
 
     /// The task source yielded more tasks than the declared task count.
-    #[error("batch task count exceeded: expected {expected}, observed at least {observed_at_least}")]
+    #[error(
+        "batch task count exceeded: expected {expected}, observed at least {observed_at_least}"
+    )]
     CountExceeded {
         /// Declared task count.
         expected: usize,
@@ -78,7 +77,8 @@ impl<E> BatchExecutionError<E> {
     #[inline]
     pub const fn outcome(&self) -> &BatchOutcome<E> {
         match self {
-            Self::CountShortfall { outcome, .. } | Self::CountExceeded { outcome, .. } => outcome,
+            Self::CountShortfall { outcome, .. }
+            | Self::CountExceeded { outcome, .. } => outcome,
         }
     }
 
@@ -90,7 +90,8 @@ impl<E> BatchExecutionError<E> {
     #[inline]
     pub fn into_outcome(self) -> BatchOutcome<E> {
         match self {
-            Self::CountShortfall { outcome, .. } | Self::CountExceeded { outcome, .. } => outcome,
+            Self::CountShortfall { outcome, .. }
+            | Self::CountExceeded { outcome, .. } => outcome,
         }
     }
 

@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use crate::BatchOutcome;
 
 /// Result produced by [`crate::BatchExecutor::call`].
@@ -42,7 +40,6 @@ use crate::BatchOutcome;
 ///
 /// * `R` - Callable success value type.
 /// * `E` - Callable error type.
-///
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BatchCallResult<R, E> {
     /// Execution outcome and failures for the callable batch.

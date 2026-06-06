@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 
 use qubit_batch::{
     BatchOutcomeBuildError,
@@ -21,6 +19,13 @@ fn test_batch_outcome_build_error_terminal_count_mismatch() {
         .build()
         .expect_err("terminal count mismatch should be rejected");
 
-    assert!(matches!(error, BatchOutcomeBuildError::TerminalCountMismatch { .. }));
-    assert!(error.to_string().contains("completed task count must equal"));
+    assert!(matches!(
+        error,
+        BatchOutcomeBuildError::TerminalCountMismatch { .. }
+    ));
+    assert!(
+        error
+            .to_string()
+            .contains("completed task count must equal")
+    );
 }

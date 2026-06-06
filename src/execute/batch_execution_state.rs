@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use std::sync::{
     Mutex,
     MutexGuard,
@@ -116,7 +114,8 @@ impl<E> BatchExecutionState<E> {
         self.active_count.dec();
         self.completed_count.inc();
         self.failed_count.inc();
-        Self::lock_failures(&self.failures).push(BatchTaskFailure::new(index, BatchTaskError::Failed(error)));
+        Self::lock_failures(&self.failures)
+            .push(BatchTaskFailure::new(index, BatchTaskError::Failed(error)));
     }
 
     /// Records one task panic.
@@ -134,7 +133,8 @@ impl<E> BatchExecutionState<E> {
         self.active_count.dec();
         self.completed_count.inc();
         self.panicked_count.inc();
-        Self::lock_failures(&self.failures).push(BatchTaskFailure::new(index, error));
+        Self::lock_failures(&self.failures)
+            .push(BatchTaskFailure::new(index, error));
     }
 
     /// Returns progress counters for this execution state.
@@ -150,7 +150,12 @@ impl<E> BatchExecutionState<E> {
                 .active(self.active_count.get() as u64)
                 .completed(self.completed_count.get() as u64)
                 .succeeded(self.succeeded_count.get() as u64)
-                .failed(self.failed_count.get().saturating_add(self.panicked_count.get()) as u64),
+                .failed(
+                    self.failed_count
+                        .get()
+                        .saturating_add(self.panicked_count.get())
+                        as u64,
+                ),
         ]
     }
 
@@ -189,7 +194,11 @@ impl<E> BatchExecutionState<E> {
     /// # Returns
     ///
     /// A guard for the failure list.
-    fn lock_failures(failures: &Mutex<Vec<BatchTaskFailure<E>>>) -> MutexGuard<'_, Vec<BatchTaskFailure<E>>> {
-        failures.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    fn lock_failures(
+        failures: &Mutex<Vec<BatchTaskFailure<E>>>,
+    ) -> MutexGuard<'_, Vec<BatchTaskFailure<E>>> {
+        failures
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 }

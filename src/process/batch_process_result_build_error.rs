@@ -1,15 +1,14 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use thiserror::Error;
 
-/// Error returned when constructing a batch process result with invalid counters.
+/// Error returned when constructing a batch process result with invalid
+/// counters.
 ///
 /// ```rust
 /// use qubit_batch::{
@@ -54,7 +53,9 @@ pub enum BatchProcessResultBuildError {
     },
 
     /// Completed items require at least one submitted chunk.
-    #[error("chunk count must be positive when items completed: completed_count {completed_count}")]
+    #[error(
+        "chunk count must be positive when items completed: completed_count {completed_count}"
+    )]
     MissingChunkForCompletedItems {
         /// Number of completed items.
         completed_count: usize,

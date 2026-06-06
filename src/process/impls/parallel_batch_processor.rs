@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use std::{
     num::NonZeroUsize,
     sync::Arc,
@@ -146,7 +144,9 @@ impl<Item> ParallelBatchProcessor<Item> {
     /// The available CPU parallelism, or `1` if it cannot be detected.
     #[inline]
     pub fn default_thread_count() -> usize {
-        thread::available_parallelism().map(usize::from).unwrap_or(1)
+        thread::available_parallelism()
+            .map(usize::from)
+            .unwrap_or(1)
     }
 
     /// Returns the configured worker-thread count.
@@ -230,15 +230,20 @@ where
     ///
     /// # Errors
     ///
-    /// Returns [`BatchProcessError::CountShortfall`] when the source ends before
-    /// `count`, or [`BatchProcessError::CountExceeded`] when the source yields an
-    /// extra item. Extra items are observed but not passed to the consumer.
+    /// Returns [`BatchProcessError::CountShortfall`] when the source ends
+    /// before `count`, or [`BatchProcessError::CountExceeded`] when the
+    /// source yields an extra item. Extra items are observed but not passed
+    /// to the consumer.
     ///
     /// # Panics
     ///
-    /// Propagates any panic raised by the stored consumer from the caller thread
-    /// or a worker thread, or by the configured progress reporter.
-    fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+    /// Propagates any panic raised by the stored consumer from the caller
+    /// thread or a worker thread, or by the configured progress reporter.
+    fn process_with_count<I>(
+        &mut self,
+        items: I,
+        count: usize,
+    ) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
     {
@@ -249,20 +254,33 @@ where
             PROCESS_PROGRESS_METRIC_ID,
             PROCESS_PROGRESS_METRIC_NAME,
         );
-        progress.report_started(|event| event.counters(state.progress_counters()));
+        progress
+            .report_started(|event| event.counters(state.progress_counters()));
 
         if count > 0 {
             if count <= self.sequential_threshold {
-                self.process_sequential(items, count, state.as_ref(), &mut progress);
+                self.process_sequential(
+                    items,
+                    count,
+                    state.as_ref(),
+                    &mut progress,
+                );
             } else {
-                self.process_parallel_non_empty(items, count, Arc::clone(&state), &progress);
+                self.process_parallel_non_empty(
+                    items,
+                    count,
+                    Arc::clone(&state),
+                    &progress,
+                );
             }
         } else if items.into_iter().next().is_some() {
             state.record_item_observed();
         }
 
         if state.observed_count() < count {
-            let failed = progress.report_failed(|event| event.counters(state.progress_counters()));
+            let failed = progress.report_failed(|event| {
+                event.counters(state.progress_counters())
+            });
             let result = state.to_direct_result(failed.elapsed());
             Err(BatchProcessError::CountShortfall {
                 expected: count,
@@ -270,7 +288,9 @@ where
                 result,
             })
         } else if state.observed_count() > count {
-            let failed = progress.report_failed(|event| event.counters(state.progress_counters()));
+            let failed = progress.report_failed(|event| {
+                event.counters(state.progress_counters())
+            });
             let result = state.to_direct_result(failed.elapsed());
             Err(BatchProcessError::CountExceeded {
                 expected: count,
@@ -278,7 +298,9 @@ where
                 result,
             })
         } else {
-            let finished = progress.report_finished(|event| event.counters(state.progress_counters()));
+            let finished = progress.report_finished(|event| {
+                event.counters(state.progress_counters())
+            });
             let result = state.to_direct_result(finished.elapsed());
             Ok(result)
         }
@@ -301,8 +323,13 @@ where
     /// # Panics
     ///
     /// Propagates any panic raised while invoking the stored consumer.
-    fn process_sequential<I>(&self, items: I, count: usize, state: &BatchProcessState, progress: &mut Progress<'_>)
-    where
+    fn process_sequential<I>(
+        &self,
+        items: I,
+        count: usize,
+        state: &BatchProcessState,
+        progress: &mut Progress<'_>,
+    ) where
         I: IntoIterator<Item = Item>,
     {
         for item in items {
@@ -313,7 +340,9 @@ where
             state.record_item_started();
             self.consumer.accept(&item);
             state.record_item_processed();
-            let _ = progress.report_running_if_due(|event| event.counters(state.progress_counters()));
+            let _ = progress.report_running_if_due(|event| {
+                event.counters(state.progress_counters())
+            });
         }
     }
 
@@ -340,7 +369,10 @@ where
     {
         thread::scope(|scope| {
             let reporter_state = Arc::clone(&state);
-            let running_progress = progress.spawn_running_reporter(scope, move || reporter_state.progress_counters());
+            let running_progress = progress
+                .spawn_running_reporter(scope, move || {
+                    reporter_state.progress_counters()
+                });
             let running_point_handle = running_progress.point_handle();
 
             let worker_count = self.thread_count.get().min(count);

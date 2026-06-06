@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Tests for [`ParallelBatchExecutorBuilder`](qubit_batch::ParallelBatchExecutorBuilder).
 
 use std::{
@@ -24,7 +22,8 @@ use crate::support::RecordingProgressReporter;
 
 #[test]
 fn test_parallel_batch_executor_builder_builds_custom_config() {
-    let reporter: Arc<dyn ProgressReporter> = Arc::new(RecordingProgressReporter::new());
+    let reporter: Arc<dyn ProgressReporter> =
+        Arc::new(RecordingProgressReporter::new());
     let executor = ParallelBatchExecutor::builder()
         .thread_count(3)
         .sequential_threshold(2)

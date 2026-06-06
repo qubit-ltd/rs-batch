@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Test progress reporters and panic payload helpers.
 
 use std::{
@@ -97,17 +95,25 @@ impl ProgressReporter for RecordingProgressReporter {
             .counters()
             .first()
             .expect("batch progress event should contain one counter");
-        let total_count = progress_count_to_usize(counter.total_count().unwrap_or(counter.completed_count()));
+        let total_count = progress_count_to_usize(
+            counter.total_count().unwrap_or(counter.completed_count()),
+        );
         let recorded = match event.phase() {
             ProgressPhase::Started => ProgressEvent::Start { total_count },
             ProgressPhase::Running => ProgressEvent::Process {
                 total_count,
                 active_count: progress_count_to_usize(counter.active_count()),
-                completed_count: progress_count_to_usize(counter.completed_count()),
+                completed_count: progress_count_to_usize(
+                    counter.completed_count(),
+                ),
             },
-            ProgressPhase::Finished | ProgressPhase::Failed | ProgressPhase::Canceled => ProgressEvent::Finish {
+            ProgressPhase::Finished
+            | ProgressPhase::Failed
+            | ProgressPhase::Canceled => ProgressEvent::Finish {
                 total_count,
-                completed_count: progress_count_to_usize(counter.completed_count()),
+                completed_count: progress_count_to_usize(
+                    counter.completed_count(),
+                ),
             },
         };
         self.events
@@ -173,9 +179,15 @@ impl PanickingProgressReporter {
 impl ProgressReporter for PanickingProgressReporter {
     fn report(&self, event: &QubitProgressEvent) {
         match event.phase() {
-            ProgressPhase::Started => self.panic_if_configured(ProgressPanicPhase::Start),
-            ProgressPhase::Running => self.panic_if_configured(ProgressPanicPhase::Process),
-            ProgressPhase::Finished | ProgressPhase::Failed | ProgressPhase::Canceled => {
+            ProgressPhase::Started => {
+                self.panic_if_configured(ProgressPanicPhase::Start)
+            }
+            ProgressPhase::Running => {
+                self.panic_if_configured(ProgressPanicPhase::Process)
+            }
+            ProgressPhase::Finished
+            | ProgressPhase::Failed
+            | ProgressPhase::Canceled => {
                 self.panic_if_configured(ProgressPanicPhase::Finish);
             }
         }

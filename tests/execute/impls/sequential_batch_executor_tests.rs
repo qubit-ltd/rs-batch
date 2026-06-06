@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Tests for [`SequentialBatchExecutor`](qubit_batch::SequentialBatchExecutor).
 
 use std::{
@@ -72,7 +70,8 @@ fn test_sequential_batch_executor_accessors_and_value_reporter() {
         .reporter(RecordingProgressReporter::new())
         .report_interval(Duration::from_millis(25))
         .build();
-    let no_reporter_executor = SequentialBatchExecutor::builder().no_reporter().build();
+    let no_reporter_executor =
+        SequentialBatchExecutor::builder().no_reporter().build();
 
     assert_eq!(executor.report_interval(), Duration::from_millis(25));
     assert!(Arc::strong_count(executor.reporter()) >= 1);
@@ -184,7 +183,10 @@ fn test_sequential_batch_executor_reports_progress() {
     let events = reporter.events();
 
     assert_eq!(result.completed_count(), 3);
-    assert!(matches!(events.first(), Some(ProgressEvent::Start { total_count: 3 })));
+    assert!(matches!(
+        events.first(),
+        Some(ProgressEvent::Start { total_count: 3 })
+    ));
     assert!(events.iter().any(|event| matches!(
         event,
         ProgressEvent::Process {
@@ -230,12 +232,17 @@ fn test_sequential_batch_executor_reports_progress_with_zero_interval() {
 fn test_sequential_batch_executor_propagates_progress_reporter_start_panic() {
     const PANIC_MESSAGE: &str = "progress reporter start panic";
     let executor = SequentialBatchExecutor::builder()
-        .reporter(PanickingProgressReporter::new(ProgressPanicPhase::Start, PANIC_MESSAGE))
+        .reporter(PanickingProgressReporter::new(
+            ProgressPanicPhase::Start,
+            PANIC_MESSAGE,
+        ))
         .build();
     let tasks = vec![TestTask::succeed()];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
-        .expect_err("progress reporter start panic should be propagated");
+    let payload = catch_unwind(AssertUnwindSafe(|| {
+        executor.execute_with_count(tasks, 1)
+    }))
+    .expect_err("progress reporter start panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }
@@ -252,8 +259,10 @@ fn test_sequential_batch_executor_propagates_progress_reporter_process_panic() {
         .build();
     let tasks = vec![TestTask::sleep_success(Duration::from_millis(1))];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
-        .expect_err("progress reporter process panic should be propagated");
+    let payload = catch_unwind(AssertUnwindSafe(|| {
+        executor.execute_with_count(tasks, 1)
+    }))
+    .expect_err("progress reporter process panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }
@@ -269,8 +278,10 @@ fn test_sequential_batch_executor_propagates_progress_reporter_finish_panic() {
         .build();
     let tasks = vec![TestTask::succeed()];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
-        .expect_err("progress reporter finish panic should be propagated");
+    let payload = catch_unwind(AssertUnwindSafe(|| {
+        executor.execute_with_count(tasks, 1)
+    }))
+    .expect_err("progress reporter finish panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }

@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Tests for the crate-level public API layout.
 
 use qubit_batch::execute::impls::{
@@ -65,19 +63,41 @@ fn test_core_types_are_exported_from_crate_root_and_grouped_modules() {
     let _process_result: Option<ProcessBatchProcessResult> = None;
     let _root_process_result_builder = BatchProcessResultBuilder::builder(0);
     let _process_result_builder = ProcessBatchProcessResultBuilder::builder(0);
-    let _root_process_result_build_error: Option<BatchProcessResultBuildError> = None;
-    let _process_result_build_error: Option<ProcessBatchProcessResultBuildError> = None;
-    let _root_parallel_processor_build_error: Option<ParallelBatchProcessorBuildError> = None;
-    let _process_parallel_processor_build_error: Option<ProcessParallelBatchProcessorBuildError> = None;
-    let _root_sequential_executor_builder: Option<SequentialBatchExecutorBuilder> = None;
-    let _execute_sequential_executor_builder: Option<ExecuteSequentialBatchExecutorBuilder> = None;
-    let _execute_module_sequential_executor_builder: Option<ExecuteModuleSequentialBatchExecutorBuilder> = None;
-    let _root_sequential_processor_builder: Option<SequentialBatchProcessorBuilder<i32>> = None;
-    let _process_sequential_processor_builder: Option<ProcessSequentialBatchProcessorBuilder<i32>> = None;
-    let _process_impl_sequential_processor_builder: Option<ProcessImplSequentialBatchProcessorBuilder<i32>> = None;
-    let _root_chunked_processor_builder: Option<ChunkedBatchProcessorBuilder<SequentialBatchProcessor<i32>>> = None;
-    let _process_chunked_processor_builder: Option<ProcessChunkedBatchProcessorBuilder<SequentialBatchProcessor<i32>>> =
+    let _root_process_result_build_error: Option<BatchProcessResultBuildError> =
         None;
+    let _process_result_build_error: Option<
+        ProcessBatchProcessResultBuildError,
+    > = None;
+    let _root_parallel_processor_build_error: Option<
+        ParallelBatchProcessorBuildError,
+    > = None;
+    let _process_parallel_processor_build_error: Option<
+        ProcessParallelBatchProcessorBuildError,
+    > = None;
+    let _root_sequential_executor_builder: Option<
+        SequentialBatchExecutorBuilder,
+    > = None;
+    let _execute_sequential_executor_builder: Option<
+        ExecuteSequentialBatchExecutorBuilder,
+    > = None;
+    let _execute_module_sequential_executor_builder: Option<
+        ExecuteModuleSequentialBatchExecutorBuilder,
+    > = None;
+    let _root_sequential_processor_builder: Option<
+        SequentialBatchProcessorBuilder<i32>,
+    > = None;
+    let _process_sequential_processor_builder: Option<
+        ProcessSequentialBatchProcessorBuilder<i32>,
+    > = None;
+    let _process_impl_sequential_processor_builder: Option<
+        ProcessImplSequentialBatchProcessorBuilder<i32>,
+    > = None;
+    let _root_chunked_processor_builder: Option<
+        ChunkedBatchProcessorBuilder<SequentialBatchProcessor<i32>>,
+    > = None;
+    let _process_chunked_processor_builder: Option<
+        ProcessChunkedBatchProcessorBuilder<SequentialBatchProcessor<i32>>,
+    > = None;
     let _process_impl_chunked_processor_builder: Option<
         ProcessImplChunkedBatchProcessorBuilder<SequentialBatchProcessor<i32>>,
     > = None;
