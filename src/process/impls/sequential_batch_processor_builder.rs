@@ -62,7 +62,7 @@ impl<Item> SequentialBatchProcessorBuilder<Item> {
         C: Consumer<Item> + 'static,
     {
         Self {
-            consumer: consumer.into_box(),
+            consumer: BoxConsumer::new(consumer),
             report_interval:
                 SequentialBatchProcessor::<Item>::DEFAULT_REPORT_INTERVAL,
             reporter: Arc::new(NoOpProgressReporter),

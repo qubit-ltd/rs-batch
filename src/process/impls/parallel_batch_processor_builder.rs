@@ -69,7 +69,7 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
         C: Consumer<Item> + Send + Sync + 'static,
     {
         Self {
-            consumer: consumer.into_arc(),
+            consumer: ArcConsumer::new(consumer),
             thread_count: ParallelBatchProcessor::<Item>::default_thread_count(
             ),
             sequential_threshold:
