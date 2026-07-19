@@ -35,5 +35,5 @@ crossbeam-queue = "0.3"
 thiserror = "2.0"
 
 qubit-atomic = "0.13"
-qubit-function = { version = "0.16.0", path = "../rs-function" }
+qubit-function = "0.16"
 qubit-progress = { version = "0.6", path = "../rs-progress" }
