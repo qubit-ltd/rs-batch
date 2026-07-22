@@ -187,15 +187,29 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
             PROCESS_PROGRESS_METRIC_ID,
             PROCESS_PROGRESS_METRIC_NAME,
         );
-        progress
-            .report_started(|event| event.counters(state.progress_counters()));
+        if let Err(source) = progress
+            .report_started(|event| event.counters(state.progress_counters()))
+        {
+            return Err(BatchProcessError::ProgressReport {
+                source,
+                result: state.to_direct_result(Duration::ZERO),
+            });
+        }
 
         for item in items {
             let observed_count = state.record_item_observed();
             if observed_count > count {
-                let failed = progress.report_failed(|event| {
+                let failed = match progress.report_failed(|event| {
                     event.counters(state.progress_counters())
-                });
+                }) {
+                    Ok(event) => event,
+                    Err(source) => {
+                        return Err(BatchProcessError::ProgressReport {
+                            source,
+                            result: state.to_direct_result(progress.elapsed()),
+                        });
+                    }
+                };
                 let result = state.to_direct_result(failed.elapsed());
                 return Err(BatchProcessError::CountExceeded {
                     expected: count,
@@ -206,15 +220,28 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
             state.record_item_started();
             self.consumer.accept(&item);
             state.record_item_processed();
-            let _ = progress.report_running_if_due(|event| {
+            if let Err(source) = progress.report_running_if_due(|event| {
                 event.counters(state.progress_counters())
-            });
+            }) {
+                return Err(BatchProcessError::ProgressReport {
+                    source,
+                    result: state.to_direct_result(progress.elapsed()),
+                });
+            }
         }
 
         if state.observed_count() < count {
-            let failed = progress.report_failed(|event| {
+            let failed = match progress.report_failed(|event| {
                 event.counters(state.progress_counters())
-            });
+            }) {
+                Ok(event) => event,
+                Err(source) => {
+                    return Err(BatchProcessError::ProgressReport {
+                        source,
+                        result: state.to_direct_result(progress.elapsed()),
+                    });
+                }
+            };
             let result = state.to_direct_result(failed.elapsed());
             Err(BatchProcessError::CountShortfall {
                 expected: count,
@@ -222,9 +249,17 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
                 result,
             })
         } else {
-            let finished = progress.report_finished(|event| {
+            let finished = match progress.report_finished(|event| {
                 event.counters(state.progress_counters())
-            });
+            }) {
+                Ok(event) => event,
+                Err(source) => {
+                    return Err(BatchProcessError::ProgressReport {
+                        source,
+                        result: state.to_direct_result(progress.elapsed()),
+                    });
+                }
+            };
             let result = state.to_direct_result(finished.elapsed());
             Ok(result)
         }

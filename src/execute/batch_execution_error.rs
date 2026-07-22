@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+use qubit_progress::ProgressReportError;
 use thiserror::Error;
 
 use crate::BatchOutcome;
@@ -33,6 +34,7 @@ use crate::BatchOutcome;
 ///         assert_eq!(expected, 3);
 ///         assert_eq!(actual, 2);
 ///     }
+///     BatchExecutionError::ProgressReport { .. } => unreachable!(),
 ///     BatchExecutionError::CountExceeded { .. } => unreachable!(),
 /// }
 /// ```
@@ -42,6 +44,16 @@ use crate::BatchOutcome;
 /// * `E` - The task-specific error type stored inside the attached outcome.
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum BatchExecutionError<E> {
+    /// Reporting batch progress failed.
+    #[error("batch progress reporting failed")]
+    ProgressReport {
+        /// Reporter error returned by the configured progress sink.
+        #[source]
+        source: ProgressReportError,
+        /// Outcome accumulated before reporting failed.
+        outcome: BatchOutcome<E>,
+    },
+
     /// The task source ended before the declared task count was reached.
     #[error("batch task count shortfall: expected {expected}, actual {actual}")]
     CountShortfall {
@@ -77,7 +89,8 @@ impl<E> BatchExecutionError<E> {
     #[inline]
     pub const fn outcome(&self) -> &BatchOutcome<E> {
         match self {
-            Self::CountShortfall { outcome, .. }
+            Self::ProgressReport { outcome, .. }
+            | Self::CountShortfall { outcome, .. }
             | Self::CountExceeded { outcome, .. } => outcome,
         }
     }
@@ -90,7 +103,8 @@ impl<E> BatchExecutionError<E> {
     #[inline]
     pub fn into_outcome(self) -> BatchOutcome<E> {
         match self {
-            Self::CountShortfall { outcome, .. }
+            Self::ProgressReport { outcome, .. }
+            | Self::CountShortfall { outcome, .. }
             | Self::CountExceeded { outcome, .. } => outcome,
         }
     }

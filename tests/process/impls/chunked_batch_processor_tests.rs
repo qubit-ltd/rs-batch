@@ -24,11 +24,32 @@ use qubit_batch::{
 use qubit_progress::reporter::NoOpProgressReporter;
 
 use crate::support::{
+    FailingProgressReporter,
     ProgressEvent,
     RecordingProgressReporter,
     TestChunkOutcome,
     TestChunkProcessor,
 };
+
+#[test]
+fn test_chunked_batch_processor_returns_progress_report_error() {
+    let mut processor = ChunkedBatchProcessor::builder(
+        TestChunkProcessor::success(),
+        NonZeroUsize::new(2).expect("chunk size is non-zero"),
+    )
+    .reporter(FailingProgressReporter::after_successes(1))
+    .build();
+
+    let error = processor
+        .process_with_count([1], 1)
+        .expect_err("failing reporter should fail chunked processing");
+
+    assert!(matches!(
+        &error,
+        ChunkedBatchProcessError::ProgressReport { .. }
+    ));
+    assert_eq!(error.result().completed_count(), 1);
+}
 
 #[test]
 fn test_chunked_batch_processor_accessors_and_delegate_mutation() {

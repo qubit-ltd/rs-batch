@@ -25,6 +25,7 @@ use qubit_batch::{
 use qubit_function::Runnable;
 
 use crate::support::{
+    FailingProgressReporter,
     PanickingProgressReporter,
     ProgressEvent,
     ProgressPanicPhase,
@@ -32,6 +33,20 @@ use crate::support::{
     TestTask,
     panic_payload_message,
 };
+
+#[test]
+fn test_sequential_batch_executor_returns_progress_report_error() {
+    let executor = SequentialBatchExecutor::builder()
+        .reporter(FailingProgressReporter::after_successes(1))
+        .build();
+
+    let error = executor
+        .execute_with_count([TestTask::succeed()], 1)
+        .expect_err("failing reporter should fail batch execution");
+
+    assert!(matches!(&error, BatchExecutionError::ProgressReport { .. }));
+    assert_eq!(error.outcome().completed_count(), 1);
+}
 
 #[test]
 fn test_sequential_batch_executor_executes_successfully() {
