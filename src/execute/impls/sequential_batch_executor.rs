@@ -158,15 +158,30 @@ impl BatchExecutor for SequentialBatchExecutor {
             EXECUTION_PROGRESS_METRIC_ID,
             EXECUTION_PROGRESS_METRIC_NAME,
         );
-        progress
-            .report_started(|event| event.counters(state.progress_counters()));
+        if let Err(source) = progress
+            .report_started(|event| event.counters(state.progress_counters()))
+        {
+            return Err(BatchExecutionError::ProgressReport {
+                source,
+                outcome: state.into_outcome(Duration::ZERO),
+            });
+        }
         let mut actual_count = 0;
         for task in tasks {
             actual_count = state.record_task_observed();
             if actual_count > count {
-                let failed = progress.report_failed(|event| {
+                let failed = match progress.report_failed(|event| {
                     event.counters(state.progress_counters())
-                });
+                }) {
+                    Ok(event) => event,
+                    Err(source) => {
+                        let elapsed = progress.elapsed();
+                        return Err(BatchExecutionError::ProgressReport {
+                            source,
+                            outcome: state.into_outcome(elapsed),
+                        });
+                    }
+                };
                 let outcome = state.into_outcome(failed.elapsed());
                 return Err(BatchExecutionError::CountExceeded {
                     expected: count,
@@ -188,24 +203,48 @@ impl BatchExecutor for SequentialBatchExecutor {
                 ),
             }
             // Update the actual task count and report progress if due.
-            let _ = progress.report_running_if_due(|event| {
+            if let Err(source) = progress.report_running_if_due(|event| {
                 event.counters(state.progress_counters())
-            });
+            }) {
+                let elapsed = progress.elapsed();
+                return Err(BatchExecutionError::ProgressReport {
+                    source,
+                    outcome: state.into_outcome(elapsed),
+                });
+            }
         }
 
         if actual_count < count {
-            let failed = progress.report_failed(|event| {
+            let failed = match progress.report_failed(|event| {
                 event.counters(state.progress_counters())
-            });
+            }) {
+                Ok(event) => event,
+                Err(source) => {
+                    let elapsed = progress.elapsed();
+                    return Err(BatchExecutionError::ProgressReport {
+                        source,
+                        outcome: state.into_outcome(elapsed),
+                    });
+                }
+            };
             Err(BatchExecutionError::CountShortfall {
                 expected: count,
                 actual: actual_count,
                 outcome: state.into_outcome(failed.elapsed()),
             })
         } else {
-            let finished = progress.report_finished(|event| {
+            let finished = match progress.report_finished(|event| {
                 event.counters(state.progress_counters())
-            });
+            }) {
+                Ok(event) => event,
+                Err(source) => {
+                    let elapsed = progress.elapsed();
+                    return Err(BatchExecutionError::ProgressReport {
+                        source,
+                        outcome: state.into_outcome(elapsed),
+                    });
+                }
+            };
             Ok(state.into_outcome(finished.elapsed()))
         }
     }

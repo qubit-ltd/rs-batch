@@ -7,11 +7,13 @@
 // =============================================================================
 //! Shared test support for `qubit-batch`.
 
+mod failing_progress_reporter;
 mod progress_reporter;
 mod test_callable;
 mod test_chunk_processor;
 mod test_task;
 
+pub use failing_progress_reporter::FailingProgressReporter;
 pub use progress_reporter::{
     PanickingProgressReporter,
     ProgressEvent,

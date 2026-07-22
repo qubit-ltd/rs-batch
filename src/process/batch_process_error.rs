@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+use qubit_progress::ProgressReportError;
 use thiserror::Error;
 
 use super::BatchProcessResult;
@@ -33,11 +34,22 @@ use super::BatchProcessResult;
 ///         assert_eq!(actual, 1);
 ///         assert_eq!(result.completed_count(), 1);
 ///     }
+///     BatchProcessError::ProgressReport { .. } => unreachable!(),
 ///     BatchProcessError::CountExceeded { .. } => unreachable!(),
 /// }
 /// ```
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum BatchProcessError {
+    /// Reporting batch progress failed.
+    #[error("batch progress reporting failed")]
+    ProgressReport {
+        /// Reporter error returned by the configured progress sink.
+        #[source]
+        source: ProgressReportError,
+        /// Result accumulated before reporting failed.
+        result: BatchProcessResult,
+    },
+
     /// The input source ended before the declared item count was reached.
     #[error("batch item count shortfall: expected {expected}, actual {actual}")]
     CountShortfall {
@@ -72,7 +84,8 @@ impl BatchProcessError {
     #[inline]
     pub const fn result(&self) -> &BatchProcessResult {
         match self {
-            Self::CountShortfall { result, .. }
+            Self::ProgressReport { result, .. }
+            | Self::CountShortfall { result, .. }
             | Self::CountExceeded { result, .. } => result,
         }
     }
@@ -85,7 +98,8 @@ impl BatchProcessError {
     #[inline]
     pub fn into_result(self) -> BatchProcessResult {
         match self {
-            Self::CountShortfall { result, .. }
+            Self::ProgressReport { result, .. }
+            | Self::CountShortfall { result, .. }
             | Self::CountExceeded { result, .. } => result,
         }
     }

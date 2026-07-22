@@ -239,12 +239,21 @@ impl BatchExecutor for ParallelBatchExecutor {
             EXECUTION_PROGRESS_METRIC_ID,
             EXECUTION_PROGRESS_METRIC_NAME,
         );
-        progress
-            .report_started(|event| event.counters(state.progress_counters()));
+        if let Err(source) = progress
+            .report_started(|event| event.counters(state.progress_counters()))
+        {
+            let state = Arc::into_inner(state).expect(
+                "parallel batch execution state should have a single owner",
+            );
+            return Err(BatchExecutionError::ProgressReport {
+                source,
+                outcome: state.into_outcome(Duration::ZERO),
+            });
+        }
         let mut actual_count = 0usize;
         let worker_count = self.thread_count.min(count);
 
-        thread::scope(|scope| {
+        let running_result = thread::scope(|scope| {
             let reporter_state = Arc::clone(&state);
             let running_progress = progress
                 .spawn_running_reporter(scope, move || {
@@ -264,16 +273,30 @@ impl BatchExecutor for ParallelBatchExecutor {
                     running_point_handle.report();
                 },
             );
-            running_progress.stop_and_join();
+            running_progress.stop_and_join()
         });
 
         let state = Arc::into_inner(state).expect(
             "parallel batch execution state should have a single owner",
         );
-        if actual_count < count {
-            let failed = progress.report_failed(|event| {
-                event.counters(state.progress_counters())
+        if let Err(source) = running_result {
+            return Err(BatchExecutionError::ProgressReport {
+                source,
+                outcome: state.into_outcome(progress.elapsed()),
             });
+        }
+        if actual_count < count {
+            let failed = match progress.report_failed(|event| {
+                event.counters(state.progress_counters())
+            }) {
+                Ok(event) => event,
+                Err(source) => {
+                    return Err(BatchExecutionError::ProgressReport {
+                        source,
+                        outcome: state.into_outcome(progress.elapsed()),
+                    });
+                }
+            };
             let result = state.into_outcome(failed.elapsed());
             Err(BatchExecutionError::CountShortfall {
                 expected: count,
@@ -281,9 +304,17 @@ impl BatchExecutor for ParallelBatchExecutor {
                 outcome: result,
             })
         } else if actual_count > count {
-            let failed = progress.report_failed(|event| {
+            let failed = match progress.report_failed(|event| {
                 event.counters(state.progress_counters())
-            });
+            }) {
+                Ok(event) => event,
+                Err(source) => {
+                    return Err(BatchExecutionError::ProgressReport {
+                        source,
+                        outcome: state.into_outcome(progress.elapsed()),
+                    });
+                }
+            };
             let result = state.into_outcome(failed.elapsed());
             Err(BatchExecutionError::CountExceeded {
                 expected: count,
@@ -291,9 +322,17 @@ impl BatchExecutor for ParallelBatchExecutor {
                 outcome: result,
             })
         } else {
-            let finished = progress.report_finished(|event| {
+            let finished = match progress.report_finished(|event| {
                 event.counters(state.progress_counters())
-            });
+            }) {
+                Ok(event) => event,
+                Err(source) => {
+                    return Err(BatchExecutionError::ProgressReport {
+                        source,
+                        outcome: state.into_outcome(progress.elapsed()),
+                    });
+                }
+            };
             let result = state.into_outcome(finished.elapsed());
             Ok(result)
         }

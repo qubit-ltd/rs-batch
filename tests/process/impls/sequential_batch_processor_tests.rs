@@ -22,9 +22,24 @@ use qubit_batch::{
 };
 
 use crate::support::{
+    FailingProgressReporter,
     ProgressEvent,
     RecordingProgressReporter,
 };
+
+#[test]
+fn test_sequential_batch_processor_returns_progress_report_error() {
+    let mut processor = SequentialBatchProcessor::builder(|_item: &i32| {})
+        .reporter(FailingProgressReporter::after_successes(1))
+        .build();
+
+    let error = processor
+        .process_with_count([1], 1)
+        .expect_err("failing reporter should fail batch processing");
+
+    assert!(matches!(&error, BatchProcessError::ProgressReport { .. }));
+    assert_eq!(error.result().completed_count(), 1);
+}
 
 #[test]
 fn test_sequential_batch_processor_consumer_accessors() {
