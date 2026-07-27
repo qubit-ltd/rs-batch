@@ -5,20 +5,19 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::sync::{
-    Mutex,
-    MutexGuard,
+use std::{
+    panic::{AssertUnwindSafe, catch_unwind},
+    sync::{Mutex, MutexGuard},
+    time::Duration,
 };
-use std::time::Duration;
 
 use qubit_atomic::AtomicCount;
+use qubit_function::Runnable;
 use qubit_progress::model::ProgressCounter;
 
 use crate::{
-    BatchOutcome,
-    BatchOutcomeBuilder,
-    BatchTaskError,
-    BatchTaskFailure,
+    BatchExecutionStateError, BatchOutcome, BatchOutcomeBuilder, BatchTaskError, BatchTaskFailure,
+    execute::panic_payload_to_error,
 };
 
 /// Metric id used for task progress counters.
@@ -71,6 +70,43 @@ impl<E> BatchExecutionState<E> {
         }
     }
 
+    /// Executes one indexed task and records its terminal outcome.
+    ///
+    /// Task-returned errors and captured panics are stored in this state and do
+    /// not become this method's error.
+    ///
+    /// # Parameters
+    ///
+    /// * `index` - Zero-based index of `task` within the declared batch.
+    /// * `task` - Runnable task executed synchronously by this call.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` after the task's terminal outcome was recorded, or
+    /// [`BatchExecutionStateError::TaskIndexOutOfRange`] before executing an
+    /// out-of-range task.
+    #[allow(deprecated)]
+    pub fn execute_task<T>(&self, index: usize, mut task: T) -> Result<(), BatchExecutionStateError>
+    where
+        T: Runnable<E>,
+    {
+        if index >= self.task_count {
+            return Err(BatchExecutionStateError::TaskIndexOutOfRange {
+                index,
+                task_count: self.task_count,
+            });
+        }
+        self.record_task_started();
+        match catch_unwind(AssertUnwindSafe(|| task.run())) {
+            Ok(Ok(())) => self.record_task_succeeded(),
+            Ok(Err(error)) => self.record_task_failed(index, error),
+            Err(payload) => {
+                self.record_task_panicked(index, panic_payload_to_error(payload.as_ref()))
+            }
+        }
+        Ok(())
+    }
+
     /// Records one observed task.
     ///
     /// # Returns
@@ -82,6 +118,10 @@ impl<E> BatchExecutionState<E> {
     }
 
     /// Records that one task has started.
+    #[deprecated(
+        since = "0.10.0",
+        note = "use execute_task to keep execution state consistent"
+    )]
     #[inline]
     pub fn record_task_started(&self) {
         self.active_count.inc();
@@ -92,6 +132,10 @@ impl<E> BatchExecutionState<E> {
     /// # Panics
     ///
     /// Panics if no active task was recorded for this completion.
+    #[deprecated(
+        since = "0.10.0",
+        note = "use execute_task to keep execution state consistent"
+    )]
     #[inline]
     pub fn record_task_succeeded(&self) {
         self.active_count.dec();
@@ -109,6 +153,10 @@ impl<E> BatchExecutionState<E> {
     /// # Panics
     ///
     /// Panics if no active task was recorded for this completion.
+    #[deprecated(
+        since = "0.10.0",
+        note = "use execute_task to keep execution state consistent"
+    )]
     #[inline]
     pub fn record_task_failed(&self, index: usize, error: E) {
         self.active_count.dec();
@@ -128,13 +176,28 @@ impl<E> BatchExecutionState<E> {
     /// # Panics
     ///
     /// Panics if no active task was recorded for this completion.
+    #[deprecated(
+        since = "0.10.0",
+        note = "use execute_task to keep execution state consistent"
+    )]
     #[inline]
     pub fn record_task_panicked(&self, index: usize, error: BatchTaskError<E>) {
         self.active_count.dec();
         self.completed_count.inc();
         self.panicked_count.inc();
-        Self::lock_failures(&self.failures)
-            .push(BatchTaskFailure::new(index, error));
+        Self::lock_failures(&self.failures).push(BatchTaskFailure::new(index, error));
+    }
+
+    /// Returns the number of task errors and captured task panics.
+    ///
+    /// # Returns
+    ///
+    /// The total terminal task failure count recorded so far.
+    #[inline]
+    pub fn failure_count(&self) -> usize {
+        self.failed_count
+            .get()
+            .saturating_add(self.panicked_count.get())
     }
 
     /// Returns progress counters for this execution state.
@@ -150,12 +213,7 @@ impl<E> BatchExecutionState<E> {
                 .active(self.active_count.get() as u64)
                 .completed(self.completed_count.get() as u64)
                 .succeeded(self.succeeded_count.get() as u64)
-                .failed(
-                    self.failed_count
-                        .get()
-                        .saturating_add(self.panicked_count.get())
-                        as u64,
-                ),
+                .failed(self.failure_count() as u64),
         ]
     }
 
@@ -168,8 +226,32 @@ impl<E> BatchExecutionState<E> {
     /// # Returns
     ///
     /// The final or partial outcome represented by this state.
+    ///
+    /// # Panics
+    ///
+    /// Panics if callers used the low-level recording methods to create
+    /// counters or failure details that violate [`BatchOutcome`] invariants.
     #[inline]
     pub fn into_outcome(self, elapsed: Duration) -> BatchOutcome<E> {
+        self.try_into_outcome(elapsed)
+            .expect("batch execution state should collect consistent counters")
+    }
+
+    /// Consumes this state and validates the resulting batch outcome.
+    ///
+    /// # Parameters
+    ///
+    /// * `elapsed` - Monotonic elapsed duration.
+    ///
+    /// # Returns
+    ///
+    /// A validated final or partial outcome, or a build error if low-level
+    /// recording calls created inconsistent counters.
+    #[inline]
+    pub fn try_into_outcome(
+        self,
+        elapsed: Duration,
+    ) -> Result<BatchOutcome<E>, crate::BatchOutcomeBuildError> {
         let failures = self
             .failures
             .into_inner()
@@ -182,7 +264,6 @@ impl<E> BatchExecutionState<E> {
             .elapsed(elapsed)
             .failures(failures)
             .build()
-            .expect("batch execution state should collect consistent counters")
     }
 
     /// Acquires the failure list lock while tolerating poisoned locks.

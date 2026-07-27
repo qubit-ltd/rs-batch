@@ -14,7 +14,8 @@ use super::BatchProcessResult;
 ///
 /// The error variants report mismatches between the declared item count and the
 /// number of items yielded by the input source. Each variant carries the
-/// partial result accumulated before the mismatch was detected.
+/// partial result accumulated before the mismatch was detected. Count-mismatch
+/// variants retain a terminal progress-report error when one occurs.
 ///
 /// ```rust
 /// use qubit_batch::{
@@ -29,16 +30,16 @@ use super::BatchProcessResult;
 ///     .expect_err("iterator should yield fewer items than declared");
 ///
 /// match error {
-///     BatchProcessError::CountShortfall { expected, actual, result } => {
+///     BatchProcessError::CountShortfall { expected, actual, result, .. } => {
 ///         assert_eq!(expected, 2);
 ///         assert_eq!(actual, 1);
 ///         assert_eq!(result.completed_count(), 1);
 ///     }
-///     BatchProcessError::ProgressReport { .. } => unreachable!(),
-///     BatchProcessError::CountExceeded { .. } => unreachable!(),
+///     _ => unreachable!(),
 /// }
 /// ```
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum BatchProcessError {
     /// Reporting batch progress failed.
     #[error("batch progress reporting failed")]
@@ -59,6 +60,8 @@ pub enum BatchProcessError {
         actual: usize,
         /// Result accumulated before the shortfall was reported.
         result: BatchProcessResult,
+        /// Terminal progress-report error, when reporting the failure failed.
+        report_error: Option<ProgressReportError>,
     },
 
     /// The input source yielded more items than the declared item count.
@@ -72,6 +75,8 @@ pub enum BatchProcessError {
         observed_at_least: usize,
         /// Result accumulated before the excess item was observed.
         result: BatchProcessResult,
+        /// Terminal progress-report error, when reporting the failure failed.
+        report_error: Option<ProgressReportError>,
     },
 }
 
@@ -101,6 +106,20 @@ impl BatchProcessError {
             Self::ProgressReport { result, .. }
             | Self::CountShortfall { result, .. }
             | Self::CountExceeded { result, .. } => result,
+        }
+    }
+
+    /// Returns the terminal progress-report error attached to this error.
+    ///
+    /// # Returns
+    ///
+    /// The report error retained by a primary count-mismatch error, if any.
+    #[inline]
+    pub const fn progress_report_error(&self) -> Option<&ProgressReportError> {
+        match self {
+            Self::ProgressReport { source, .. } => Some(source),
+            Self::CountShortfall { report_error, .. }
+            | Self::CountExceeded { report_error, .. } => report_error.as_ref(),
         }
     }
 }

@@ -10,17 +10,17 @@
 use std::time::Duration;
 
 use qubit_batch::{
-    BatchExecutionState,
-    BatchExecutor,
-    BatchTaskError,
-    SequentialBatchExecutor,
+    BatchExecutionState, BatchExecutionStateError, BatchExecutor, BatchTaskError,
+    SequentialBatchExecutor, TaskFailurePolicy,
 };
 
 use crate::support::TestTask;
 
 #[test]
 fn test_batch_execution_state_counts_success_failure_and_panic() {
-    let executor = SequentialBatchExecutor::new();
+    let executor = SequentialBatchExecutor::builder()
+        .task_failure_policy(TaskFailurePolicy::Continue)
+        .build();
     let tasks = vec![
         TestTask::succeed(),
         TestTask::fail("failed"),
@@ -42,6 +42,34 @@ fn test_batch_execution_state_counts_success_failure_and_panic() {
 }
 
 #[test]
+fn test_batch_execution_state_executes_indexed_tasks_safely() {
+    let state = BatchExecutionState::<&'static str>::new(2);
+
+    state
+        .execute_task(0, TestTask::fail("failed"))
+        .expect("in-range task should be recorded");
+    state
+        .execute_task(1, TestTask::panic("panicked"))
+        .expect("in-range task should be recorded");
+
+    assert_eq!(
+        state.execute_task(2, TestTask::succeed()),
+        Err(BatchExecutionStateError::TaskIndexOutOfRange {
+            index: 2,
+            task_count: 2,
+        }),
+    );
+
+    let outcome = state
+        .try_into_outcome(Duration::ZERO)
+        .expect("state should build a consistent outcome");
+    assert_eq!(outcome.completed_count(), 2);
+    assert_eq!(outcome.failed_count(), 1);
+    assert_eq!(outcome.panicked_count(), 1);
+}
+
+#[test]
+#[allow(deprecated)]
 fn test_batch_execution_state_public_api_builds_outcome() {
     let state = BatchExecutionState::<&'static str>::new(2);
 

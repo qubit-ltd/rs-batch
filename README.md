@@ -37,6 +37,8 @@ consumes the supplied iterator once and returns a structured result.
   did not match the explicitly declared count, and it carries the partial
   `BatchOutcome`.
 - `SequentialBatchExecutor` runs tasks in iterator order on the caller thread.
+  It stops after the first task error or captured panic by default; configure
+  `TaskFailurePolicy::Continue` or `StopAfterFailures(...)` when needed.
 - `ParallelBatchExecutor` runs tasks on fixed-width scoped standard threads.
 - `BatchProcessor` processes data items directly instead of wrapping them as
   tasks.

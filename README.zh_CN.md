@@ -32,7 +32,9 @@
 - `BatchOutcome` 是执行结果，包含任务计数、耗时和带下标的 `BatchTaskFailure`。
 - `BatchExecutionError` 是批次契约错误，表示迭代器产出数量与显式声明数量不匹配，
   并携带部分 `BatchOutcome`。
-- `SequentialBatchExecutor` 在调用线程中按迭代器顺序执行任务。
+- `SequentialBatchExecutor` 在调用线程中按迭代器顺序执行任务，默认在第一个任务
+  错误或捕获到的 panic 后停止；可按需配置 `TaskFailurePolicy::Continue` 或
+  `StopAfterFailures(...)`。
 - `ParallelBatchExecutor` 使用固定宽度的 scoped 标准线程执行任务。
 - `BatchProcessor` 直接处理数据项，不要求先把数据项包装为任务。
 - `SequentialBatchProcessor` 和 `ParallelBatchProcessor` 对每个数据项调用一个

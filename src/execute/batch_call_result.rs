@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use crate::BatchOutcome;
+use crate::{BatchCallResultBuildError, BatchOutcome};
 
 /// Result produced by [`crate::BatchExecutor::call`].
 ///
@@ -41,6 +41,7 @@ use crate::BatchOutcome;
 /// * `R` - Callable success value type.
 /// * `E` - Callable error type.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[must_use = "batch call results contain execution failures and returned values"]
 pub struct BatchCallResult<R, E> {
     /// Execution outcome and failures for the callable batch.
     outcome: BatchOutcome<E>,
@@ -58,10 +59,26 @@ impl<R, E> BatchCallResult<R, E> {
     ///
     /// # Returns
     ///
-    /// A callable batch result.
+    /// A callable batch result when `values` has one entry per declared task.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BatchCallResultBuildError::ValueCountMismatch`] when the
+    /// value vector length differs from the declared task count.
     #[inline]
-    pub fn new(outcome: BatchOutcome<E>, values: Vec<Option<R>>) -> Self {
-        Self { outcome, values }
+    pub fn try_new(
+        outcome: BatchOutcome<E>,
+        values: Vec<Option<R>>,
+    ) -> Result<Self, BatchCallResultBuildError> {
+        let task_count = outcome.task_count();
+        let value_count = values.len();
+        if value_count != task_count {
+            return Err(BatchCallResultBuildError::ValueCountMismatch {
+                task_count,
+                value_count,
+            });
+        }
+        Ok(Self { outcome, values })
     }
 
     /// Returns the execution outcome for the callable batch.

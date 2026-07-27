@@ -5,17 +5,12 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    sync::Arc,
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
-use qubit_progress::reporter::{
-    NoOpProgressReporter,
-    ProgressReporter,
-};
+use qubit_progress::reporter::{NoOpProgressReporter, ProgressReporter};
 
 use super::SequentialBatchExecutor;
+use crate::TaskFailurePolicy;
 
 /// Builder for [`SequentialBatchExecutor`].
 ///
@@ -38,6 +33,8 @@ pub struct SequentialBatchExecutorBuilder {
     report_interval: Duration,
     /// Reporter receiving batch lifecycle callbacks.
     reporter: Arc<dyn ProgressReporter>,
+    /// Policy used after task errors or captured task panics.
+    task_failure_policy: TaskFailurePolicy,
 }
 
 impl SequentialBatchExecutorBuilder {
@@ -55,6 +52,22 @@ impl SequentialBatchExecutorBuilder {
     #[inline]
     pub const fn report_interval(mut self, report_interval: Duration) -> Self {
         self.report_interval = report_interval;
+        self
+    }
+
+    /// Sets the task failure policy used by built executors.
+    ///
+    /// # Parameters
+    ///
+    /// * `task_failure_policy` - Policy applied after a task returns an error
+    ///   or panics.
+    ///
+    /// # Returns
+    ///
+    /// This builder for fluent configuration.
+    #[inline]
+    pub const fn task_failure_policy(mut self, task_failure_policy: TaskFailurePolicy) -> Self {
+        self.task_failure_policy = task_failure_policy;
         self
     }
 
@@ -112,6 +125,7 @@ impl SequentialBatchExecutorBuilder {
         SequentialBatchExecutor {
             report_interval: self.report_interval,
             reporter: self.reporter,
+            task_failure_policy: self.task_failure_policy,
         }
     }
 }
@@ -126,6 +140,7 @@ impl Default for SequentialBatchExecutorBuilder {
         Self {
             report_interval: SequentialBatchExecutor::DEFAULT_REPORT_INTERVAL,
             reporter: Arc::new(NoOpProgressReporter),
+            task_failure_policy: TaskFailurePolicy::default(),
         }
     }
 }

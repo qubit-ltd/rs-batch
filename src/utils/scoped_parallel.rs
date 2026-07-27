@@ -6,11 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::panic::resume_unwind;
-use std::sync::{
-    Arc,
-    Mutex,
-    mpsc,
-};
+use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 
 /// Indexed work item sent to scoped workers.
@@ -26,7 +22,8 @@ struct ScopedWorkItem<T> {
 /// This helper owns only the scoped-thread scheduling template. It deliberately
 /// does not update progress, collect failures, catch work-item panics, or build
 /// domain results. Callers provide those semantics through `observe_item` and
-/// `run_item`.
+/// `run_item`. The `should_stop` callback enables cooperative cancellation
+/// after an external terminal condition, such as a failed progress reporter.
 ///
 /// # Parameters
 ///
@@ -35,6 +32,7 @@ struct ScopedWorkItem<T> {
 /// * `worker_count` - Number of scoped worker threads to spawn.
 /// * `observe_item` - Callback invoked on the producer thread for each observed
 ///   source item. It must return the observed count after recording the item.
+/// * `should_stop` - Callback checked before accepting or executing work.
 /// * `run_item` - Callback invoked by workers for each accepted item.
 ///
 /// # Returns
@@ -46,17 +44,19 @@ struct ScopedWorkItem<T> {
 ///
 /// Panics if `worker_count` is zero. Propagates panics raised by worker
 /// threads.
-pub(crate) fn run_scoped_parallel<I, T, O, F>(
+pub(crate) fn run_scoped_parallel<I, T, O, S, F>(
     items: I,
     declared_count: usize,
     worker_count: usize,
     observe_item: O,
+    should_stop: S,
     run_item: F,
 ) -> usize
 where
     I: IntoIterator<Item = T>,
     T: Send,
     O: Fn() -> usize,
+    S: Fn() -> bool + Sync,
     F: Fn(usize, T) + Sync,
 {
     assert!(
@@ -70,14 +70,18 @@ where
         let mut worker_handles = Vec::with_capacity(worker_count);
         for _ in 0..worker_count {
             let worker_receiver = Arc::clone(&work_receiver);
+            let worker_should_stop = &should_stop;
             let worker_run_item = &run_item;
             worker_handles.push(scope.spawn(move || {
-                run_scoped_worker(worker_receiver, worker_run_item);
+                run_scoped_worker(worker_receiver, worker_should_stop, worker_run_item);
             }));
         }
         drop(work_receiver);
 
         for item in items {
+            if should_stop() {
+                break;
+            }
             observed_count = observe_item();
             if observed_count > declared_count {
                 break;
@@ -110,10 +114,12 @@ where
 /// * `work_receiver` - Shared receiver protected because standard receivers are
 ///   not `Sync`.
 /// * `run_item` - Callback invoked for each accepted work item.
-fn run_scoped_worker<T, F>(
+fn run_scoped_worker<T, S, F>(
     work_receiver: Arc<Mutex<mpsc::Receiver<ScopedWorkItem<T>>>>,
+    should_stop: &S,
     run_item: &F,
 ) where
+    S: Fn() -> bool,
     F: Fn(usize, T),
 {
     loop {
@@ -124,6 +130,9 @@ fn run_scoped_worker<T, F>(
         let Ok(work_item) = received else {
             break;
         };
+        if should_stop() {
+            break;
+        }
         let ScopedWorkItem { index, item } = work_item;
         run_item(index, item);
     }

@@ -9,26 +9,16 @@
 //! [`BatchExecutor::call`](qubit_batch::BatchExecutor::call) and the internal
 //! callable runnable wrapper.
 
-use std::panic::{
-    AssertUnwindSafe,
-    catch_unwind,
-};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use qubit_function::Runnable;
 
 use qubit_batch::{
-    BatchExecutionError,
-    BatchExecutor,
-    BatchOutcome,
-    BatchOutcomeBuilder,
-    ParallelBatchExecutor,
+    BatchExecutionError, BatchExecutor, BatchOutcome, BatchOutcomeBuilder, ParallelBatchExecutor,
     SequentialBatchExecutor,
 };
 
-use crate::support::{
-    TestCallable,
-    panic_payload_message,
-};
+use crate::support::{TestCallable, panic_payload_message};
 
 struct OverconsumingExecutor;
 
@@ -101,7 +91,9 @@ fn test_batch_executor_call_derives_count_from_exact_iterator() {
 
 #[test]
 fn test_sequential_batch_executor_call_preserves_failure_indexes() {
-    let executor = SequentialBatchExecutor::new();
+    let executor = SequentialBatchExecutor::builder()
+        .task_failure_policy(qubit_batch::TaskFailurePolicy::Continue)
+        .build();
     let tasks = vec![
         TestCallable::returning(10),
         TestCallable::fail("failed"),
@@ -182,6 +174,7 @@ fn test_parallel_batch_executor_call_reports_count_mismatches() {
             expected,
             actual,
             outcome,
+            ..
         } => {
             assert_eq!(expected, 2);
             assert_eq!(actual, 1);
@@ -205,6 +198,7 @@ fn test_parallel_batch_executor_call_reports_count_mismatches() {
             expected,
             observed_at_least,
             outcome,
+            ..
         } => {
             assert_eq!(expected, 2);
             assert_eq!(observed_at_least, 3);
@@ -215,8 +209,7 @@ fn test_parallel_batch_executor_call_reports_count_mismatches() {
 }
 
 #[test]
-fn test_batch_executor_call_panics_when_callable_wrapper_reports_out_of_range_index()
- {
+fn test_batch_executor_call_panics_when_callable_wrapper_reports_out_of_range_index() {
     let executor = OverconsumingExecutor;
 
     let payload = catch_unwind(AssertUnwindSafe(|| {

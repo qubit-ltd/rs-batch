@@ -8,30 +8,18 @@
 //! Tests for [`SequentialBatchExecutor`](qubit_batch::SequentialBatchExecutor).
 
 use std::{
-    panic::{
-        AssertUnwindSafe,
-        catch_unwind,
-    },
+    panic::{AssertUnwindSafe, catch_unwind},
     sync::Arc,
     time::Duration,
 };
 
 use qubit_atomic::ArcAtomicCount;
-use qubit_batch::{
-    BatchExecutionError,
-    BatchExecutor,
-    SequentialBatchExecutor,
-};
+use qubit_batch::{BatchExecutionError, BatchExecutor, SequentialBatchExecutor, TaskFailurePolicy};
 use qubit_function::Runnable;
 
 use crate::support::{
-    FailingProgressReporter,
-    PanickingProgressReporter,
-    ProgressEvent,
-    ProgressPanicPhase,
-    RecordingProgressReporter,
-    TestTask,
-    panic_payload_message,
+    FailingProgressReporter, PanickingProgressReporter, ProgressEvent, ProgressPanicPhase,
+    RecordingProgressReporter, TestTask, panic_payload_message,
 };
 
 #[test]
@@ -46,6 +34,32 @@ fn test_sequential_batch_executor_returns_progress_report_error() {
 
     assert!(matches!(&error, BatchExecutionError::ProgressReport { .. }));
     assert_eq!(error.outcome().completed_count(), 1);
+}
+
+#[test]
+fn test_sequential_batch_executor_preserves_count_error_when_failure_report_fails() {
+    let executor = SequentialBatchExecutor::builder()
+        .reporter(FailingProgressReporter::after_successes(1))
+        .build();
+
+    let error = executor
+        .execute_with_count([TestTask::succeed()], 2)
+        .expect_err("shortfall should remain the primary error");
+
+    match error {
+        BatchExecutionError::CountShortfall {
+            expected,
+            actual,
+            outcome,
+            report_error,
+        } => {
+            assert_eq!(expected, 2);
+            assert_eq!(actual, 1);
+            assert_eq!(outcome.completed_count(), 1);
+            assert!(report_error.is_some());
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
 }
 
 #[test]
@@ -85,8 +99,7 @@ fn test_sequential_batch_executor_accessors_and_value_reporter() {
         .reporter(RecordingProgressReporter::new())
         .report_interval(Duration::from_millis(25))
         .build();
-    let no_reporter_executor =
-        SequentialBatchExecutor::builder().no_reporter().build();
+    let no_reporter_executor = SequentialBatchExecutor::builder().no_reporter().build();
 
     assert_eq!(executor.report_interval(), Duration::from_millis(25));
     assert!(Arc::strong_count(executor.reporter()) >= 1);
@@ -95,7 +108,9 @@ fn test_sequential_batch_executor_accessors_and_value_reporter() {
 
 #[test]
 fn test_sequential_batch_executor_collects_failures_and_panics() {
-    let executor = SequentialBatchExecutor::new();
+    let executor = SequentialBatchExecutor::builder()
+        .task_failure_policy(TaskFailurePolicy::Continue)
+        .build();
     let tasks = vec![
         TestTask::succeed(),
         TestTask::fail("failed"),
@@ -147,6 +162,7 @@ fn test_sequential_batch_executor_reports_count_shortfall() {
             expected,
             actual,
             outcome,
+            ..
         } => {
             assert_eq!(expected, 3);
             assert_eq!(actual, 2);
@@ -170,6 +186,7 @@ fn test_sequential_batch_executor_reports_count_exceeded() {
             expected,
             observed_at_least,
             outcome,
+            ..
         } => {
             assert_eq!(expected, 1);
             assert_eq!(observed_at_least, 2);
@@ -254,10 +271,8 @@ fn test_sequential_batch_executor_propagates_progress_reporter_start_panic() {
         .build();
     let tasks = vec![TestTask::succeed()];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| {
-        executor.execute_with_count(tasks, 1)
-    }))
-    .expect_err("progress reporter start panic should be propagated");
+    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
+        .expect_err("progress reporter start panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }
@@ -274,10 +289,8 @@ fn test_sequential_batch_executor_propagates_progress_reporter_process_panic() {
         .build();
     let tasks = vec![TestTask::sleep_success(Duration::from_millis(1))];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| {
-        executor.execute_with_count(tasks, 1)
-    }))
-    .expect_err("progress reporter process panic should be propagated");
+    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
+        .expect_err("progress reporter process panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }
@@ -293,10 +306,8 @@ fn test_sequential_batch_executor_propagates_progress_reporter_finish_panic() {
         .build();
     let tasks = vec![TestTask::succeed()];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| {
-        executor.execute_with_count(tasks, 1)
-    }))
-    .expect_err("progress reporter finish panic should be propagated");
+    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
+        .expect_err("progress reporter finish panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }

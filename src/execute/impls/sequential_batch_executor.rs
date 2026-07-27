@@ -5,30 +5,16 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    panic::{
-        AssertUnwindSafe,
-        catch_unwind,
-    },
-    sync::Arc,
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 use qubit_function::Runnable;
-use qubit_progress::{
-    Progress,
-    reporter::ProgressReporter,
-};
+use qubit_progress::{Progress, reporter::ProgressReporter};
 
 use crate::{
-    BatchExecutionError,
-    BatchOutcome,
+    BatchExecutionError, BatchOutcome, TaskFailurePolicy,
     execute::{
-        BatchExecutionState,
-        BatchExecutor,
-        EXECUTION_PROGRESS_METRIC_ID,
+        BatchExecutionState, BatchExecutor, EXECUTION_PROGRESS_METRIC_ID,
         EXECUTION_PROGRESS_METRIC_NAME,
-        panic_payload_to_error,
     },
 };
 
@@ -60,6 +46,8 @@ pub struct SequentialBatchExecutor {
     pub(crate) report_interval: Duration,
     /// Reporter receiving batch lifecycle callbacks.
     pub(crate) reporter: Arc<dyn ProgressReporter>,
+    /// Policy applied after task errors or captured task panics.
+    pub(crate) task_failure_policy: TaskFailurePolicy,
 }
 
 impl SequentialBatchExecutor {
@@ -104,6 +92,17 @@ impl SequentialBatchExecutor {
     #[inline]
     pub fn reporter(&self) -> &Arc<dyn ProgressReporter> {
         &self.reporter
+    }
+
+    /// Returns the configured task failure policy.
+    ///
+    /// # Returns
+    ///
+    /// The policy that controls whether sequential execution stops after task
+    /// errors or captured task panics.
+    #[inline]
+    pub const fn task_failure_policy(&self) -> TaskFailurePolicy {
+        self.task_failure_policy
     }
 }
 
@@ -158,8 +157,8 @@ impl BatchExecutor for SequentialBatchExecutor {
             EXECUTION_PROGRESS_METRIC_ID,
             EXECUTION_PROGRESS_METRIC_NAME,
         );
-        if let Err(source) = progress
-            .report_started(|event| event.counters(state.progress_counters()))
+        if let Err(source) =
+            progress.report_started(|event| event.counters(state.progress_counters()))
         {
             return Err(BatchExecutionError::ProgressReport {
                 source,
@@ -167,12 +166,71 @@ impl BatchExecutor for SequentialBatchExecutor {
             });
         }
         let mut actual_count = 0;
+        let mut stopped_by_task_failure_policy = false;
         for task in tasks {
             actual_count = state.record_task_observed();
             if actual_count > count {
-                let failed = match progress.report_failed(|event| {
-                    event.counters(state.progress_counters())
-                }) {
+                let (elapsed, report_error) = match progress
+                    .report_failed(|event| event.counters(state.progress_counters()))
+                {
+                    Ok(event) => (event.elapsed(), None),
+                    Err(source) => (progress.elapsed(), Some(Box::new(source))),
+                };
+                let outcome = state.into_outcome(elapsed);
+                return Err(BatchExecutionError::CountExceeded {
+                    expected: count,
+                    observed_at_least: actual_count,
+                    outcome,
+                    report_error,
+                });
+            }
+            // Execute the task and update the state.
+            state
+                .execute_task(actual_count - 1, task)
+                .expect("observed task index must be within the declared count");
+            if self.task_failure_policy.should_stop(state.failure_count()) {
+                stopped_by_task_failure_policy = true;
+                break;
+            }
+            // Update the actual task count and report progress if due.
+            if let Err(source) =
+                progress.report_running_if_due(|event| event.counters(state.progress_counters()))
+            {
+                let elapsed = progress.elapsed();
+                return Err(BatchExecutionError::ProgressReport {
+                    source,
+                    outcome: state.into_outcome(elapsed),
+                });
+            }
+        }
+
+        if stopped_by_task_failure_policy {
+            let failed =
+                match progress.report_failed(|event| event.counters(state.progress_counters())) {
+                    Ok(event) => event,
+                    Err(source) => {
+                        return Err(BatchExecutionError::ProgressReport {
+                            source,
+                            outcome: state.into_outcome(progress.elapsed()),
+                        });
+                    }
+                };
+            Ok(state.into_outcome(failed.elapsed()))
+        } else if actual_count < count {
+            let (elapsed, report_error) =
+                match progress.report_failed(|event| event.counters(state.progress_counters())) {
+                    Ok(event) => (event.elapsed(), None),
+                    Err(source) => (progress.elapsed(), Some(Box::new(source))),
+                };
+            Err(BatchExecutionError::CountShortfall {
+                expected: count,
+                actual: actual_count,
+                outcome: state.into_outcome(elapsed),
+                report_error,
+            })
+        } else if state.failure_count() > 0 {
+            let failed =
+                match progress.report_failed(|event| event.counters(state.progress_counters())) {
                     Ok(event) => event,
                     Err(source) => {
                         let elapsed = progress.elapsed();
@@ -182,69 +240,19 @@ impl BatchExecutor for SequentialBatchExecutor {
                         });
                     }
                 };
-                let outcome = state.into_outcome(failed.elapsed());
-                return Err(BatchExecutionError::CountExceeded {
-                    expected: count,
-                    observed_at_least: actual_count,
-                    outcome,
-                });
-            }
-            // Execute the task and update the state.
-            let mut task = task;
-            state.record_task_started();
-            match catch_unwind(AssertUnwindSafe(|| task.run())) {
-                Ok(Ok(())) => state.record_task_succeeded(),
-                Ok(Err(error)) => {
-                    state.record_task_failed(actual_count - 1, error)
-                }
-                Err(payload) => state.record_task_panicked(
-                    actual_count - 1,
-                    panic_payload_to_error(payload.as_ref()),
-                ),
-            }
-            // Update the actual task count and report progress if due.
-            if let Err(source) = progress.report_running_if_due(|event| {
-                event.counters(state.progress_counters())
-            }) {
-                let elapsed = progress.elapsed();
-                return Err(BatchExecutionError::ProgressReport {
-                    source,
-                    outcome: state.into_outcome(elapsed),
-                });
-            }
-        }
-
-        if actual_count < count {
-            let failed = match progress.report_failed(|event| {
-                event.counters(state.progress_counters())
-            }) {
-                Ok(event) => event,
-                Err(source) => {
-                    let elapsed = progress.elapsed();
-                    return Err(BatchExecutionError::ProgressReport {
-                        source,
-                        outcome: state.into_outcome(elapsed),
-                    });
-                }
-            };
-            Err(BatchExecutionError::CountShortfall {
-                expected: count,
-                actual: actual_count,
-                outcome: state.into_outcome(failed.elapsed()),
-            })
+            Ok(state.into_outcome(failed.elapsed()))
         } else {
-            let finished = match progress.report_finished(|event| {
-                event.counters(state.progress_counters())
-            }) {
-                Ok(event) => event,
-                Err(source) => {
-                    let elapsed = progress.elapsed();
-                    return Err(BatchExecutionError::ProgressReport {
-                        source,
-                        outcome: state.into_outcome(elapsed),
-                    });
-                }
-            };
+            let finished =
+                match progress.report_finished(|event| event.counters(state.progress_counters())) {
+                    Ok(event) => event,
+                    Err(source) => {
+                        let elapsed = progress.elapsed();
+                        return Err(BatchExecutionError::ProgressReport {
+                            source,
+                            outcome: state.into_outcome(elapsed),
+                        });
+                    }
+                };
             Ok(state.into_outcome(finished.elapsed()))
         }
     }

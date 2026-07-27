@@ -40,6 +40,7 @@ use super::BatchProcessResult;
 ///         chunk_len: 2,
 ///         source: "insert failed",
 ///         result,
+///         report_error: None,
 ///     };
 ///
 /// assert_eq!(error.result().processed_count(), 2);
@@ -49,6 +50,7 @@ use super::BatchProcessResult;
 ///
 /// * `E` - Error type returned by the delegate processor.
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ChunkedBatchProcessError<E> {
     /// Reporting batch progress failed.
     #[error("batch progress reporting failed")]
@@ -69,6 +71,8 @@ pub enum ChunkedBatchProcessError<E> {
         actual: usize,
         /// Result accumulated before the shortfall was reported.
         result: BatchProcessResult,
+        /// Terminal progress-report error, when reporting the failure failed.
+        report_error: Option<ProgressReportError>,
     },
 
     /// The input source yielded more items than the declared item count.
@@ -82,12 +86,12 @@ pub enum ChunkedBatchProcessError<E> {
         observed_at_least: usize,
         /// Result accumulated before the excess item was observed.
         result: BatchProcessResult,
+        /// Terminal progress-report error, when reporting the failure failed.
+        report_error: Option<ProgressReportError>,
     },
 
     /// The delegate processor failed while processing one chunk.
-    #[error(
-        "batch chunk {chunk_index} failed at item {start_index} with {chunk_len} items"
-    )]
+    #[error("batch chunk {chunk_index} failed at item {start_index} with {chunk_len} items")]
     ChunkFailed {
         /// Zero-based chunk index.
         chunk_index: usize,
@@ -99,6 +103,8 @@ pub enum ChunkedBatchProcessError<E> {
         source: E,
         /// Result accumulated before this chunk failed.
         result: BatchProcessResult,
+        /// Terminal progress-report error, when reporting the failure failed.
+        report_error: Option<ProgressReportError>,
     },
 
     /// The delegate returned `Ok` with counters that do not describe the
@@ -124,6 +130,8 @@ pub enum ChunkedBatchProcessError<E> {
         completed_count: usize,
         /// Result accumulated before this invalid chunk result was reported.
         result: BatchProcessResult,
+        /// Terminal progress-report error, when reporting the failure failed.
+        report_error: Option<ProgressReportError>,
     },
 }
 
@@ -157,6 +165,22 @@ impl<E> ChunkedBatchProcessError<E> {
             | Self::CountExceeded { result, .. }
             | Self::ChunkFailed { result, .. }
             | Self::InvalidChunkResult { result, .. } => result,
+        }
+    }
+
+    /// Returns the terminal progress-report error attached to this error.
+    ///
+    /// # Returns
+    ///
+    /// The report error retained by the primary processing error, if any.
+    #[inline]
+    pub const fn progress_report_error(&self) -> Option<&ProgressReportError> {
+        match self {
+            Self::ProgressReport { source, .. } => Some(source),
+            Self::CountShortfall { report_error, .. }
+            | Self::CountExceeded { report_error, .. }
+            | Self::ChunkFailed { report_error, .. }
+            | Self::InvalidChunkResult { report_error, .. } => report_error.as_ref(),
         }
     }
 }

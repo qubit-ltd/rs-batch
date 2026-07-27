@@ -7,9 +7,7 @@
 // =============================================================================
 
 use qubit_batch::{
-    BatchCallResult,
-    BatchOutcomeBuilder,
-    BatchTaskError,
+    BatchCallResult, BatchCallResultBuildError, BatchOutcomeBuilder, BatchTaskError,
     BatchTaskFailure,
 };
 
@@ -25,7 +23,8 @@ fn test_batch_call_result_accessors_and_parts() {
         )])
         .build()
         .expect("outcome should be valid");
-    let result = BatchCallResult::new(outcome.clone(), vec![Some(10), None]);
+    let result = BatchCallResult::try_new(outcome.clone(), vec![Some(10), None])
+        .expect("value slots should match the declared task count");
 
     assert_eq!(result.outcome(), &outcome);
     assert_eq!(result.values(), &[Some(10), None]);
@@ -34,4 +33,21 @@ fn test_batch_call_result_accessors_and_parts() {
     let (outcome_part, values_part) = result.into_parts();
     assert_eq!(outcome_part.completed_count(), 2);
     assert_eq!(values_part, vec![Some(10), None]);
+}
+
+#[test]
+fn test_batch_call_result_rejects_mismatched_value_count() {
+    let outcome = BatchOutcomeBuilder::<&'static str>::builder(1)
+        .completed_count(1)
+        .succeeded_count(1)
+        .build()
+        .expect("outcome should be valid");
+
+    assert_eq!(
+        BatchCallResult::<usize, &'static str>::try_new(outcome, Vec::new()),
+        Err(BatchCallResultBuildError::ValueCountMismatch {
+            task_count: 1,
+            value_count: 0,
+        })
+    );
 }

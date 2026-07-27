@@ -7,7 +7,6 @@
 // =============================================================================
 //! Standard-library implementations of batch execution traits.
 
-mod indexed_task;
 mod parallel_batch_executor;
 mod parallel_batch_executor_build_error;
 mod parallel_batch_executor_builder;

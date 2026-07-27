@@ -9,10 +9,7 @@
 
 use std::time::Duration;
 
-use qubit_batch::{
-    BatchProcessError,
-    BatchProcessResult,
-};
+use qubit_batch::{BatchProcessError, BatchProcessResult};
 
 #[test]
 fn test_batch_process_error_helpers_and_display() {
@@ -27,14 +24,17 @@ fn test_batch_process_error_helpers_and_display() {
         expected: 3,
         actual: 1,
         result: result.clone(),
+        report_error: None,
     };
     let exceeded = BatchProcessError::CountExceeded {
         expected: 3,
         observed_at_least: 4,
         result: result.clone(),
+        report_error: None,
     };
 
     assert_eq!(shortfall.result(), &result);
+    assert!(shortfall.progress_report_error().is_none());
     assert_eq!(shortfall.clone().into_result(), result);
     assert_eq!(
         shortfall.to_string(),

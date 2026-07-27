@@ -6,10 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use qubit_batch::{
-    BatchProcessResult,
-    ChunkedBatchProcessError,
-};
+use qubit_batch::{BatchProcessResult, ChunkedBatchProcessError};
 use std::time::Duration;
 
 #[test]
@@ -27,6 +24,7 @@ fn test_chunked_batch_process_error_result_accessors() {
         chunk_len: 2,
         source: "failed",
         result: result.clone(),
+        report_error: None,
     };
 
     assert_eq!(error.result(), &result);
@@ -50,6 +48,7 @@ fn test_chunked_batch_process_error_invalid_result_into_result() {
         item_count: 3,
         completed_count: 2,
         result: result.clone(),
+        report_error: None,
     };
 
     assert_eq!(error.into_result(), result);
