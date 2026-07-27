@@ -5,7 +5,10 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use crate::{BatchCallResultBuildError, BatchOutcome};
+use crate::{
+    BatchCallResultBuildError,
+    BatchOutcome,
+};
 
 /// Result produced by [`crate::BatchExecutor::call`].
 ///
@@ -59,12 +62,14 @@ impl<R, E> BatchCallResult<R, E> {
     ///
     /// # Returns
     ///
-    /// A callable batch result when `values` has one entry per declared task.
+    /// A callable batch result when `values` has one entry per declared task,
+    /// every failed or panicked callable has `None`, and the number of present
+    /// values equals the successful task count.
     ///
     /// # Errors
     ///
-    /// Returns [`BatchCallResultBuildError::ValueCountMismatch`] when the
-    /// value vector length differs from the declared task count.
+    /// Returns [`BatchCallResultBuildError`] when the value vector length,
+    /// present value count, or failure-index mapping disagrees with `outcome`.
     #[inline]
     pub fn try_new(
         outcome: BatchOutcome<E>,
@@ -77,6 +82,23 @@ impl<R, E> BatchCallResult<R, E> {
                 task_count,
                 value_count,
             });
+        }
+        for failure in outcome.failures() {
+            if values[failure.index()].is_some() {
+                return Err(BatchCallResultBuildError::FailureValuePresent {
+                    index: failure.index(),
+                });
+            }
+        }
+        let succeeded_count = outcome.succeeded_count();
+        let value_count = values.iter().filter(|value| value.is_some()).count();
+        if value_count != succeeded_count {
+            return Err(
+                BatchCallResultBuildError::SucceededValueCountMismatch {
+                    succeeded_count,
+                    value_count,
+                },
+            );
         }
         Ok(Self { outcome, values })
     }

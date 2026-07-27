@@ -7,15 +7,23 @@
 // =============================================================================
 //! Tests for `TaskFailurePolicy` through the public sequential executor API.
 
-use std::{collections::VecDeque, num::NonZeroUsize};
+use std::{
+    collections::VecDeque,
+    num::NonZeroUsize,
+};
 
 use qubit_atomic::ArcAtomicCount;
-use qubit_batch::{BatchExecutor, SequentialBatchExecutor, TaskFailurePolicy};
+use qubit_batch::{
+    BatchExecutor,
+    BatchTermination,
+    SequentialBatchExecutor,
+    TaskFailurePolicy,
+};
 
 use crate::support::TestTask;
 
 #[test]
-fn test_sequential_batch_executor_stops_on_first_failure_by_default() {
+fn test_sequential_batch_executor_continues_on_failure_by_default() {
     let successful_tasks = ArcAtomicCount::zero();
     let outcome = SequentialBatchExecutor::new()
         .execute_with_count(
@@ -28,11 +36,12 @@ fn test_sequential_batch_executor_stops_on_first_failure_by_default() {
         )
         .expect("task failures should remain in the outcome");
 
-    assert_eq!(successful_tasks.get(), 1);
-    assert_eq!(outcome.completed_count(), 2);
-    assert_eq!(outcome.succeeded_count(), 1);
+    assert_eq!(successful_tasks.get(), 2);
+    assert_eq!(outcome.completed_count(), 3);
+    assert_eq!(outcome.succeeded_count(), 2);
     assert_eq!(outcome.failed_count(), 1);
     assert_eq!(outcome.panicked_count(), 0);
+    assert_eq!(outcome.termination(), BatchTermination::Finished);
 }
 
 #[test]
@@ -80,6 +89,10 @@ fn test_sequential_batch_executor_stops_after_configured_failure_count() {
     assert_eq!(outcome.completed_count(), 3);
     assert_eq!(outcome.failed_count(), 1);
     assert_eq!(outcome.panicked_count(), 1);
+    assert_eq!(
+        outcome.termination(),
+        BatchTermination::StoppedByTaskFailurePolicy
+    );
 }
 
 #[test]
@@ -90,13 +103,35 @@ fn test_sequential_batch_executor_does_not_consume_tasks_after_policy_stop() {
         [TestTask::fail("first failure"), TestTask::succeed()],
     );
 
-    let outcome = SequentialBatchExecutor::new()
+    let outcome = SequentialBatchExecutor::builder()
+        .task_failure_policy(TaskFailurePolicy::StopOnFirstFailure)
+        .build()
         .execute_with_count(tasks, 2)
         .expect("task failures should remain in the outcome");
 
     assert_eq!(next_calls.get(), 1);
     assert_eq!(outcome.completed_count(), 1);
     assert_eq!(outcome.failed_count(), 1);
+    assert_eq!(
+        outcome.termination(),
+        BatchTermination::StoppedByTaskFailurePolicy
+    );
+}
+
+#[test]
+fn test_sequential_batch_executor_marks_early_stop_before_count_validation() {
+    let outcome = SequentialBatchExecutor::builder()
+        .task_failure_policy(TaskFailurePolicy::StopOnFirstFailure)
+        .build()
+        .execute_with_count([TestTask::fail("first failure")], 2)
+        .expect("early task failure should return its partial outcome");
+
+    assert_eq!(outcome.task_count(), 2);
+    assert_eq!(outcome.completed_count(), 1);
+    assert_eq!(
+        outcome.termination(),
+        BatchTermination::StoppedByTaskFailurePolicy
+    );
 }
 
 /// Counts iterator pulls while yielding configured test tasks.
@@ -118,7 +153,10 @@ impl CountingTaskIterator {
     /// # Returns
     ///
     /// An iterator that reports its pulls through `next_calls`.
-    fn new<const N: usize>(next_calls: ArcAtomicCount, tasks: [TestTask; N]) -> Self {
+    fn new<const N: usize>(
+        next_calls: ArcAtomicCount,
+        tasks: [TestTask; N],
+    ) -> Self {
         Self {
             next_calls,
             tasks: VecDeque::from(tasks),

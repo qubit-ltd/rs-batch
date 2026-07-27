@@ -6,8 +6,14 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::{
-    panic::{AssertUnwindSafe, catch_unwind},
-    sync::{Mutex, MutexGuard},
+    panic::{
+        AssertUnwindSafe,
+        catch_unwind,
+    },
+    sync::{
+        Mutex,
+        MutexGuard,
+    },
     time::Duration,
 };
 
@@ -16,15 +22,20 @@ use qubit_function::Runnable;
 use qubit_progress::model::ProgressCounter;
 
 use crate::{
-    BatchExecutionStateError, BatchOutcome, BatchOutcomeBuilder, BatchTaskError, BatchTaskFailure,
+    BatchExecutionStateError,
+    BatchOutcome,
+    BatchOutcomeBuilder,
+    BatchTaskError,
+    BatchTaskFailure,
+    BatchTermination,
     execute::panic_payload_to_error,
 };
 
 /// Metric id used for task progress counters.
-pub(crate) const EXECUTION_PROGRESS_METRIC_ID: &str = "tasks";
+pub const EXECUTION_PROGRESS_METRIC_ID: &str = "tasks";
 
 /// Metric display name used for task progress counters.
-pub(crate) const EXECUTION_PROGRESS_METRIC_NAME: &str = "Tasks";
+pub const EXECUTION_PROGRESS_METRIC_NAME: &str = "Tasks";
 
 /// Shared state collected while a batch executor is running.
 pub struct BatchExecutionState<E> {
@@ -86,7 +97,11 @@ impl<E> BatchExecutionState<E> {
     /// [`BatchExecutionStateError::TaskIndexOutOfRange`] before executing an
     /// out-of-range task.
     #[allow(deprecated)]
-    pub fn execute_task<T>(&self, index: usize, mut task: T) -> Result<(), BatchExecutionStateError>
+    pub fn execute_task<T>(
+        &self,
+        index: usize,
+        mut task: T,
+    ) -> Result<(), BatchExecutionStateError>
     where
         T: Runnable<E>,
     {
@@ -100,9 +115,10 @@ impl<E> BatchExecutionState<E> {
         match catch_unwind(AssertUnwindSafe(|| task.run())) {
             Ok(Ok(())) => self.record_task_succeeded(),
             Ok(Err(error)) => self.record_task_failed(index, error),
-            Err(payload) => {
-                self.record_task_panicked(index, panic_payload_to_error(payload.as_ref()))
-            }
+            Err(payload) => self.record_task_panicked(
+                index,
+                panic_payload_to_error(payload.as_ref()),
+            ),
         }
         Ok(())
     }
@@ -185,7 +201,8 @@ impl<E> BatchExecutionState<E> {
         self.active_count.dec();
         self.completed_count.inc();
         self.panicked_count.inc();
-        Self::lock_failures(&self.failures).push(BatchTaskFailure::new(index, error));
+        Self::lock_failures(&self.failures)
+            .push(BatchTaskFailure::new(index, error));
     }
 
     /// Returns the number of task errors and captured task panics.
@@ -233,7 +250,31 @@ impl<E> BatchExecutionState<E> {
     /// counters or failure details that violate [`BatchOutcome`] invariants.
     #[inline]
     pub fn into_outcome(self, elapsed: Duration) -> BatchOutcome<E> {
-        self.try_into_outcome(elapsed)
+        self.into_outcome_with_termination(elapsed, BatchTermination::Finished)
+    }
+
+    /// Consumes this state and builds a batch outcome with `termination`.
+    ///
+    /// # Parameters
+    ///
+    /// * `elapsed` - Monotonic elapsed duration.
+    /// * `termination` - How the executor stopped consuming its task source.
+    ///
+    /// # Returns
+    ///
+    /// The final or partial outcome represented by this state.
+    ///
+    /// # Panics
+    ///
+    /// Panics if callers used the low-level recording methods to create
+    /// counters or failure details that violate [`BatchOutcome`] invariants.
+    #[inline]
+    pub fn into_outcome_with_termination(
+        self,
+        elapsed: Duration,
+        termination: BatchTermination,
+    ) -> BatchOutcome<E> {
+        self.try_into_outcome_with_termination(elapsed, termination)
             .expect("batch execution state should collect consistent counters")
     }
 
@@ -252,6 +293,29 @@ impl<E> BatchExecutionState<E> {
         self,
         elapsed: Duration,
     ) -> Result<BatchOutcome<E>, crate::BatchOutcomeBuildError> {
+        self.try_into_outcome_with_termination(
+            elapsed,
+            BatchTermination::Finished,
+        )
+    }
+
+    /// Consumes this state, applies `termination`, and validates the outcome.
+    ///
+    /// # Parameters
+    ///
+    /// * `elapsed` - Monotonic elapsed duration.
+    /// * `termination` - How the executor stopped consuming its task source.
+    ///
+    /// # Returns
+    ///
+    /// A validated final or partial outcome, or a build error if low-level
+    /// recording calls created inconsistent counters.
+    #[inline]
+    pub fn try_into_outcome_with_termination(
+        self,
+        elapsed: Duration,
+        termination: BatchTermination,
+    ) -> Result<BatchOutcome<E>, crate::BatchOutcomeBuildError> {
         let failures = self
             .failures
             .into_inner()
@@ -261,6 +325,7 @@ impl<E> BatchExecutionState<E> {
             .succeeded_count(self.succeeded_count.get())
             .failed_count(self.failed_count.get())
             .panicked_count(self.panicked_count.get())
+            .termination(termination)
             .elapsed(elapsed)
             .failures(failures)
             .build()

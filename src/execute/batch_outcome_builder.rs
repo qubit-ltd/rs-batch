@@ -5,9 +5,17 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{collections::HashSet, time::Duration};
+use std::{
+    collections::HashSet,
+    time::Duration,
+};
 
-use crate::{BatchOutcomeBuildError, BatchTaskError, BatchTaskFailure};
+use crate::{
+    BatchOutcomeBuildError,
+    BatchTaskError,
+    BatchTaskFailure,
+    BatchTermination,
+};
 
 /// Builder carrying validated parts for a [`crate::BatchOutcome`].
 ///
@@ -48,6 +56,8 @@ pub struct BatchOutcomeBuilder<E> {
     pub(crate) failed_count: usize,
     /// Number of tasks that panicked.
     pub(crate) panicked_count: usize,
+    /// How execution stopped consuming the task source.
+    pub(crate) termination: BatchTermination,
     /// Total monotonic elapsed duration for the batch.
     pub(crate) elapsed: Duration,
     /// Detailed failure records sorted by task index.
@@ -73,6 +83,7 @@ impl<E> BatchOutcomeBuilder<E> {
             succeeded_count: 0,
             failed_count: 0,
             panicked_count: 0,
+            termination: BatchTermination::Finished,
             elapsed: Duration::ZERO,
             failures: Vec::new(),
         }
@@ -135,6 +146,21 @@ impl<E> BatchOutcomeBuilder<E> {
     #[inline]
     pub const fn panicked_count(mut self, panicked_count: usize) -> Self {
         self.panicked_count = panicked_count;
+        self
+    }
+
+    /// Sets how execution stopped consuming the task source.
+    ///
+    /// # Parameters
+    ///
+    /// * `termination` - Final source-consumption state for the batch.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
+    #[inline]
+    pub const fn termination(mut self, termination: BatchTermination) -> Self {
+        self.termination = termination;
         self
     }
 
@@ -203,7 +229,9 @@ impl<E> BatchOutcomeBuilder<E> {
     /// Returns [`BatchOutcomeBuildError`] when the counters or failure details
     /// are inconsistent.
     #[inline]
-    pub fn build(self) -> Result<crate::BatchOutcome<E>, BatchOutcomeBuildError> {
+    pub fn build(
+        self,
+    ) -> Result<crate::BatchOutcome<E>, BatchOutcomeBuildError> {
         self.validate().map(crate::BatchOutcome::new)
     }
 }
@@ -281,7 +309,9 @@ fn validate_failure_details<E>(
             BatchTaskError::Panicked { .. } => observed_panicked_count += 1,
         }
     }
-    if observed_failed_count != failed_count || observed_panicked_count != panicked_count {
+    if observed_failed_count != failed_count
+        || observed_panicked_count != panicked_count
+    {
         return Err(BatchOutcomeBuildError::FailureVariantCountMismatch {
             expected_failed: failed_count,
             actual_failed: observed_failed_count,

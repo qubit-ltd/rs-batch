@@ -10,14 +10,20 @@ use std::thread;
 use std::time::Duration;
 
 use qubit_function::Runnable;
-use qubit_progress::{Progress, reporter::ProgressReporter};
+use qubit_progress::{
+    Progress,
+    reporter::ProgressReporter,
+};
 
 use crate::BatchExecutionError;
 use crate::BatchOutcome;
 use crate::TaskFailurePolicy;
 use crate::execute::{
-    BatchExecutionState, BatchExecutor, EXECUTION_PROGRESS_METRIC_ID,
-    EXECUTION_PROGRESS_METRIC_NAME, SequentialBatchExecutor,
+    BatchExecutionState,
+    BatchExecutor,
+    EXECUTION_PROGRESS_METRIC_ID,
+    EXECUTION_PROGRESS_METRIC_NAME,
+    SequentialBatchExecutor,
 };
 use crate::utils::run_scoped_parallel;
 
@@ -113,7 +119,9 @@ impl ParallelBatchExecutor {
     /// Returns [`ParallelBatchExecutorBuildError::ZeroThreadCount`] when
     /// `thread_count` is zero.
     #[inline]
-    pub fn new(thread_count: usize) -> Result<Self, ParallelBatchExecutorBuildError> {
+    pub fn new(
+        thread_count: usize,
+    ) -> Result<Self, ParallelBatchExecutorBuildError> {
         Self::builder().thread_count(thread_count).build()
     }
 
@@ -232,11 +240,12 @@ impl BatchExecutor for ParallelBatchExecutor {
             EXECUTION_PROGRESS_METRIC_ID,
             EXECUTION_PROGRESS_METRIC_NAME,
         );
-        if let Err(source) =
-            progress.report_started(|event| event.counters(state.progress_counters()))
+        if let Err(source) = progress
+            .report_started(|event| event.counters(state.progress_counters()))
         {
-            let state = Arc::into_inner(state)
-                .expect("parallel batch execution state should have a single owner");
+            let state = Arc::into_inner(state).expect(
+                "parallel batch execution state should have a single owner",
+            );
             return Err(BatchExecutionError::ProgressReport {
                 source,
                 outcome: state.into_outcome(Duration::ZERO),
@@ -247,8 +256,10 @@ impl BatchExecutor for ParallelBatchExecutor {
 
         let running_result = thread::scope(|scope| {
             let reporter_state = Arc::clone(&state);
-            let running_progress =
-                progress.spawn_running_reporter(scope, move || reporter_state.progress_counters());
+            let running_progress = progress
+                .spawn_running_reporter(scope, move || {
+                    reporter_state.progress_counters()
+                });
             let running_point_handle = running_progress.point_handle();
             let running_status = running_progress.status();
 
@@ -270,8 +281,9 @@ impl BatchExecutor for ParallelBatchExecutor {
             running_progress.stop_and_join()
         });
 
-        let state = Arc::into_inner(state)
-            .expect("parallel batch execution state should have a single owner");
+        let state = Arc::into_inner(state).expect(
+            "parallel batch execution state should have a single owner",
+        );
         if let Err(source) = running_result {
             return Err(BatchExecutionError::ProgressReport {
                 source,
@@ -280,7 +292,9 @@ impl BatchExecutor for ParallelBatchExecutor {
         }
         if actual_count < count {
             let (elapsed, report_error) =
-                match progress.report_failed(|event| event.counters(state.progress_counters())) {
+                match progress.report_failed(|event| {
+                    event.counters(state.progress_counters())
+                }) {
                     Ok(event) => (event.elapsed(), None),
                     Err(source) => (progress.elapsed(), Some(Box::new(source))),
                 };
@@ -293,7 +307,9 @@ impl BatchExecutor for ParallelBatchExecutor {
             })
         } else if actual_count > count {
             let (elapsed, report_error) =
-                match progress.report_failed(|event| event.counters(state.progress_counters())) {
+                match progress.report_failed(|event| {
+                    event.counters(state.progress_counters())
+                }) {
                     Ok(event) => (event.elapsed(), None),
                     Err(source) => (progress.elapsed(), Some(Box::new(source))),
                 };
@@ -305,17 +321,25 @@ impl BatchExecutor for ParallelBatchExecutor {
                 report_error,
             })
         } else {
-            let finished =
-                match progress.report_finished(|event| event.counters(state.progress_counters())) {
-                    Ok(event) => event,
-                    Err(source) => {
-                        return Err(BatchExecutionError::ProgressReport {
-                            source,
-                            outcome: state.into_outcome(progress.elapsed()),
-                        });
-                    }
-                };
-            let result = state.into_outcome(finished.elapsed());
+            let terminal = if state.failure_count() > 0 {
+                progress.report_failed(|event| {
+                    event.counters(state.progress_counters())
+                })
+            } else {
+                progress.report_finished(|event| {
+                    event.counters(state.progress_counters())
+                })
+            };
+            let terminal = match terminal {
+                Ok(event) => event,
+                Err(source) => {
+                    return Err(BatchExecutionError::ProgressReport {
+                        source,
+                        outcome: state.into_outcome(progress.elapsed()),
+                    });
+                }
+            };
+            let result = state.into_outcome(terminal.elapsed());
             Ok(result)
         }
     }

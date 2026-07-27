@@ -48,6 +48,7 @@
 //! emit periodic running events while workers are active, while zero interval
 //! reports on worker completion signals and does not spin in a tight loop.
 
+#![doc = include_str!("../README.md")]
 #![deny(missing_docs)]
 #![deny(unsafe_op_in_unsafe_fn)]
 
@@ -56,15 +57,39 @@ pub mod process;
 pub(crate) mod utils;
 
 pub use execute::{
-    BatchCallResult, BatchCallResultBuildError, BatchExecutionError, BatchExecutionState,
-    BatchExecutionStateError, BatchExecutor, BatchOutcome, BatchOutcomeBuildError,
-    BatchOutcomeBuilder, BatchTaskError, BatchTaskFailure, ParallelBatchExecutor,
-    ParallelBatchExecutorBuildError, ParallelBatchExecutorBuilder, SequentialBatchExecutor,
-    SequentialBatchExecutorBuilder, TaskFailurePolicy,
+    BatchCallResult,
+    BatchCallResultBuildError,
+    BatchExecutionError,
+    BatchExecutionState,
+    BatchExecutionStateError,
+    BatchExecutor,
+    BatchOutcome,
+    BatchOutcomeBuildError,
+    BatchOutcomeBuilder,
+    BatchTaskError,
+    BatchTaskFailure,
+    BatchTermination,
+    EXECUTION_PROGRESS_METRIC_ID,
+    EXECUTION_PROGRESS_METRIC_NAME,
+    ParallelBatchExecutor,
+    ParallelBatchExecutorBuildError,
+    ParallelBatchExecutorBuilder,
+    SequentialBatchExecutor,
+    SequentialBatchExecutorBuilder,
+    TaskFailurePolicy,
 };
 pub use process::{
-    BatchProcessError, BatchProcessResult, BatchProcessResultBuildError, BatchProcessResultBuilder,
-    BatchProcessor, ChunkedBatchProcessError, ChunkedBatchProcessor, ChunkedBatchProcessorBuilder,
-    ParallelBatchProcessor, ParallelBatchProcessorBuildError, ParallelBatchProcessorBuilder,
-    SequentialBatchProcessor, SequentialBatchProcessorBuilder,
+    BatchProcessError,
+    BatchProcessResult,
+    BatchProcessResultBuildError,
+    BatchProcessResultBuilder,
+    BatchProcessor,
+    ChunkedBatchProcessError,
+    ChunkedBatchProcessor,
+    ChunkedBatchProcessorBuilder,
+    ParallelBatchProcessor,
+    ParallelBatchProcessorBuildError,
+    ParallelBatchProcessorBuilder,
+    SequentialBatchProcessor,
+    SequentialBatchProcessorBuilder,
 };

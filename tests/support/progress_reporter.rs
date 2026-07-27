@@ -65,6 +65,59 @@ pub struct RecordingProgressReporter {
     events: Mutex<Vec<ProgressEvent>>,
 }
 
+/// Progress reporter that records raw lifecycle phases in memory.
+#[derive(Debug, Default)]
+pub struct PhaseRecordingProgressReporter {
+    /// Recorded lifecycle phases.
+    phases: Mutex<Vec<ProgressPhase>>,
+}
+
+impl PhaseRecordingProgressReporter {
+    /// Creates an empty phase recording reporter.
+    ///
+    /// # Returns
+    ///
+    /// A reporter with no stored lifecycle phases.
+    #[inline]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Returns recorded lifecycle phases in callback order.
+    ///
+    /// # Returns
+    ///
+    /// A cloned list of lifecycle phases.
+    pub fn phases(&self) -> Vec<ProgressPhase> {
+        self.phases
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+}
+
+impl ProgressReporter for PhaseRecordingProgressReporter {
+    /// Records the lifecycle phase carried by `event`.
+    ///
+    /// # Parameters
+    ///
+    /// * `event` - Progress event emitted by the executor under test.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` after recording the event phase.
+    fn report(
+        &self,
+        event: &QubitProgressEvent,
+    ) -> Result<(), qubit_progress::ProgressReportError> {
+        self.phases
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(event.phase());
+        Ok(())
+    }
+}
+
 impl RecordingProgressReporter {
     /// Creates an empty recording reporter.
     ///
