@@ -7,25 +7,14 @@
 // =============================================================================
 //! Tests for [`SequentialBatchProcessor`](qubit_batch::SequentialBatchProcessor).
 
-use std::sync::{
-    Arc,
-    Mutex,
-};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use qubit_function::Consumer;
 
-use qubit_batch::{
-    BatchProcessError,
-    BatchProcessor,
-    SequentialBatchProcessor,
-};
+use qubit_batch::{BatchProcessError, BatchProcessor, SequentialBatchProcessor};
 
-use crate::support::{
-    FailingProgressReporter,
-    ProgressEvent,
-    RecordingProgressReporter,
-};
+use crate::support::{FailingProgressReporter, ProgressEvent, RecordingProgressReporter};
 
 #[test]
 fn test_sequential_batch_processor_returns_progress_report_error() {
@@ -70,10 +59,9 @@ fn test_sequential_batch_processor_accessors_and_value_reporter() {
         .reporter(RecordingProgressReporter::new())
         .report_interval(Duration::from_millis(25))
         .build();
-    let no_reporter_processor =
-        SequentialBatchProcessor::builder(|_item: &i32| {})
-            .no_reporter()
-            .build();
+    let no_reporter_processor = SequentialBatchProcessor::builder(|_item: &i32| {})
+        .no_reporter()
+        .build();
 
     assert_eq!(processor.report_interval(), Duration::from_millis(25));
     assert!(Arc::strong_count(processor.reporter()) >= 1);
@@ -201,6 +189,7 @@ fn test_sequential_batch_processor_reports_count_exceeded() {
             expected,
             observed_at_least,
             result,
+            ..
         } => {
             assert_eq!(expected, 2);
             assert_eq!(observed_at_least, 3);
@@ -238,6 +227,7 @@ fn test_sequential_batch_processor_reports_count_shortfall() {
             expected,
             actual,
             result,
+            ..
         } => {
             assert_eq!(expected, 3);
             assert_eq!(actual, 2);

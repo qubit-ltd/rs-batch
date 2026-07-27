@@ -17,3 +17,4 @@ mod batch_task_failure_tests;
 mod callable_task_tests;
 mod for_each_task_tests;
 mod impls;
+mod task_failure_policy_tests;

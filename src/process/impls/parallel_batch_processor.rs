@@ -5,32 +5,17 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    num::NonZeroUsize,
-    sync::Arc,
-    thread,
-    time::Duration,
-};
+use std::{num::NonZeroUsize, sync::Arc, thread, time::Duration};
 
-use qubit_function::{
-    ArcConsumer,
-    Consumer,
-};
+use qubit_function::{ArcConsumer, Consumer};
 use qubit_progress::{
     Progress,
-    reporter::{
-        ProgressReportError,
-        ProgressReporter,
-    },
+    reporter::{ProgressReportError, ProgressReporter},
 };
 
 use crate::process::{
-    BatchProcessError,
-    BatchProcessResult,
-    BatchProcessState,
-    BatchProcessor,
-    PROCESS_PROGRESS_METRIC_ID,
-    PROCESS_PROGRESS_METRIC_NAME,
+    BatchProcessError, BatchProcessResult, BatchProcessState, BatchProcessor,
+    PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME,
 };
 use crate::utils::run_scoped_parallel;
 
@@ -257,8 +242,8 @@ where
             PROCESS_PROGRESS_METRIC_ID,
             PROCESS_PROGRESS_METRIC_NAME,
         );
-        if let Err(source) = progress
-            .report_started(|event| event.counters(state.progress_counters()))
+        if let Err(source) =
+            progress.report_started(|event| event.counters(state.progress_counters()))
         {
             return Err(BatchProcessError::ProgressReport {
                 source,
@@ -267,20 +252,10 @@ where
         }
 
         let running_result = if count > 0 {
-            if count <= self.sequential_threshold {
-                self.process_sequential(
-                    items,
-                    count,
-                    state.as_ref(),
-                    &mut progress,
-                )
+            if count <= self.sequential_threshold || self.thread_count.get() <= 1 {
+                self.process_sequential(items, count, state.as_ref(), &mut progress)
             } else {
-                self.process_parallel_non_empty(
-                    items,
-                    count,
-                    Arc::clone(&state),
-                    &progress,
-                )
+                self.process_parallel_non_empty(items, count, Arc::clone(&state), &progress)
             }
         } else if items.into_iter().next().is_some() {
             state.record_item_observed();
@@ -297,53 +272,42 @@ where
         }
 
         if state.observed_count() < count {
-            let failed = match progress.report_failed(|event| {
-                event.counters(state.progress_counters())
-            }) {
-                Ok(event) => event,
-                Err(source) => {
-                    return Err(BatchProcessError::ProgressReport {
-                        source,
-                        result: state.to_direct_result(progress.elapsed()),
-                    });
-                }
-            };
-            let result = state.to_direct_result(failed.elapsed());
+            let (elapsed, report_error) =
+                match progress.report_failed(|event| event.counters(state.progress_counters())) {
+                    Ok(event) => (event.elapsed(), None),
+                    Err(source) => (progress.elapsed(), Some(source)),
+                };
+            let result = state.to_direct_result(elapsed);
             Err(BatchProcessError::CountShortfall {
                 expected: count,
                 actual: state.observed_count(),
                 result,
+                report_error,
             })
         } else if state.observed_count() > count {
-            let failed = match progress.report_failed(|event| {
-                event.counters(state.progress_counters())
-            }) {
-                Ok(event) => event,
-                Err(source) => {
-                    return Err(BatchProcessError::ProgressReport {
-                        source,
-                        result: state.to_direct_result(progress.elapsed()),
-                    });
-                }
-            };
-            let result = state.to_direct_result(failed.elapsed());
+            let (elapsed, report_error) =
+                match progress.report_failed(|event| event.counters(state.progress_counters())) {
+                    Ok(event) => (event.elapsed(), None),
+                    Err(source) => (progress.elapsed(), Some(source)),
+                };
+            let result = state.to_direct_result(elapsed);
             Err(BatchProcessError::CountExceeded {
                 expected: count,
                 observed_at_least: state.observed_count(),
                 result,
+                report_error,
             })
         } else {
-            let finished = match progress.report_finished(|event| {
-                event.counters(state.progress_counters())
-            }) {
-                Ok(event) => event,
-                Err(source) => {
-                    return Err(BatchProcessError::ProgressReport {
-                        source,
-                        result: state.to_direct_result(progress.elapsed()),
-                    });
-                }
-            };
+            let finished =
+                match progress.report_finished(|event| event.counters(state.progress_counters())) {
+                    Ok(event) => event,
+                    Err(source) => {
+                        return Err(BatchProcessError::ProgressReport {
+                            source,
+                            result: state.to_direct_result(progress.elapsed()),
+                        });
+                    }
+                };
             let result = state.to_direct_result(finished.elapsed());
             Ok(result)
         }
@@ -384,9 +348,7 @@ where
             state.record_item_started();
             self.consumer.accept(&item);
             state.record_item_processed();
-            progress.report_running_if_due(|event| {
-                event.counters(state.progress_counters())
-            })?;
+            progress.report_running_if_due(|event| event.counters(state.progress_counters()))?;
         }
         Ok(())
     }
@@ -415,10 +377,8 @@ where
     {
         thread::scope(|scope| {
             let reporter_state = Arc::clone(&state);
-            let running_progress = progress
-                .spawn_running_reporter(scope, move || {
-                    reporter_state.progress_counters()
-                });
+            let running_progress =
+                progress.spawn_running_reporter(scope, move || reporter_state.progress_counters());
             let running_point_handle = running_progress.point_handle();
 
             let worker_count = self.thread_count.get().min(count);
@@ -430,6 +390,7 @@ where
                 count,
                 worker_count,
                 move || observer_state.record_item_observed(),
+                || false,
                 move |_index, item| {
                     worker_state.record_item_started();
                     consumer.accept(&item);

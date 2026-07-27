@@ -5,17 +5,11 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    fmt,
-    time::Duration,
-};
+use std::{fmt, time::Duration};
 
 use qubit_progress::model::ProgressCounter;
 
-use crate::{
-    BatchOutcomeBuilder,
-    BatchTaskFailure,
-};
+use crate::{BatchOutcomeBuilder, BatchTaskFailure};
 
 use super::EXECUTION_PROGRESS_METRIC_ID;
 
@@ -50,6 +44,7 @@ use super::EXECUTION_PROGRESS_METRIC_ID;
 /// let _outcome = BatchOutcome::new(builder);
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[must_use = "batch outcomes contain task failures and execution counters"]
 pub struct BatchOutcome<E> {
     /// Declared task count for this batch.
     task_count: usize,

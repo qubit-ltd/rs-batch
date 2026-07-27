@@ -7,17 +7,10 @@
 // =============================================================================
 //! Tests for batch outcomes and execution state.
 
-use std::{
-    error::Error,
-    fmt,
-    time::Duration,
-};
+use std::{error::Error, fmt, time::Duration};
 
 use qubit_batch::{
-    BatchExecutionError,
-    BatchOutcomeBuildError,
-    BatchOutcomeBuilder,
-    BatchTaskError,
+    BatchExecutionError, BatchOutcomeBuildError, BatchOutcomeBuilder, BatchTaskError,
     BatchTaskFailure,
 };
 use qubit_progress::ProgressCounter;
@@ -217,8 +210,7 @@ fn test_batch_task_error_helpers_display_and_source() {
     assert_eq!(panicked.to_string(), "task panicked: panic");
     assert!(panicked.source().is_none());
 
-    let panicked_without_message =
-        BatchTaskError::<TestError>::panicked_without_message();
+    let panicked_without_message = BatchTaskError::<TestError>::panicked_without_message();
     assert_eq!(panicked_without_message.panic_message(), None);
     assert_eq!(panicked_without_message.to_string(), "task panicked");
 }
@@ -241,6 +233,7 @@ fn test_batch_execution_error_accessors() {
         expected: 2,
         actual: 1,
         outcome: outcome.clone(),
+        report_error: None,
     };
     assert!(shortfall.is_count_shortfall());
     assert!(!shortfall.is_count_exceeded());
@@ -255,6 +248,7 @@ fn test_batch_execution_error_accessors() {
         expected: 2,
         observed_at_least: 3,
         outcome,
+        report_error: None,
     };
     assert!(!exceeded.is_count_shortfall());
     assert!(exceeded.is_count_exceeded());

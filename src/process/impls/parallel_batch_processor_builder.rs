@@ -5,20 +5,10 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    num::NonZeroUsize,
-    sync::Arc,
-    time::Duration,
-};
+use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
-use qubit_function::{
-    ArcConsumer,
-    Consumer,
-};
-use qubit_progress::reporter::{
-    NoOpProgressReporter,
-    ProgressReporter,
-};
+use qubit_function::{ArcConsumer, Consumer};
+use qubit_progress::reporter::{NoOpProgressReporter, ProgressReporter};
 
 use super::ParallelBatchProcessor;
 use super::ParallelBatchProcessorBuildError;
@@ -70,12 +60,9 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     {
         Self {
             consumer: ArcConsumer::new(consumer),
-            thread_count: ParallelBatchProcessor::<Item>::default_thread_count(
-            ),
-            sequential_threshold:
-                ParallelBatchProcessor::<Item>::DEFAULT_SEQUENTIAL_THRESHOLD,
-            report_interval:
-                ParallelBatchProcessor::<Item>::DEFAULT_REPORT_INTERVAL,
+            thread_count: ParallelBatchProcessor::<Item>::default_thread_count(),
+            sequential_threshold: ParallelBatchProcessor::<Item>::DEFAULT_SEQUENTIAL_THRESHOLD,
+            report_interval: ParallelBatchProcessor::<Item>::DEFAULT_REPORT_INTERVAL,
             reporter: Arc::new(NoOpProgressReporter),
         }
     }
@@ -107,10 +94,7 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     ///
     /// This builder for fluent configuration.
     #[inline]
-    pub const fn sequential_threshold(
-        mut self,
-        sequential_threshold: usize,
-    ) -> Self {
+    pub const fn sequential_threshold(mut self, sequential_threshold: usize) -> Self {
         self.sequential_threshold = sequential_threshold;
         self
     }
@@ -188,10 +172,7 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     /// Returns [`ParallelBatchProcessorBuildError`] when the worker count is
     /// zero.
     #[inline]
-    pub fn build(
-        self,
-    ) -> Result<ParallelBatchProcessor<Item>, ParallelBatchProcessorBuildError>
-    {
+    pub fn build(self) -> Result<ParallelBatchProcessor<Item>, ParallelBatchProcessorBuildError> {
         let thread_count = NonZeroUsize::new(self.thread_count)
             .ok_or(ParallelBatchProcessorBuildError::ZeroThreadCount)?;
         Ok(ParallelBatchProcessor {

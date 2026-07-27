@@ -9,14 +9,13 @@
 //! [`BatchExecutor::for_each`](qubit_batch::BatchExecutor::for_each)
 //! and the internal per-item runnable wrapper.
 
-use qubit_batch::{
-    BatchExecutor,
-    SequentialBatchExecutor,
-};
+use qubit_batch::{BatchExecutor, SequentialBatchExecutor, TaskFailurePolicy};
 
 #[test]
 fn test_sequential_batch_executor_for_each_maps_items() {
-    let executor = SequentialBatchExecutor::new();
+    let executor = SequentialBatchExecutor::builder()
+        .task_failure_policy(TaskFailurePolicy::Continue)
+        .build();
 
     let result = executor
         .for_each(0..4, |value| {
@@ -44,9 +43,7 @@ fn test_sequential_batch_executor_for_each_with_count_reports_mismatches() {
 
     match error {
         qubit_batch::BatchExecutionError::CountShortfall {
-            expected,
-            actual,
-            ..
+            expected, actual, ..
         } => {
             assert_eq!(expected, 3);
             assert_eq!(actual, 2);

@@ -8,37 +8,20 @@
 //! Tests for [`ParallelBatchProcessor`](qubit_batch::ParallelBatchProcessor).
 
 use std::{
-    panic::{
-        AssertUnwindSafe,
-        catch_unwind,
-    },
-    sync::{
-        Arc,
-        Mutex,
-    },
+    panic::{AssertUnwindSafe, catch_unwind},
+    sync::{Arc, Mutex},
     thread,
     time::Duration,
 };
 
-use qubit_atomic::{
-    ArcAtomic,
-    ArcAtomicCount,
-    AtomicCount,
-};
+use qubit_atomic::{ArcAtomic, ArcAtomicCount, AtomicCount};
 use qubit_batch::{
-    BatchProcessError,
-    BatchProcessor,
-    ParallelBatchExecutor,
-    ParallelBatchProcessor,
+    BatchProcessError, BatchProcessor, ParallelBatchExecutor, ParallelBatchProcessor,
     ParallelBatchProcessorBuildError,
 };
 use qubit_function::Consumer;
 
-use crate::support::{
-    ProgressEvent,
-    RecordingProgressReporter,
-    panic_payload_message,
-};
+use crate::support::{ProgressEvent, RecordingProgressReporter, panic_payload_message};
 
 #[test]
 fn test_parallel_batch_processor_consumer_accessors() {
@@ -71,11 +54,10 @@ fn test_parallel_batch_processor_accessors_and_value_reporter() {
         .report_interval(Duration::from_millis(25))
         .build()
         .expect("parallel processor should build");
-    let no_reporter_processor =
-        ParallelBatchProcessor::builder(|_item: &i32| {})
-            .no_reporter()
-            .build()
-            .expect("parallel processor should build");
+    let no_reporter_processor = ParallelBatchProcessor::builder(|_item: &i32| {})
+        .no_reporter()
+        .build()
+        .expect("parallel processor should build");
 
     assert_eq!(processor.report_interval(), Duration::from_millis(25));
     assert_eq!(processor.sequential_threshold(), 7);
@@ -207,8 +189,7 @@ fn test_parallel_batch_processor_reports_progress_with_zero_interval() {
 }
 
 #[test]
-fn test_parallel_batch_processor_reports_sequential_progress_with_zero_interval()
- {
+fn test_parallel_batch_processor_reports_sequential_progress_with_zero_interval() {
     let reporter = Arc::new(RecordingProgressReporter::new());
     let mut processor = ParallelBatchProcessor::builder(|_item: &i32| {})
         .thread_count(2)
@@ -310,14 +291,13 @@ fn test_parallel_batch_processor_uses_sequential_threshold() {
 fn test_parallel_batch_processor_supports_non_static_items() {
     let first = AtomicCount::zero();
     let second = AtomicCount::zero();
-    let mut processor =
-        ParallelBatchProcessor::builder(|item: &BorrowedItem<'_>| {
-            item.counter.inc();
-        })
-        .thread_count(2)
-        .sequential_threshold(0)
-        .build()
-        .expect("parallel processor should build");
+    let mut processor = ParallelBatchProcessor::builder(|item: &BorrowedItem<'_>| {
+        item.counter.inc();
+    })
+    .thread_count(2)
+    .sequential_threshold(0)
+    .build()
+    .expect("parallel processor should build");
     let items = [
         BorrowedItem { counter: &first },
         BorrowedItem { counter: &second },
@@ -355,6 +335,7 @@ fn test_parallel_batch_processor_reports_count_exceeded() {
             expected,
             observed_at_least,
             result,
+            ..
         } => {
             assert_eq!(expected, 2);
             assert_eq!(observed_at_least, 3);
@@ -381,6 +362,7 @@ fn test_parallel_batch_processor_reports_count_exceeded_before_first_item() {
             expected,
             observed_at_least,
             result,
+            ..
         } => {
             assert_eq!(expected, 0);
             assert_eq!(observed_at_least, 1);
@@ -408,6 +390,7 @@ fn test_parallel_batch_processor_reports_count_shortfall() {
             expected,
             actual,
             result,
+            ..
         } => {
             assert_eq!(expected, 3);
             assert_eq!(actual, 2);
@@ -438,8 +421,7 @@ fn test_parallel_batch_processor_propagates_consumer_panic() {
 }
 
 #[test]
-fn test_parallel_batch_processor_propagates_worker_panic_after_channel_backpressure()
- {
+fn test_parallel_batch_processor_propagates_worker_panic_after_channel_backpressure() {
     const PANIC_MESSAGE: &str = "parallel processor backpressure panic";
     let mut processor = ParallelBatchProcessor::builder(|item: &i32| {
         if *item == 0 {
@@ -454,9 +436,7 @@ fn test_parallel_batch_processor_propagates_worker_panic_after_channel_backpress
     let payload = catch_unwind(AssertUnwindSafe(|| {
         processor.process_with_count((0..64).collect::<Vec<_>>(), 64)
     }))
-    .expect_err(
-        "worker panic should be propagated without blocking the producer",
-    );
+    .expect_err("worker panic should be propagated without blocking the producer");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }

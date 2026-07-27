@@ -7,27 +7,15 @@
 // =============================================================================
 //! Tests for chunked batch processing.
 
-use std::{
-    error::Error,
-    fmt,
-    num::NonZeroUsize,
-    sync::Arc,
-    time::Duration,
-};
+use std::{error::Error, fmt, num::NonZeroUsize, sync::Arc, time::Duration};
 
 use qubit_batch::{
-    BatchProcessResult,
-    BatchProcessor,
-    ChunkedBatchProcessError,
-    ChunkedBatchProcessor,
+    BatchProcessResult, BatchProcessor, ChunkedBatchProcessError, ChunkedBatchProcessor,
 };
 use qubit_progress::reporter::NoOpProgressReporter;
 
 use crate::support::{
-    FailingProgressReporter,
-    ProgressEvent,
-    RecordingProgressReporter,
-    TestChunkOutcome,
+    FailingProgressReporter, ProgressEvent, RecordingProgressReporter, TestChunkOutcome,
     TestChunkProcessor,
 };
 
@@ -216,6 +204,7 @@ fn test_chunked_batch_processor_reports_count_exceeded() {
             expected,
             observed_at_least,
             result,
+            ..
         } => {
             assert_eq!(expected, 2);
             assert_eq!(observed_at_least, 3);
@@ -235,15 +224,16 @@ fn test_chunked_batch_processor_flushes_tail_chunk_before_count_exceeded() {
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
     );
 
-    let error = processor.process_with_count([1, 2, 3, 4], 3).expect_err(
-        "extra input should be reported after flushing declared tail",
-    );
+    let error = processor
+        .process_with_count([1, 2, 3, 4], 3)
+        .expect_err("extra input should be reported after flushing declared tail");
 
     match error {
         ChunkedBatchProcessError::CountExceeded {
             expected,
             observed_at_least,
             result,
+            ..
         } => {
             assert_eq!(expected, 3);
             assert_eq!(observed_at_least, 4);
@@ -262,8 +252,7 @@ fn test_chunked_batch_processor_flushes_tail_chunk_before_count_exceeded() {
 }
 
 #[test]
-fn test_chunked_batch_processor_propagates_tail_chunk_error_before_count_exceeded()
- {
+fn test_chunked_batch_processor_propagates_tail_chunk_error_before_count_exceeded() {
     let mut processor = ChunkedBatchProcessor::new(
         TestChunkProcessor::outcomes([
             TestChunkOutcome::Success,
@@ -272,9 +261,9 @@ fn test_chunked_batch_processor_propagates_tail_chunk_error_before_count_exceede
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
     );
 
-    let error = processor.process_with_count([1, 2, 3, 4], 3).expect_err(
-        "tail chunk failure should be reported before count overflow",
-    );
+    let error = processor
+        .process_with_count([1, 2, 3, 4], 3)
+        .expect_err("tail chunk failure should be reported before count overflow");
 
     match error {
         ChunkedBatchProcessError::ChunkFailed {
@@ -283,6 +272,7 @@ fn test_chunked_batch_processor_propagates_tail_chunk_error_before_count_exceede
             chunk_len,
             source,
             result,
+            ..
         } => {
             assert_eq!(chunk_index, 1);
             assert_eq!(start_index, 2);
@@ -312,6 +302,7 @@ fn test_chunked_batch_processor_reports_count_exceeded_before_first_chunk() {
             expected,
             observed_at_least,
             result,
+            ..
         } => {
             assert_eq!(expected, 0);
             assert_eq!(observed_at_least, 1);
@@ -339,6 +330,7 @@ fn test_chunked_batch_processor_reports_count_shortfall() {
             expected,
             actual,
             result,
+            ..
         } => {
             assert_eq!(expected, 5);
             assert_eq!(actual, 3);
@@ -358,34 +350,35 @@ fn test_chunked_batch_process_error_helpers_and_display() {
         .elapsed(Duration::from_millis(5))
         .build()
         .expect("process result counters should be valid");
-    let shortfall =
-        ChunkedBatchProcessError::<TestProcessorError>::CountShortfall {
-            expected: 3,
-            actual: 1,
-            result: result.clone(),
-        };
-    let exceeded =
-        ChunkedBatchProcessError::<TestProcessorError>::CountExceeded {
-            expected: 3,
-            observed_at_least: 4,
-            result: result.clone(),
-        };
+    let shortfall = ChunkedBatchProcessError::<TestProcessorError>::CountShortfall {
+        expected: 3,
+        actual: 1,
+        result: result.clone(),
+        report_error: None,
+    };
+    let exceeded = ChunkedBatchProcessError::<TestProcessorError>::CountExceeded {
+        expected: 3,
+        observed_at_least: 4,
+        result: result.clone(),
+        report_error: None,
+    };
     let failed = ChunkedBatchProcessError::ChunkFailed {
         chunk_index: 2,
         start_index: 4,
         chunk_len: 2,
         source: TestProcessorError("delegate failed"),
         result: result.clone(),
+        report_error: None,
     };
-    let invalid =
-        ChunkedBatchProcessError::<TestProcessorError>::InvalidChunkResult {
-            chunk_index: 1,
-            start_index: 2,
-            chunk_len: 2,
-            item_count: 2,
-            completed_count: 1,
-            result: result.clone(),
-        };
+    let invalid = ChunkedBatchProcessError::<TestProcessorError>::InvalidChunkResult {
+        chunk_index: 1,
+        start_index: 2,
+        chunk_len: 2,
+        item_count: 2,
+        completed_count: 1,
+        result: result.clone(),
+        report_error: None,
+    };
 
     assert_eq!(shortfall.result(), &result);
     assert_eq!(shortfall.clone().into_result(), result);
@@ -437,9 +430,7 @@ impl Error for TestProcessorError {}
 #[test]
 fn test_chunked_batch_processor_wraps_delegate_error() {
     let mut processor = ChunkedBatchProcessor::new(
-        TestChunkProcessor::outcomes([TestChunkOutcome::Failure(
-            "insert failed",
-        )]),
+        TestChunkProcessor::outcomes([TestChunkOutcome::Failure("insert failed")]),
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
     );
 
@@ -454,6 +445,7 @@ fn test_chunked_batch_processor_wraps_delegate_error() {
             chunk_len,
             source,
             result,
+            ..
         } => {
             assert_eq!(chunk_index, 0);
             assert_eq!(start_index, 0);
@@ -486,6 +478,7 @@ fn test_chunked_batch_processor_wraps_partial_chunk_error() {
             chunk_len,
             source,
             result,
+            ..
         } => {
             assert_eq!(chunk_index, 1);
             assert_eq!(start_index, 2);
@@ -517,6 +510,7 @@ fn test_chunked_batch_processor_rejects_invalid_delegate_result() {
             item_count,
             completed_count,
             result,
+            ..
         } => {
             assert_eq!(chunk_index, 0);
             assert_eq!(start_index, 0);
@@ -550,6 +544,7 @@ fn test_chunked_batch_processor_rejects_invalid_delegate_item_count() {
             item_count,
             completed_count,
             result,
+            ..
         } => {
             assert_eq!(chunk_index, 0);
             assert_eq!(start_index, 0);

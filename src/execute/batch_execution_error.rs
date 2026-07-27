@@ -36,12 +36,14 @@ use crate::BatchOutcome;
 ///     }
 ///     BatchExecutionError::ProgressReport { .. } => unreachable!(),
 ///     BatchExecutionError::CountExceeded { .. } => unreachable!(),
+///     _ => unreachable!(),
 /// }
 /// ```
 ///
 /// # Type Parameters
 ///
 /// * `E` - The task-specific error type stored inside the attached outcome.
+#[non_exhaustive]
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum BatchExecutionError<E> {
     /// Reporting batch progress failed.
@@ -63,6 +65,9 @@ pub enum BatchExecutionError<E> {
         actual: usize,
         /// Outcome accumulated from the tasks that did run.
         outcome: BatchOutcome<E>,
+        /// Additional progress-reporting error observed while reporting this
+        /// primary count error.
+        report_error: Option<Box<ProgressReportError>>,
     },
 
     /// The task source yielded more tasks than the declared task count.
@@ -77,6 +82,9 @@ pub enum BatchExecutionError<E> {
         observed_at_least: usize,
         /// Outcome accumulated from the tasks that did run.
         outcome: BatchOutcome<E>,
+        /// Additional progress-reporting error observed while reporting this
+        /// primary count error.
+        report_error: Option<Box<ProgressReportError>>,
     },
 }
 
@@ -127,5 +135,21 @@ impl<E> BatchExecutionError<E> {
     #[inline]
     pub const fn is_count_exceeded(&self) -> bool {
         matches!(self, Self::CountExceeded { .. })
+    }
+
+    /// Returns the progress-reporting error associated with this error.
+    ///
+    /// # Returns
+    ///
+    /// The reporter error for [`Self::ProgressReport`], an additional reporter
+    /// error attached to a primary count error, or `None` when reporting did
+    /// not fail.
+    #[inline]
+    pub fn progress_report_error(&self) -> Option<&ProgressReportError> {
+        match self {
+            Self::ProgressReport { source, .. } => Some(source),
+            Self::CountShortfall { report_error, .. }
+            | Self::CountExceeded { report_error, .. } => report_error.as_deref(),
+        }
     }
 }
