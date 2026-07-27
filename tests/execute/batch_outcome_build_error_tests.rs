@@ -6,7 +6,10 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use qubit_batch::{BatchOutcomeBuildError, BatchOutcomeBuilder};
+use qubit_batch::{
+    BatchOutcomeBuildError,
+    BatchOutcomeBuilder,
+};
 
 #[test]
 fn test_batch_outcome_build_error_terminal_count_mismatch() {

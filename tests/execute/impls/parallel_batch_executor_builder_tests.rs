@@ -7,16 +7,23 @@
 // =============================================================================
 //! Tests for [`ParallelBatchExecutorBuilder`](qubit_batch::ParallelBatchExecutorBuilder).
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 
-use qubit_batch::{ParallelBatchExecutor, ParallelBatchExecutorBuildError};
+use qubit_batch::{
+    ParallelBatchExecutor,
+    ParallelBatchExecutorBuildError,
+};
 use qubit_progress::reporter::ProgressReporter;
 
 use crate::support::RecordingProgressReporter;
 
 #[test]
 fn test_parallel_batch_executor_builder_builds_custom_config() {
-    let reporter: Arc<dyn ProgressReporter> = Arc::new(RecordingProgressReporter::new());
+    let reporter: Arc<dyn ProgressReporter> =
+        Arc::new(RecordingProgressReporter::new());
     let executor = ParallelBatchExecutor::builder()
         .thread_count(3)
         .sequential_threshold(2)

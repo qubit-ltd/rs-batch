@@ -5,7 +5,11 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{any::Any, error::Error, fmt};
+use std::{
+    any::Any,
+    error::Error,
+    fmt,
+};
 
 /// Error recorded for one task inside a batch execution.
 ///
@@ -174,7 +178,9 @@ where
 ///
 /// A panicked task error containing a string message when the payload carries
 /// one.
-pub(crate) fn panic_payload_to_error<E>(payload: &(dyn Any + Send)) -> BatchTaskError<E> {
+pub(crate) fn panic_payload_to_error<E>(
+    payload: &(dyn Any + Send),
+) -> BatchTaskError<E> {
     BatchTaskError::from_panic_payload(payload)
 }
 

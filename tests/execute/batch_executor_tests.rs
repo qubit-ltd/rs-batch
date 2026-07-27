@@ -6,7 +6,10 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use qubit_batch::{BatchExecutor, SequentialBatchExecutor};
+use qubit_batch::{
+    BatchExecutor,
+    SequentialBatchExecutor,
+};
 
 use crate::support::TestTask;
 

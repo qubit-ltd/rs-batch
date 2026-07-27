@@ -7,7 +7,10 @@
 // =============================================================================
 //! Tests covering indexed task behavior through the public parallel executor.
 
-use qubit_batch::{BatchExecutor, ParallelBatchExecutor};
+use qubit_batch::{
+    BatchExecutor,
+    ParallelBatchExecutor,
+};
 
 use crate::support::TestTask;
 

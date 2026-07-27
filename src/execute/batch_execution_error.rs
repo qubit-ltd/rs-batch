@@ -149,7 +149,9 @@ impl<E> BatchExecutionError<E> {
         match self {
             Self::ProgressReport { source, .. } => Some(source),
             Self::CountShortfall { report_error, .. }
-            | Self::CountExceeded { report_error, .. } => report_error.as_deref(),
+            | Self::CountExceeded { report_error, .. } => {
+                report_error.as_deref()
+            }
         }
     }
 }
