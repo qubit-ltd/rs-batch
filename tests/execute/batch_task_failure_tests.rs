@@ -6,7 +6,10 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use qubit_batch::{BatchTaskError, BatchTaskFailure};
+use qubit_batch::{
+    BatchTaskError,
+    BatchTaskFailure,
+};
 
 #[test]
 fn test_batch_task_failure_accessors_and_into_error() {

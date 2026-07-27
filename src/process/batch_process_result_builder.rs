@@ -7,7 +7,10 @@
 // =============================================================================
 use std::time::Duration;
 
-use crate::{BatchProcessResult, BatchProcessResultBuildError};
+use crate::{
+    BatchProcessResult,
+    BatchProcessResultBuildError,
+};
 
 /// Builder carrying validated parts for a [`crate::BatchProcessResult`].
 ///
@@ -158,7 +161,9 @@ impl BatchProcessResultBuilder {
     /// Returns [`BatchProcessResultBuildError`] when the counters are
     /// inconsistent.
     #[inline]
-    pub fn build(self) -> Result<BatchProcessResult, BatchProcessResultBuildError> {
+    pub fn build(
+        self,
+    ) -> Result<BatchProcessResult, BatchProcessResultBuildError> {
         self.validate().map(BatchProcessResult::new)
     }
 }
@@ -184,7 +189,9 @@ fn validate_process_result_invariants(
     }
     if completed_count > 0 && chunk_count == 0 {
         return Err(
-            BatchProcessResultBuildError::MissingChunkForCompletedItems { completed_count },
+            BatchProcessResultBuildError::MissingChunkForCompletedItems {
+                completed_count,
+            },
         );
     }
     if chunk_count > completed_count {

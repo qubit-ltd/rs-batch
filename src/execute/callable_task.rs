@@ -8,7 +8,10 @@
 use std::sync::Arc;
 
 use crossbeam_queue::SegQueue;
-use qubit_function::{Callable, Runnable};
+use qubit_function::{
+    Callable,
+    Runnable,
+};
 
 /// Runnable wrapper used by [`crate::execute::BatchExecutor::call`].
 pub(crate) struct CallableTask<C, R> {
@@ -33,7 +36,11 @@ impl<C, R> CallableTask<C, R> {
     ///
     /// A runnable wrapper that sends successful output with its `index`.
     #[inline]
-    pub(crate) fn new(callable: C, index: usize, outputs: Arc<SegQueue<(usize, R)>>) -> Self {
+    pub(crate) fn new(
+        callable: C,
+        index: usize,
+        outputs: Arc<SegQueue<(usize, R)>>,
+    ) -> Self {
         Self {
             callable: Some(callable),
             index,

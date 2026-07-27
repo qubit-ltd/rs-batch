@@ -5,14 +5,27 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 
-use qubit_function::{BoxConsumer, Consumer};
-use qubit_progress::{Progress, reporter::ProgressReporter};
+use qubit_function::{
+    BoxConsumer,
+    Consumer,
+};
+use qubit_progress::{
+    Progress,
+    reporter::ProgressReporter,
+};
 
 use crate::process::{
-    BatchProcessError, BatchProcessResult, BatchProcessState, BatchProcessor,
-    PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME,
+    BatchProcessError,
+    BatchProcessResult,
+    BatchProcessState,
+    BatchProcessor,
+    PROCESS_PROGRESS_METRIC_ID,
+    PROCESS_PROGRESS_METRIC_NAME,
 };
 
 use super::SequentialBatchProcessorBuilder;
@@ -174,8 +187,8 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
             PROCESS_PROGRESS_METRIC_ID,
             PROCESS_PROGRESS_METRIC_NAME,
         );
-        if let Err(source) =
-            progress.report_started(|event| event.counters(state.progress_counters()))
+        if let Err(source) = progress
+            .report_started(|event| event.counters(state.progress_counters()))
         {
             return Err(BatchProcessError::ProgressReport {
                 source,
@@ -186,12 +199,13 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
         for item in items {
             let observed_count = state.record_item_observed();
             if observed_count > count {
-                let (elapsed, report_error) = match progress
-                    .report_failed(|event| event.counters(state.progress_counters()))
-                {
-                    Ok(event) => (event.elapsed(), None),
-                    Err(source) => (progress.elapsed(), Some(source)),
-                };
+                let (elapsed, report_error) =
+                    match progress.report_failed(|event| {
+                        event.counters(state.progress_counters())
+                    }) {
+                        Ok(event) => (event.elapsed(), None),
+                        Err(source) => (progress.elapsed(), Some(source)),
+                    };
                 let result = state.to_direct_result(elapsed);
                 return Err(BatchProcessError::CountExceeded {
                     expected: count,
@@ -203,9 +217,9 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
             state.record_item_started();
             self.consumer.accept(&item);
             state.record_item_processed();
-            if let Err(source) =
-                progress.report_running_if_due(|event| event.counters(state.progress_counters()))
-            {
+            if let Err(source) = progress.report_running_if_due(|event| {
+                event.counters(state.progress_counters())
+            }) {
                 return Err(BatchProcessError::ProgressReport {
                     source,
                     result: state.to_direct_result(progress.elapsed()),
@@ -215,7 +229,9 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
 
         if state.observed_count() < count {
             let (elapsed, report_error) =
-                match progress.report_failed(|event| event.counters(state.progress_counters())) {
+                match progress.report_failed(|event| {
+                    event.counters(state.progress_counters())
+                }) {
                     Ok(event) => (event.elapsed(), None),
                     Err(source) => (progress.elapsed(), Some(source)),
                 };
@@ -227,16 +243,17 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
                 report_error,
             })
         } else {
-            let finished =
-                match progress.report_finished(|event| event.counters(state.progress_counters())) {
-                    Ok(event) => event,
-                    Err(source) => {
-                        return Err(BatchProcessError::ProgressReport {
-                            source,
-                            result: state.to_direct_result(progress.elapsed()),
-                        });
-                    }
-                };
+            let finished = match progress.report_finished(|event| {
+                event.counters(state.progress_counters())
+            }) {
+                Ok(event) => event,
+                Err(source) => {
+                    return Err(BatchProcessError::ProgressReport {
+                        source,
+                        result: state.to_direct_result(progress.elapsed()),
+                    });
+                }
+            };
             let result = state.to_direct_result(finished.elapsed());
             Ok(result)
         }

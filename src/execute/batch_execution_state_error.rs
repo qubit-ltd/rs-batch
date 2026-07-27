@@ -15,7 +15,9 @@ use thiserror::Error;
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
 pub enum BatchExecutionStateError {
     /// The supplied task index is outside the declared batch range.
-    #[error("batch task index {index} is outside the declared task count {task_count}")]
+    #[error(
+        "batch task index {index} is outside the declared task count {task_count}"
+    )]
     TaskIndexOutOfRange {
         /// Supplied zero-based task index.
         index: usize,
