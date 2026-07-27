@@ -16,6 +16,7 @@ mod test_task;
 pub use failing_progress_reporter::FailingProgressReporter;
 pub use progress_reporter::{
     PanickingProgressReporter,
+    PhaseRecordingProgressReporter,
     ProgressEvent,
     ProgressPanicPhase,
     RecordingProgressReporter,

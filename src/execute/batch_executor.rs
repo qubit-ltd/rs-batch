@@ -8,16 +8,27 @@
 use std::sync::Arc;
 
 use crossbeam_queue::SegQueue;
-use qubit_function::{Callable, Runnable};
+use qubit_function::{
+    Callable,
+    Runnable,
+};
 
-use crate::{BatchExecutionError, BatchOutcome};
+use crate::{
+    BatchExecutionError,
+    BatchOutcome,
+};
 
-use super::{BatchCallResult, callable_task::CallableTask, for_each_task::ForEachTask};
+use super::{
+    BatchCallResult,
+    callable_task::CallableTask,
+    for_each_task::ForEachTask,
+};
 
 /// Executes batches of fallible tasks.
 ///
 /// Implementations consume the supplied iterator once, execute every observed
-/// task unless an explicitly declared count is exceeded, and return a
+/// task unless an explicitly declared count is exceeded or an explicitly
+/// configured task-failure policy stops execution, and return a
 /// [`BatchOutcome`] containing task-level successes, failures, panics, and
 /// elapsed time.
 ///
@@ -61,7 +72,10 @@ pub trait BatchExecutor: Send + Sync {
     /// Panics from the configured
     /// [`qubit_progress::reporter::ProgressReporter`] are propagated to the
     /// caller.
-    fn execute<T, E, I>(&self, tasks: I) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    fn execute<T, E, I>(
+        &self,
+        tasks: I,
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = T>,
         I::IntoIter: ExactSizeIterator,
@@ -83,13 +97,16 @@ pub trait BatchExecutor: Send + Sync {
     /// # Returns
     ///
     /// `Ok(BatchOutcome)` when the declared task count matches the source, or
-    /// `Err(BatchExecutionError)` when the source yields fewer or more tasks
-    /// than declared.
+    /// when a configured task-failure policy stops consumption before the
+    /// remaining source count can be validated. Inspect
+    /// [`BatchOutcome::termination`] to distinguish the latter case.
+    /// `Err(BatchExecutionError)` when a fully consumed source yields fewer or
+    /// more tasks than declared.
     ///
     /// # Errors
     ///
-    /// Returns [`BatchExecutionError`] when the source task count does not
-    /// match `count`.
+    /// Returns [`BatchExecutionError`] when a fully consumed source task count
+    /// does not match `count`.
     ///
     /// # Panics
     ///
@@ -130,7 +147,10 @@ pub trait BatchExecutor: Send + Sync {
     /// Panics from the configured
     /// [`qubit_progress::reporter::ProgressReporter`] are propagated to the
     /// caller.
-    fn call<C, R, E, I>(&self, tasks: I) -> Result<BatchCallResult<R, E>, BatchExecutionError<E>>
+    fn call<C, R, E, I>(
+        &self,
+        tasks: I,
+    ) -> Result<BatchCallResult<R, E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = C>,
         I::IntoIter: ExactSizeIterator,
@@ -184,7 +204,9 @@ pub trait BatchExecutor: Send + Sync {
         // still executed later by `CallableTask::run`.
         let runnable_tasks = tasks.into_iter().enumerate().map({
             let outputs = Arc::clone(&outputs);
-            move |(index, callable)| CallableTask::new(callable, index, Arc::clone(&outputs))
+            move |(index, callable)| {
+                CallableTask::new(callable, index, Arc::clone(&outputs))
+            }
         });
         let outcome = self.execute_with_count(runnable_tasks, count)?;
         let values = collect_call_outputs(outputs, count);
@@ -277,10 +299,15 @@ pub trait BatchExecutor: Send + Sync {
 ///
 /// Panics if callable wrappers still hold references to `outputs`, or if a
 /// queued output index is outside the declared batch size.
-fn collect_call_outputs<R>(outputs: Arc<SegQueue<(usize, R)>>, count: usize) -> Vec<Option<R>> {
+fn collect_call_outputs<R>(
+    outputs: Arc<SegQueue<(usize, R)>>,
+    count: usize,
+) -> Vec<Option<R>> {
     let outputs = match Arc::try_unwrap(outputs) {
         Ok(outputs) => outputs,
-        Err(_) => panic!("callable output queue should have a single owner after execution"),
+        Err(_) => panic!(
+            "callable output queue should have a single owner after execution"
+        ),
     };
     let mut values = Vec::with_capacity(count);
     values.resize_with(count, || None);

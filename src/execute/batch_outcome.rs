@@ -5,11 +5,18 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{fmt, time::Duration};
+use std::{
+    fmt,
+    time::Duration,
+};
 
 use qubit_progress::model::ProgressCounter;
 
-use crate::{BatchOutcomeBuilder, BatchTaskFailure};
+use crate::{
+    BatchOutcomeBuilder,
+    BatchTaskFailure,
+    BatchTermination,
+};
 
 use super::EXECUTION_PROGRESS_METRIC_ID;
 
@@ -56,6 +63,8 @@ pub struct BatchOutcome<E> {
     failed_count: usize,
     /// Number of tasks that panicked.
     panicked_count: usize,
+    /// How execution stopped consuming the task source.
+    termination: BatchTermination,
     /// Total monotonic elapsed duration for the batch.
     elapsed: Duration,
     /// Detailed failure records sorted by task index.
@@ -80,6 +89,7 @@ impl<E> BatchOutcome<E> {
             succeeded_count: builder.succeeded_count,
             failed_count: builder.failed_count,
             panicked_count: builder.panicked_count,
+            termination: builder.termination,
             elapsed: builder.elapsed,
             failures: builder.failures,
         }
@@ -133,6 +143,18 @@ impl<E> BatchOutcome<E> {
     #[inline]
     pub const fn panicked_count(&self) -> usize {
         self.panicked_count
+    }
+
+    /// Returns how execution stopped consuming the task source.
+    ///
+    /// # Returns
+    ///
+    /// [`BatchTermination::StoppedByTaskFailurePolicy`] when the configured
+    /// sequential failure policy left source items unconsumed; otherwise
+    /// [`BatchTermination::Finished`].
+    #[inline]
+    pub const fn termination(&self) -> BatchTermination {
+        self.termination
     }
 
     /// Returns the total number of task failures.
@@ -222,12 +244,13 @@ impl<E> fmt::Display for BatchOutcome<E> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             formatter,
-            "BatchOutcome {{ task_count: {}, completed_count: {}, succeeded_count: {}, failed_count: {}, panicked_count: {}, elapsed: {:?} }}",
+            "BatchOutcome {{ task_count: {}, completed_count: {}, succeeded_count: {}, failed_count: {}, panicked_count: {}, termination: {:?}, elapsed: {:?} }}",
             self.task_count(),
             self.completed_count(),
             self.succeeded_count(),
             self.failed_count(),
             self.panicked_count(),
+            self.termination(),
             self.elapsed(),
         )
     }

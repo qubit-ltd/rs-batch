@@ -4,8 +4,8 @@
 [![Coverage](https://img.shields.io/endpoint?url=https://qubit-ltd.github.io/rs-batch/coverage-badge.json)](https://qubit-ltd.github.io/rs-batch/coverage/)
 [![Crates.io](https://img.shields.io/crates/v/qubit-batch.svg?color=blue)](https://crates.io/crates/qubit-batch)
 [![Rust](https://img.shields.io/badge/rust-1.94+-blue.svg?logo=rust)](https://www.rust-lang.org)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE)
+[![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](https://github.com/qubit-ltd/rs-batch/blob/main/README.zh_CN.md)
 
 One-shot batch execution and processing utilities for the Qubit Rust libraries.
 
@@ -36,9 +36,10 @@ consumes the supplied iterator once and returns a structured result.
 - `BatchExecutionError` is a batch contract error. It means the iterator count
   did not match the explicitly declared count, and it carries the partial
   `BatchOutcome`.
-- `SequentialBatchExecutor` runs tasks in iterator order on the caller thread.
-  It stops after the first task error or captured panic by default; configure
-  `TaskFailurePolicy::Continue` or `StopAfterFailures(...)` when needed.
+- `SequentialBatchExecutor` runs tasks in iterator order on the caller thread
+  and continues through task errors and captured panics by default. Configure
+  `TaskFailurePolicy::StopOnFirstFailure` or `StopAfterFailures(...)` when
+  early termination is required.
 - `ParallelBatchExecutor` runs tasks on fixed-width scoped standard threads.
 - `BatchProcessor` processes data items directly instead of wrapping them as
   tasks.
@@ -276,13 +277,14 @@ use qubit_batch::{
 use qubit_progress::{
     ProgressEvent,
     ProgressPhase,
+    ProgressReportError,
     ProgressReporter,
 };
 
 struct ConsoleReporter;
 
 impl ProgressReporter for ConsoleReporter {
-    fn report(&self, event: &ProgressEvent) {
+    fn report(&self, event: &ProgressEvent) -> Result<(), ProgressReportError> {
         let counter = event
             .counter("tasks")
             .expect("batch progress events contain task counters");
@@ -302,6 +304,7 @@ impl ProgressReporter for ConsoleReporter {
                 event.elapsed(),
             ),
         }
+        Ok(())
     }
 }
 
@@ -360,19 +363,24 @@ match error {
         expected,
         actual,
         outcome,
+        ..
     } => {
         assert_eq!(expected, 3);
         assert_eq!(actual, 2);
         assert_eq!(outcome.completed_count(), 2);
     }
     BatchExecutionError::CountExceeded { .. } => unreachable!(),
+    other => panic!("unexpected error: {other:?}"),
 }
 ```
 
 Important result semantics:
 
-- `Ok(BatchOutcome)` does not mean every task succeeded. It means the
-  supplied iterator matched the declared count.
+- `Ok(BatchOutcome)` does not mean every task succeeded. It normally means the
+  supplied iterator matched the declared count. When an explicitly configured
+  task-failure policy stops sequential execution early, inspect
+  `result.termination()`; remaining source items were not consumed and the
+  declared count was not fully validated.
 - `result.is_success()` means all declared tasks completed without task errors
   or panics.
 - `Err(BatchExecutionError)` means the iterator produced fewer or more items
@@ -452,13 +460,13 @@ tests when behavior changes, and update this README or rustdoc when public API
 or user-visible behavior changes.
 
 By contributing, you agree that your contribution is licensed under the same
-[Apache License, Version 2.0](LICENSE) as this project.
+[Apache License, Version 2.0](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE) as this project.
 
 ## License and Copyright
 
 Copyright (c) 2026. Haixing Hu.
 
-This software is licensed under the [Apache License, Version 2.0](LICENSE).
+This software is licensed under the [Apache License, Version 2.0](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE).
 
 ## Author and Maintenance
 

@@ -4,8 +4,8 @@
 [![Coverage](https://img.shields.io/endpoint?url=https://qubit-ltd.github.io/rs-batch/coverage-badge.json)](https://qubit-ltd.github.io/rs-batch/coverage/)
 [![Crates.io](https://img.shields.io/crates/v/qubit-batch.svg?color=blue)](https://crates.io/crates/qubit-batch)
 [![Rust](https://img.shields.io/badge/rust-1.94+-blue.svg?logo=rust)](https://www.rust-lang.org)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![English Documentation](https://img.shields.io/badge/docs-English-blue.svg)](README.md)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE)
+[![English Documentation](https://img.shields.io/badge/docs-English-blue.svg)](https://github.com/qubit-ltd/rs-batch/blob/main/README.md)
 
 面向 Qubit Rust 库的一次性批量执行与批量处理工具 crate。
 
@@ -32,9 +32,9 @@
 - `BatchOutcome` 是执行结果，包含任务计数、耗时和带下标的 `BatchTaskFailure`。
 - `BatchExecutionError` 是批次契约错误，表示迭代器产出数量与显式声明数量不匹配，
   并携带部分 `BatchOutcome`。
-- `SequentialBatchExecutor` 在调用线程中按迭代器顺序执行任务，默认在第一个任务
-  错误或捕获到的 panic 后停止；可按需配置 `TaskFailurePolicy::Continue` 或
-  `StopAfterFailures(...)`。
+- `SequentialBatchExecutor` 在调用线程中按迭代器顺序执行任务，默认会继续处理
+  任务错误和捕获到的 panic；需要提前停止时可配置
+  `TaskFailurePolicy::StopOnFirstFailure` 或 `StopAfterFailures(...)`。
 - `ParallelBatchExecutor` 使用固定宽度的 scoped 标准线程执行任务。
 - `BatchProcessor` 直接处理数据项，不要求先把数据项包装为任务。
 - `SequentialBatchProcessor` 和 `ParallelBatchProcessor` 对每个数据项调用一个
@@ -264,13 +264,14 @@ use qubit_batch::{
 use qubit_progress::{
     ProgressEvent,
     ProgressPhase,
+    ProgressReportError,
     ProgressReporter,
 };
 
 struct ConsoleReporter;
 
 impl ProgressReporter for ConsoleReporter {
-    fn report(&self, event: &ProgressEvent) {
+    fn report(&self, event: &ProgressEvent) -> Result<(), ProgressReportError> {
         let counter = event
             .counter("tasks")
             .expect("batch progress events contain task counters");
@@ -290,6 +291,7 @@ impl ProgressReporter for ConsoleReporter {
                 event.elapsed(),
             ),
         }
+        Ok(())
     }
 }
 
@@ -341,19 +343,22 @@ match error {
         expected,
         actual,
         outcome,
+        ..
     } => {
         assert_eq!(expected, 3);
         assert_eq!(actual, 2);
         assert_eq!(outcome.completed_count(), 2);
     }
     BatchExecutionError::CountExceeded { .. } => unreachable!(),
+    other => panic!("unexpected error: {other:?}"),
 }
 ```
 
 需要特别注意结果语义：
 
-- `Ok(BatchOutcome)` 不代表所有任务都成功，只代表迭代器实际产出数量
-  与声明数量一致。
+- `Ok(BatchOutcome)` 不代表所有任务都成功；通常表示迭代器实际产出数量
+  与声明数量一致。如果显式配置的任务失败策略让顺序执行提前停止，请检查
+  `result.termination()`；此时剩余任务源不会被消费，声明数量也尚未完全验证。
 - `result.is_success()` 表示所有声明任务都完成，并且没有任务错误或 panic。
 - `Err(BatchExecutionError)` 表示迭代器产出数量少于或多于声明数量，并携带部分
   `BatchOutcome`。
@@ -421,14 +426,14 @@ cargo clippy --all-targets -- -D warnings
 欢迎通过 Issue 与 Pull Request 参与本仓库。建议单次变更聚焦一个主题；修改行为时
 补充或更新测试；影响公开 API 或用户可见行为时，同步更新本文档或 rustdoc。
 
-向本仓库贡献内容即表示您同意以 [Apache License, Version 2.0](LICENSE)（与本项目相同）
+向本仓库贡献内容即表示您同意以 [Apache License, Version 2.0](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE)（与本项目相同）
 授权您的贡献。
 
 ## 许可证与版权
 
 Copyright (c) 2026. Haixing Hu.
 
-本软件依据 [Apache License, Version 2.0](LICENSE) 授权；完整许可文本见仓库根目录的
+本软件依据 [Apache License, Version 2.0](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE) 授权；完整许可文本见仓库根目录的
 `LICENSE` 文件。
 
 ## 作者与维护

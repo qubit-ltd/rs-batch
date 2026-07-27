@@ -9,21 +9,37 @@
 
 use std::{
     fmt,
-    panic::{AssertUnwindSafe, catch_unwind},
+    panic::{
+        AssertUnwindSafe,
+        catch_unwind,
+    },
     sync::Arc,
     thread,
     time::Duration,
 };
 
-use qubit_atomic::{ArcAtomic, ArcAtomicCount, AtomicCount};
+use qubit_atomic::{
+    ArcAtomic,
+    ArcAtomicCount,
+    AtomicCount,
+};
 use qubit_batch::{
-    BatchExecutionError, BatchExecutor, ParallelBatchExecutor, ParallelBatchExecutorBuildError,
+    BatchExecutionError,
+    BatchExecutor,
+    ParallelBatchExecutor,
+    ParallelBatchExecutorBuildError,
 };
 use qubit_function::Runnable;
+use qubit_progress::ProgressPhase;
 
 use crate::support::{
-    PanickingProgressReporter, ProgressEvent, ProgressPanicPhase, RecordingProgressReporter,
-    TestTask, panic_payload_message,
+    PanickingProgressReporter,
+    PhaseRecordingProgressReporter,
+    ProgressEvent,
+    ProgressPanicPhase,
+    RecordingProgressReporter,
+    TestTask,
+    panic_payload_message,
 };
 
 #[test]
@@ -37,7 +53,8 @@ fn test_parallel_batch_executor_builds_default_and_custom_config() {
         default_executor.sequential_threshold(),
         ParallelBatchExecutor::DEFAULT_SEQUENTIAL_THRESHOLD
     );
-    let new_executor = ParallelBatchExecutor::new(2).expect("executor should build");
+    let new_executor =
+        ParallelBatchExecutor::new(2).expect("executor should build");
     assert_eq!(new_executor.thread_count(), 2);
 
     let executor = ParallelBatchExecutor::builder()
@@ -169,6 +186,25 @@ fn test_parallel_batch_executor_collects_failures_and_panics() {
         result.failures()[1].error().panic_message(),
         Some("panic in parallel batch")
     );
+}
+
+#[test]
+fn test_parallel_batch_executor_reports_failed_terminal_phase_for_task_failures()
+ {
+    let reporter = Arc::new(PhaseRecordingProgressReporter::new());
+    let executor = ParallelBatchExecutor::builder()
+        .thread_count(2)
+        .sequential_threshold(1)
+        .reporter_arc(reporter.clone())
+        .build()
+        .expect("parallel executor should build");
+
+    let outcome = executor
+        .execute_with_count([TestTask::succeed(), TestTask::fail("failed")], 2)
+        .expect("task failure should remain in the outcome");
+
+    assert_eq!(outcome.failed_count(), 1);
+    assert_eq!(reporter.phases().last(), Some(&ProgressPhase::Failed));
 }
 
 #[test]
@@ -317,8 +353,10 @@ fn test_parallel_batch_executor_propagates_progress_reporter_finish_panic() {
         .expect("parallel executor should build");
     let tasks = vec![TestTask::succeed()];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
-        .expect_err("progress reporter finish panic should be propagated");
+    let payload = catch_unwind(AssertUnwindSafe(|| {
+        executor.execute_with_count(tasks, 1)
+    }))
+    .expect_err("progress reporter finish panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }
@@ -341,8 +379,10 @@ fn test_parallel_batch_executor_propagates_progress_reporter_process_panic() {
         TestTask::sleep_success(Duration::from_millis(50)),
     ];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 2)))
-        .expect_err("progress reporter process panic should be propagated");
+    let payload = catch_unwind(AssertUnwindSafe(|| {
+        executor.execute_with_count(tasks, 2)
+    }))
+    .expect_err("progress reporter process panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }

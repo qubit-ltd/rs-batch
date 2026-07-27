@@ -19,11 +19,11 @@ use std::num::NonZeroUsize;
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub enum TaskFailurePolicy {
-    /// Stops after the first task error or captured task panic.
-    #[default]
-    StopOnFirstFailure,
     /// Continues through every task and collects all task failures.
+    #[default]
     Continue,
+    /// Stops after the first task error or captured task panic.
+    StopOnFirstFailure,
     /// Stops after the configured number of task failures.
     StopAfterFailures(NonZeroUsize),
 }
