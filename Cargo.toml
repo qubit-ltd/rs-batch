@@ -24,6 +24,7 @@ include = [
     "/resources/**",
     "/src/**",
     "/tests/**",
+    "/benches/**",
 ]
 
 [lib]
@@ -37,3 +38,10 @@ thiserror = "2.0"
 qubit-atomic = "0.13"
 qubit-function = "0.16"
 qubit-progress = { version = "0.6", path = "../rs-progress", default-features = false }
+
+[dev-dependencies]
+criterion = { version = "0.8.2", default-features = false }
+
+[[bench]]
+name = "batch_executor_bench"
+harness = false
