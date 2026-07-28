@@ -22,15 +22,15 @@ use qubit_batch::{
 };
 
 use crate::support::{
-    FailingProgressReporter,
+    FailingReporter,
     ProgressEvent,
-    RecordingProgressReporter,
+    RecordingReporter,
 };
 
 #[test]
 fn test_sequential_batch_processor_returns_progress_report_error() {
     let mut processor = SequentialBatchProcessor::builder(|_item: &i32| {})
-        .reporter(FailingProgressReporter::after_successes(1))
+        .reporter(FailingReporter::after_successes(1))
         .build();
 
     let error = processor
@@ -67,7 +67,7 @@ fn test_sequential_batch_processor_consumer_accessors() {
 #[test]
 fn test_sequential_batch_processor_accessors_and_value_reporter() {
     let processor = SequentialBatchProcessor::builder(|_item: &i32| {})
-        .reporter(RecordingProgressReporter::new())
+        .reporter(RecordingReporter::new())
         .report_interval(Duration::from_millis(25))
         .build();
     let no_reporter_processor =
@@ -109,7 +109,7 @@ fn test_sequential_batch_processor_processes_items_in_order() {
 
 #[test]
 fn test_sequential_batch_processor_reports_progress() {
-    let reporter = Arc::new(RecordingProgressReporter::new());
+    let reporter = Arc::new(RecordingReporter::new());
     let mut processor = SequentialBatchProcessor::builder(|_item: &i32| {
         std::thread::sleep(Duration::from_millis(2));
     })
@@ -143,7 +143,7 @@ fn test_sequential_batch_processor_reports_progress() {
 
 #[test]
 fn test_sequential_batch_processor_reports_progress_with_zero_interval() {
-    let reporter = Arc::new(RecordingProgressReporter::new());
+    let reporter = Arc::new(RecordingReporter::new());
     let mut processor = SequentialBatchProcessor::builder(|_item: &i32| {})
         .reporter_arc(reporter.clone())
         .report_interval(Duration::ZERO)

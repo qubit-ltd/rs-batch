@@ -70,7 +70,7 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// Panics from individual tasks are captured in [`BatchOutcome`].
     /// Panics from the configured
-    /// [`qubit_progress::reporter::ProgressReporter`] are propagated to the
+    /// [`qubit_progress::Reporter`] are propagated to the
     /// caller.
     fn execute<T, E, I>(
         &self,
@@ -112,7 +112,7 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// Panics from individual tasks are captured in [`BatchOutcome`].
     /// Panics from the configured
-    /// [`qubit_progress::reporter::ProgressReporter`] are propagated to the
+    /// [`qubit_progress::Reporter`] are propagated to the
     /// caller.
     fn execute_with_count<T, E, I>(
         &self,
@@ -145,7 +145,7 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// Panics from individual callables are captured in the execution result.
     /// Panics from the configured
-    /// [`qubit_progress::reporter::ProgressReporter`] are propagated to the
+    /// [`qubit_progress::Reporter`] are propagated to the
     /// caller.
     fn call<C, R, E, I>(
         &self,
@@ -185,7 +185,7 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// Panics from individual callables are captured in the execution result.
     /// Panics from the configured
-    /// [`qubit_progress::reporter::ProgressReporter`] are propagated to the
+    /// [`qubit_progress::Reporter`] are propagated to the
     /// caller.
     fn call_with_count<C, R, E, I>(
         &self,

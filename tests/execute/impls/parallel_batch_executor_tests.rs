@@ -30,14 +30,14 @@ use qubit_batch::{
     ParallelBatchExecutorBuildError,
 };
 use qubit_function::Runnable;
-use qubit_progress::ProgressPhase;
+use qubit_progress::Phase;
 
 use crate::support::{
-    PanickingProgressReporter,
-    PhaseRecordingProgressReporter,
+    PanickingReporter,
+    PhaseRecordingReporter,
     ProgressEvent,
     ProgressPanicPhase,
-    RecordingProgressReporter,
+    RecordingReporter,
     TestTask,
     panic_payload_message,
 };
@@ -191,7 +191,7 @@ fn test_parallel_batch_executor_collects_failures_and_panics() {
 #[test]
 fn test_parallel_batch_executor_reports_failed_terminal_phase_for_task_failures()
  {
-    let reporter = Arc::new(PhaseRecordingProgressReporter::new());
+    let reporter = Arc::new(PhaseRecordingReporter::new());
     let executor = ParallelBatchExecutor::builder()
         .thread_count(2)
         .sequential_threshold(1)
@@ -204,7 +204,7 @@ fn test_parallel_batch_executor_reports_failed_terminal_phase_for_task_failures(
         .expect("task failure should remain in the outcome");
 
     assert_eq!(outcome.failed_count(), 1);
-    assert_eq!(reporter.phases().last(), Some(&ProgressPhase::Failed));
+    assert_eq!(reporter.phases().last(), Some(&Phase::Failed));
 }
 
 #[test]
@@ -269,7 +269,7 @@ fn test_parallel_batch_executor_reports_count_exceeded() {
 
 #[test]
 fn test_parallel_batch_executor_reports_progress() {
-    let reporter = Arc::new(RecordingProgressReporter::new());
+    let reporter = Arc::new(RecordingReporter::new());
     let executor = ParallelBatchExecutor::builder()
         .thread_count(2)
         .sequential_threshold(1)
@@ -309,7 +309,7 @@ fn test_parallel_batch_executor_reports_progress() {
 
 #[test]
 fn test_parallel_batch_executor_reports_progress_with_zero_interval() {
-    let reporter = Arc::new(RecordingProgressReporter::new());
+    let reporter = Arc::new(RecordingReporter::new());
     let executor = ParallelBatchExecutor::builder()
         .thread_count(2)
         .sequential_threshold(0)
@@ -345,7 +345,7 @@ fn test_parallel_batch_executor_propagates_progress_reporter_finish_panic() {
     let executor = ParallelBatchExecutor::builder()
         .thread_count(2)
         .sequential_threshold(0)
-        .reporter(PanickingProgressReporter::new(
+        .reporter(PanickingReporter::new(
             ProgressPanicPhase::Finish,
             PANIC_MESSAGE,
         ))
@@ -368,7 +368,7 @@ fn test_parallel_batch_executor_propagates_progress_reporter_process_panic() {
         .thread_count(2)
         .sequential_threshold(1)
         .report_interval(Duration::from_millis(1))
-        .reporter(PanickingProgressReporter::new(
+        .reporter(PanickingReporter::new(
             ProgressPanicPhase::Process,
             PANIC_MESSAGE,
         ))

@@ -17,11 +17,10 @@ use qubit_function::{
     Consumer,
 };
 use qubit_progress::{
+    Metric,
     Progress,
-    reporter::{
-        ProgressReportError,
-        ProgressReporter,
-    },
+    ProgressError,
+    reporter::Reporter,
 };
 
 use crate::process::{
@@ -93,7 +92,7 @@ pub struct ParallelBatchProcessor<Item> {
     /// Minimum interval between progress callbacks.
     pub(crate) report_interval: Duration,
     /// Reporter receiving batch lifecycle callbacks.
-    pub(crate) reporter: Arc<dyn ProgressReporter>,
+    pub(crate) reporter: Arc<dyn Reporter>,
 }
 
 impl<Item> ParallelBatchProcessor<Item> {
@@ -188,7 +187,7 @@ impl<Item> ParallelBatchProcessor<Item> {
     ///
     /// A shared reference to the configured progress reporter.
     #[inline]
-    pub fn reporter(&self) -> &Arc<dyn ProgressReporter> {
+    pub fn reporter(&self) -> &Arc<dyn Reporter> {
         &self.reporter
     }
 
@@ -251,20 +250,25 @@ where
         I: IntoIterator<Item = Item>,
     {
         let state = Arc::new(BatchProcessState::new(count));
-        let mut progress = Progress::single_metric(
-            self.reporter.as_ref(),
-            self.report_interval,
-            PROCESS_PROGRESS_METRIC_ID,
-            PROCESS_PROGRESS_METRIC_NAME,
-        );
-        if let Err(source) = progress
-            .report_started(|event| event.counters(state.progress_counters()))
+        let mut progress = match Progress::builder(self.reporter.as_ref())
+            .interval(self.report_interval)
+            .metric(
+                Metric::new(
+                    PROCESS_PROGRESS_METRIC_ID,
+                    PROCESS_PROGRESS_METRIC_NAME,
+                )
+                .total(count as u64),
+            )
+            .start()
         {
-            return Err(BatchProcessError::ProgressReport {
-                source,
-                result: state.to_direct_result(Duration::ZERO),
-            });
-        }
+            Ok(progress) => progress,
+            Err(source) => {
+                return Err(BatchProcessError::ProgressReport {
+                    source,
+                    result: state.to_direct_result(Duration::ZERO),
+                });
+            }
+        };
 
         let running_result = if count > 0 {
             if count <= self.sequential_threshold
@@ -281,7 +285,7 @@ where
                     items,
                     count,
                     Arc::clone(&state),
-                    &progress,
+                    &mut progress,
                 )
             }
         } else if items.into_iter().next().is_some() {
@@ -299,13 +303,15 @@ where
         }
 
         if state.observed_count() < count {
-            let (elapsed, report_error) =
-                match progress.report_failed(|event| {
-                    event.counters(state.progress_counters())
-                }) {
-                    Ok(event) => (event.elapsed(), None),
-                    Err(source) => (progress.elapsed(), Some(source)),
-                };
+            let (elapsed, report_error) = match progress.fail(|snapshot| {
+                state.configure_progress(snapshot);
+            }) {
+                Ok(elapsed) => (elapsed, None),
+                Err(source) => {
+                    let elapsed = source.elapsed();
+                    (elapsed, Some(source.into_progress_error()))
+                }
+            };
             let result = state.to_direct_result(elapsed);
             Err(BatchProcessError::CountShortfall {
                 expected: count,
@@ -314,13 +320,15 @@ where
                 report_error,
             })
         } else if state.observed_count() > count {
-            let (elapsed, report_error) =
-                match progress.report_failed(|event| {
-                    event.counters(state.progress_counters())
-                }) {
-                    Ok(event) => (event.elapsed(), None),
-                    Err(source) => (progress.elapsed(), Some(source)),
-                };
+            let (elapsed, report_error) = match progress.fail(|snapshot| {
+                state.configure_progress(snapshot);
+            }) {
+                Ok(elapsed) => (elapsed, None),
+                Err(source) => {
+                    let elapsed = source.elapsed();
+                    (elapsed, Some(source.into_progress_error()))
+                }
+            };
             let result = state.to_direct_result(elapsed);
             Err(BatchProcessError::CountExceeded {
                 expected: count,
@@ -329,18 +337,19 @@ where
                 report_error,
             })
         } else {
-            let finished = match progress.report_finished(|event| {
-                event.counters(state.progress_counters())
+            let finished = match progress.finish(|snapshot| {
+                state.configure_progress(snapshot);
             }) {
-                Ok(event) => event,
+                Ok(elapsed) => elapsed,
                 Err(source) => {
+                    let elapsed = source.elapsed();
                     return Err(BatchProcessError::ProgressReport {
-                        source,
-                        result: state.to_direct_result(progress.elapsed()),
+                        source: source.into_progress_error(),
+                        result: state.to_direct_result(elapsed),
                     });
                 }
             };
-            let result = state.to_direct_result(finished.elapsed());
+            let result = state.to_direct_result(finished);
             Ok(result)
         }
     }
@@ -368,7 +377,7 @@ where
         count: usize,
         state: &BatchProcessState,
         progress: &mut Progress<'_>,
-    ) -> Result<(), ProgressReportError>
+    ) -> Result<(), ProgressError>
     where
         I: IntoIterator<Item = Item>,
     {
@@ -380,8 +389,8 @@ where
             state.record_item_started();
             self.consumer.accept(&item);
             state.record_item_processed();
-            progress.report_running_if_due(|event| {
-                event.counters(state.progress_counters())
+            progress.report_if_due(|snapshot| {
+                state.configure_progress(snapshot);
             })?;
         }
         Ok(())
@@ -404,18 +413,18 @@ where
         items: I,
         count: usize,
         state: Arc<BatchProcessState>,
-        progress: &Progress<'_>,
-    ) -> Result<(), ProgressReportError>
+        progress: &mut Progress<'_>,
+    ) -> Result<(), ProgressError>
     where
         I: IntoIterator<Item = Item>,
     {
         thread::scope(|scope| {
             let reporter_state = Arc::clone(&state);
-            let running_progress = progress
-                .spawn_running_reporter(scope, move || {
-                    reporter_state.progress_counters()
+            let running_progress =
+                progress.spawn_auto_reporter(scope, move |snapshot| {
+                    reporter_state.configure_progress(snapshot);
                 });
-            let running_point_handle = running_progress.point_handle();
+            let running_point_handle = running_progress.notifier();
 
             let worker_count = self.thread_count.get().min(count);
             let observer_state = Arc::clone(&state);
@@ -431,10 +440,10 @@ where
                     worker_state.record_item_started();
                     consumer.accept(&item);
                     worker_state.record_item_processed();
-                    running_point_handle.report();
+                    running_point_handle.notify();
                 },
             );
-            running_progress.stop_and_join()
+            running_progress.stop()
         })
     }
 }

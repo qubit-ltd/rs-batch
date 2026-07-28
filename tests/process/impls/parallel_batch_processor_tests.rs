@@ -36,7 +36,7 @@ use qubit_function::Consumer;
 
 use crate::support::{
     ProgressEvent,
-    RecordingProgressReporter,
+    RecordingReporter,
     panic_payload_message,
 };
 
@@ -66,7 +66,7 @@ fn test_parallel_batch_processor_consumer_accessors() {
 #[test]
 fn test_parallel_batch_processor_accessors_and_value_reporter() {
     let processor = ParallelBatchProcessor::builder(|_item: &i32| {})
-        .reporter(RecordingProgressReporter::new())
+        .reporter(RecordingReporter::new())
         .sequential_threshold(7)
         .report_interval(Duration::from_millis(25))
         .build()
@@ -141,7 +141,7 @@ fn test_parallel_batch_processor_processes_items() {
 
 #[test]
 fn test_parallel_batch_processor_reports_progress() {
-    let reporter = Arc::new(RecordingProgressReporter::new());
+    let reporter = Arc::new(RecordingReporter::new());
     let mut processor = ParallelBatchProcessor::builder(|_item: &i32| {
         thread::sleep(Duration::from_millis(20));
     })
@@ -181,7 +181,7 @@ fn test_parallel_batch_processor_reports_progress() {
 
 #[test]
 fn test_parallel_batch_processor_reports_progress_with_zero_interval() {
-    let reporter = Arc::new(RecordingProgressReporter::new());
+    let reporter = Arc::new(RecordingReporter::new());
     let mut processor = ParallelBatchProcessor::builder(|_item: &i32| {})
         .thread_count(2)
         .sequential_threshold(0)
@@ -209,7 +209,7 @@ fn test_parallel_batch_processor_reports_progress_with_zero_interval() {
 #[test]
 fn test_parallel_batch_processor_reports_sequential_progress_with_zero_interval()
  {
-    let reporter = Arc::new(RecordingProgressReporter::new());
+    let reporter = Arc::new(RecordingReporter::new());
     let mut processor = ParallelBatchProcessor::builder(|_item: &i32| {})
         .thread_count(2)
         .sequential_threshold(3)

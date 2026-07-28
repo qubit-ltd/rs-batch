@@ -26,11 +26,11 @@ use qubit_batch::{
 use qubit_function::Runnable;
 
 use crate::support::{
-    FailingProgressReporter,
-    PanickingProgressReporter,
+    FailingReporter,
+    PanickingReporter,
     ProgressEvent,
     ProgressPanicPhase,
-    RecordingProgressReporter,
+    RecordingReporter,
     TestTask,
     panic_payload_message,
 };
@@ -38,7 +38,7 @@ use crate::support::{
 #[test]
 fn test_sequential_batch_executor_returns_progress_report_error() {
     let executor = SequentialBatchExecutor::builder()
-        .reporter(FailingProgressReporter::after_successes(1))
+        .reporter(FailingReporter::after_successes(1))
         .build();
 
     let error = executor
@@ -53,7 +53,7 @@ fn test_sequential_batch_executor_returns_progress_report_error() {
 fn test_sequential_batch_executor_preserves_count_error_when_failure_report_fails()
  {
     let executor = SequentialBatchExecutor::builder()
-        .reporter(FailingProgressReporter::after_successes(1))
+        .reporter(FailingReporter::after_successes(1))
         .build();
 
     let error = executor
@@ -110,7 +110,7 @@ fn test_sequential_batch_executor_accepts_non_debug_errors() {
 #[test]
 fn test_sequential_batch_executor_accessors_and_value_reporter() {
     let executor = SequentialBatchExecutor::builder()
-        .reporter(RecordingProgressReporter::new())
+        .reporter(RecordingReporter::new())
         .report_interval(Duration::from_millis(25))
         .build();
     let no_reporter_executor =
@@ -213,7 +213,7 @@ fn test_sequential_batch_executor_reports_count_exceeded() {
 
 #[test]
 fn test_sequential_batch_executor_reports_progress() {
-    let reporter = Arc::new(RecordingProgressReporter::new());
+    let reporter = Arc::new(RecordingReporter::new());
     let executor = SequentialBatchExecutor::builder()
         .reporter_arc(reporter.clone())
         .report_interval(Duration::from_millis(10))
@@ -251,7 +251,7 @@ fn test_sequential_batch_executor_reports_progress() {
 
 #[test]
 fn test_sequential_batch_executor_reports_progress_with_zero_interval() {
-    let reporter = Arc::new(RecordingProgressReporter::new());
+    let reporter = Arc::new(RecordingReporter::new());
     let executor = SequentialBatchExecutor::builder()
         .reporter_arc(reporter.clone())
         .report_interval(Duration::ZERO)
@@ -279,7 +279,7 @@ fn test_sequential_batch_executor_reports_progress_with_zero_interval() {
 fn test_sequential_batch_executor_propagates_progress_reporter_start_panic() {
     const PANIC_MESSAGE: &str = "progress reporter start panic";
     let executor = SequentialBatchExecutor::builder()
-        .reporter(PanickingProgressReporter::new(
+        .reporter(PanickingReporter::new(
             ProgressPanicPhase::Start,
             PANIC_MESSAGE,
         ))
@@ -298,7 +298,7 @@ fn test_sequential_batch_executor_propagates_progress_reporter_start_panic() {
 fn test_sequential_batch_executor_propagates_progress_reporter_process_panic() {
     const PANIC_MESSAGE: &str = "progress reporter process panic";
     let executor = SequentialBatchExecutor::builder()
-        .reporter(PanickingProgressReporter::new(
+        .reporter(PanickingReporter::new(
             ProgressPanicPhase::Process,
             PANIC_MESSAGE,
         ))
@@ -318,7 +318,7 @@ fn test_sequential_batch_executor_propagates_progress_reporter_process_panic() {
 fn test_sequential_batch_executor_propagates_progress_reporter_finish_panic() {
     const PANIC_MESSAGE: &str = "progress reporter finish panic";
     let executor = SequentialBatchExecutor::builder()
-        .reporter(PanickingProgressReporter::new(
+        .reporter(PanickingReporter::new(
             ProgressPanicPhase::Finish,
             PANIC_MESSAGE,
         ))

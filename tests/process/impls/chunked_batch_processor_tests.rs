@@ -21,12 +21,12 @@ use qubit_batch::{
     ChunkedBatchProcessError,
     ChunkedBatchProcessor,
 };
-use qubit_progress::reporter::NoOpProgressReporter;
+use qubit_progress::reporter::NoopReporter;
 
 use crate::support::{
-    FailingProgressReporter,
+    FailingReporter,
     ProgressEvent,
-    RecordingProgressReporter,
+    RecordingReporter,
     TestChunkOutcome,
     TestChunkProcessor,
 };
@@ -37,7 +37,7 @@ fn test_chunked_batch_processor_returns_progress_report_error() {
         TestChunkProcessor::success(),
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
     )
-    .reporter(FailingProgressReporter::after_successes(1))
+    .reporter(FailingReporter::after_successes(1))
     .build();
 
     let error = processor
@@ -59,7 +59,7 @@ fn test_chunked_batch_processor_accessors_and_delegate_mutation() {
         delegate,
         NonZeroUsize::new(4).expect("chunk size is non-zero"),
     )
-    .reporter(NoOpProgressReporter)
+    .reporter(NoopReporter)
     .report_interval(Duration::from_millis(10))
     .build();
 
@@ -134,7 +134,7 @@ fn test_chunked_batch_processor_accepts_empty_input() {
 #[test]
 fn test_chunked_batch_processor_reports_progress() {
     let delegate = TestChunkProcessor::success();
-    let reporter = Arc::new(RecordingProgressReporter::new());
+    let reporter = Arc::new(RecordingReporter::new());
     let mut processor = ChunkedBatchProcessor::builder(
         delegate,
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
@@ -173,7 +173,7 @@ fn test_chunked_batch_processor_reports_progress() {
 #[test]
 fn test_chunked_batch_processor_skips_progress_before_interval() {
     let delegate = TestChunkProcessor::success();
-    let reporter = Arc::new(RecordingProgressReporter::new());
+    let reporter = Arc::new(RecordingReporter::new());
     let mut processor = ChunkedBatchProcessor::builder(
         delegate,
         NonZeroUsize::new(2).expect("chunk size is non-zero"),

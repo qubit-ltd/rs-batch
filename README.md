@@ -275,32 +275,32 @@ use qubit_batch::{
     SequentialBatchExecutor,
 };
 use qubit_progress::{
-    ProgressEvent,
-    ProgressPhase,
-    ProgressReportError,
-    ProgressReporter,
+    Event,
+    Phase,
+    ReportError,
+    Reporter,
 };
 
 struct ConsoleReporter;
 
-impl ProgressReporter for ConsoleReporter {
-    fn report(&self, event: &ProgressEvent) -> Result<(), ProgressReportError> {
+impl Reporter for ConsoleReporter {
+    fn report(&self, event: &Event) -> Result<(), ReportError> {
         let counter = event
-            .counter("tasks")
+            .metric("tasks")
             .expect("batch progress events contain task counters");
-        let total = counter.total_count().unwrap_or(counter.completed_count());
+        let total = counter.total().unwrap_or(counter.completed());
         match event.phase() {
-            ProgressPhase::Started => println!("starting {total} tasks"),
-            ProgressPhase::Running => println!(
+            Phase::Started => println!("starting {total} tasks"),
+            Phase::Running => println!(
                 "completed {}/{total}, active {}, elapsed {:?}",
-                counter.completed_count(),
-                counter.active_count(),
+                counter.completed(),
+                counter.active(),
                 event.elapsed(),
             ),
-            ProgressPhase::Finished => println!("finished {total} tasks in {:?}", event.elapsed()),
-            ProgressPhase::Failed | ProgressPhase::Canceled => println!(
+            Phase::Succeeded => println!("finished {total} tasks in {:?}", event.elapsed()),
+            Phase::Failed | Phase::Cancelled => println!(
                 "stopped after {}/{total} tasks in {:?}",
-                counter.completed_count(),
+                counter.completed(),
                 event.elapsed(),
             ),
         }
@@ -324,7 +324,7 @@ Panics from task bodies are captured as `BatchTaskError::Panicked`. Panics from
 processor consumers and progress reporters propagate to the caller because they
 are outside the task failure model. Sequential execution and processing report
 progress only between tasks or items; parallel variants use
-`Progress::spawn_running_reporter` to emit running progress periodically from a
+`Progress::spawn_auto_reporter` to emit running progress periodically from a
 scoped reporter thread.
 
 The configured `report_interval` is a throttle checked only at
@@ -405,7 +405,7 @@ Important result semantics:
 - `BatchCallResult::values()` stores `Some(value)` only for successful
   callables; failed and panicked callables have `None`.
 - `BatchProcessResult::processed_count()` is the delegate-reported success
-  count. It can differ from `completed_count()` for processors that report
+  count. It can differ from `completed()` for processors that report
   affected rows or similar target-side counts.
 - `ChunkedBatchProcessError<E>` carries the partial aggregate result for count
   mismatches and delegate failures.

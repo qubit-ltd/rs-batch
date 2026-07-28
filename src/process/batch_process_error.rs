@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use qubit_progress::ProgressReportError;
+use qubit_progress::ProgressError;
 use thiserror::Error;
 
 use super::BatchProcessResult;
@@ -46,7 +46,7 @@ pub enum BatchProcessError {
     ProgressReport {
         /// Reporter error returned by the configured progress sink.
         #[source]
-        source: ProgressReportError,
+        source: ProgressError,
         /// Result accumulated before reporting failed.
         result: BatchProcessResult,
     },
@@ -61,7 +61,7 @@ pub enum BatchProcessError {
         /// Result accumulated before the shortfall was reported.
         result: BatchProcessResult,
         /// Terminal progress-report error, when reporting the failure failed.
-        report_error: Option<ProgressReportError>,
+        report_error: Option<ProgressError>,
     },
 
     /// The input source yielded more items than the declared item count.
@@ -76,7 +76,7 @@ pub enum BatchProcessError {
         /// Result accumulated before the excess item was observed.
         result: BatchProcessResult,
         /// Terminal progress-report error, when reporting the failure failed.
-        report_error: Option<ProgressReportError>,
+        report_error: Option<ProgressError>,
     },
 }
 
@@ -115,7 +115,7 @@ impl BatchProcessError {
     ///
     /// The report error retained by a primary count-mismatch error, if any.
     #[inline]
-    pub const fn progress_report_error(&self) -> Option<&ProgressReportError> {
+    pub const fn progress_report_error(&self) -> Option<&ProgressError> {
         match self {
             Self::ProgressReport { source, .. } => Some(source),
             Self::CountShortfall { report_error, .. }
