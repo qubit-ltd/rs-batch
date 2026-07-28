@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use qubit_progress::ProgressReportError;
+use qubit_progress::ProgressError;
 use thiserror::Error;
 
 use crate::BatchOutcome;
@@ -51,7 +51,7 @@ pub enum BatchExecutionError<E> {
     ProgressReport {
         /// Reporter error returned by the configured progress sink.
         #[source]
-        source: ProgressReportError,
+        source: ProgressError,
         /// Outcome accumulated before reporting failed.
         outcome: BatchOutcome<E>,
     },
@@ -67,7 +67,7 @@ pub enum BatchExecutionError<E> {
         outcome: BatchOutcome<E>,
         /// Additional progress-reporting error observed while reporting this
         /// primary count error.
-        report_error: Option<Box<ProgressReportError>>,
+        report_error: Option<Box<ProgressError>>,
     },
 
     /// The task source yielded more tasks than the declared task count.
@@ -84,7 +84,7 @@ pub enum BatchExecutionError<E> {
         outcome: BatchOutcome<E>,
         /// Additional progress-reporting error observed while reporting this
         /// primary count error.
-        report_error: Option<Box<ProgressReportError>>,
+        report_error: Option<Box<ProgressError>>,
     },
 }
 
@@ -145,7 +145,7 @@ impl<E> BatchExecutionError<E> {
     /// error attached to a primary count error, or `None` when reporting did
     /// not fail.
     #[inline]
-    pub fn progress_report_error(&self) -> Option<&ProgressReportError> {
+    pub fn progress_report_error(&self) -> Option<&ProgressError> {
         match self {
             Self::ProgressReport { source, .. } => Some(source),
             Self::CountShortfall { report_error, .. }

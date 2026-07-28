@@ -19,7 +19,7 @@ use std::{
 
 use qubit_atomic::AtomicCount;
 use qubit_function::Runnable;
-use qubit_progress::model::ProgressCounter;
+use qubit_progress::Snapshot;
 
 use crate::{
     BatchExecutionStateError,
@@ -217,21 +217,16 @@ impl<E> BatchExecutionState<E> {
             .saturating_add(self.panicked_count.get())
     }
 
-    /// Returns progress counters for this execution state.
-    ///
-    /// # Returns
-    ///
-    /// A single task counter suitable for progress reporting.
+    /// Configures dynamic task counts for one progress snapshot.
     #[inline]
-    pub fn progress_counters(&self) -> Vec<ProgressCounter> {
-        vec![
-            ProgressCounter::new(EXECUTION_PROGRESS_METRIC_ID)
-                .total(self.task_count as u64)
+    pub fn configure_progress(&self, snapshot: &mut Snapshot) {
+        snapshot.metric(EXECUTION_PROGRESS_METRIC_ID, |counts| {
+            counts
                 .active(self.active_count.get() as u64)
                 .completed(self.completed_count.get() as u64)
                 .succeeded(self.succeeded_count.get() as u64)
-                .failed(self.failure_count() as u64),
-        ]
+                .failed(self.failure_count() as u64);
+        });
     }
 
     /// Consumes this state and builds a batch outcome.

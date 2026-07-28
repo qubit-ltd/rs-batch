@@ -43,8 +43,8 @@ fn test_readme_mentions_current_executor_types() {
 #[test]
 /// Ensures parallel implementations use the shared scoped progress guard.
 fn test_parallel_progress_reporting_uses_scoped_progress_guard() {
-    assert!(PARALLEL_BATCH_EXECUTOR.contains("spawn_running_reporter"));
-    assert!(PARALLEL_BATCH_PROCESSOR.contains("spawn_running_reporter"));
+    assert!(PARALLEL_BATCH_EXECUTOR.contains("spawn_auto_reporter"));
+    assert!(PARALLEL_BATCH_PROCESSOR.contains("spawn_auto_reporter"));
     assert!(!PARALLEL_BATCH_EXECUTOR.contains("RunningProgressLoop"));
     assert!(!PARALLEL_BATCH_PROCESSOR.contains("RunningProgressLoop"));
 }

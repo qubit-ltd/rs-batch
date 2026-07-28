@@ -14,11 +14,10 @@ use std::{
 };
 
 use qubit_progress::{
-    model::{
-        ProgressEvent as QubitProgressEvent,
-        ProgressPhase,
-    },
-    reporter::ProgressReporter,
+    Event as QubitProgressEvent,
+    Phase,
+    ReportError,
+    Reporter,
 };
 
 /// Progress callback that should panic during a test.
@@ -60,19 +59,19 @@ pub enum ProgressEvent {
 
 /// Progress reporter that records all callbacks in memory.
 #[derive(Debug, Default)]
-pub struct RecordingProgressReporter {
+pub struct RecordingReporter {
     /// Recorded lifecycle events.
     events: Mutex<Vec<ProgressEvent>>,
 }
 
 /// Progress reporter that records raw lifecycle phases in memory.
 #[derive(Debug, Default)]
-pub struct PhaseRecordingProgressReporter {
+pub struct PhaseRecordingReporter {
     /// Recorded lifecycle phases.
-    phases: Mutex<Vec<ProgressPhase>>,
+    phases: Mutex<Vec<Phase>>,
 }
 
-impl PhaseRecordingProgressReporter {
+impl PhaseRecordingReporter {
     /// Creates an empty phase recording reporter.
     ///
     /// # Returns
@@ -88,7 +87,7 @@ impl PhaseRecordingProgressReporter {
     /// # Returns
     ///
     /// A cloned list of lifecycle phases.
-    pub fn phases(&self) -> Vec<ProgressPhase> {
+    pub fn phases(&self) -> Vec<Phase> {
         self.phases
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -96,7 +95,7 @@ impl PhaseRecordingProgressReporter {
     }
 }
 
-impl ProgressReporter for PhaseRecordingProgressReporter {
+impl Reporter for PhaseRecordingReporter {
     /// Records the lifecycle phase carried by `event`.
     ///
     /// # Parameters
@@ -106,10 +105,7 @@ impl ProgressReporter for PhaseRecordingProgressReporter {
     /// # Returns
     ///
     /// `Ok(())` after recording the event phase.
-    fn report(
-        &self,
-        event: &QubitProgressEvent,
-    ) -> Result<(), qubit_progress::ProgressReportError> {
+    fn report(&self, event: &QubitProgressEvent) -> Result<(), ReportError> {
         self.phases
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -118,7 +114,7 @@ impl ProgressReporter for PhaseRecordingProgressReporter {
     }
 }
 
-impl RecordingProgressReporter {
+impl RecordingReporter {
     /// Creates an empty recording reporter.
     ///
     /// # Returns
@@ -142,35 +138,30 @@ impl RecordingProgressReporter {
     }
 }
 
-impl ProgressReporter for RecordingProgressReporter {
-    fn report(
-        &self,
-        event: &QubitProgressEvent,
-    ) -> Result<(), qubit_progress::ProgressReportError> {
+impl Reporter for RecordingReporter {
+    fn report(&self, event: &QubitProgressEvent) -> Result<(), ReportError> {
         let counter = event
-            .counters()
+            .metrics()
             .first()
             .expect("batch progress event should contain one counter");
         let total_count = progress_count_to_usize(
-            counter.total_count().unwrap_or(counter.completed_count()),
+            counter.total().unwrap_or(counter.completed()),
         );
         let recorded = match event.phase() {
-            ProgressPhase::Started => ProgressEvent::Start { total_count },
-            ProgressPhase::Running => ProgressEvent::Process {
+            Phase::Started => ProgressEvent::Start { total_count },
+            Phase::Running => ProgressEvent::Process {
                 total_count,
-                active_count: progress_count_to_usize(counter.active_count()),
-                completed_count: progress_count_to_usize(
-                    counter.completed_count(),
-                ),
+                active_count: progress_count_to_usize(counter.active()),
+                completed_count: progress_count_to_usize(counter.completed()),
             },
-            ProgressPhase::Finished
-            | ProgressPhase::Failed
-            | ProgressPhase::Canceled => ProgressEvent::Finish {
-                total_count,
-                completed_count: progress_count_to_usize(
-                    counter.completed_count(),
-                ),
-            },
+            Phase::Succeeded | Phase::Failed | Phase::Cancelled => {
+                ProgressEvent::Finish {
+                    total_count,
+                    completed_count: progress_count_to_usize(
+                        counter.completed(),
+                    ),
+                }
+            }
         };
         self.events
             .lock()
@@ -195,14 +186,14 @@ fn progress_count_to_usize(count: u64) -> usize {
 
 /// Progress reporter that panics from one configured lifecycle callback.
 #[derive(Debug, Clone, Copy)]
-pub struct PanickingProgressReporter {
+pub struct PanickingReporter {
     /// Callback phase that should panic.
     phase: ProgressPanicPhase,
     /// Panic payload message.
     message: &'static str,
 }
 
-impl PanickingProgressReporter {
+impl PanickingReporter {
     /// Creates a reporter that panics from `phase`.
     ///
     /// # Parameters
@@ -233,21 +224,16 @@ impl PanickingProgressReporter {
     }
 }
 
-impl ProgressReporter for PanickingProgressReporter {
-    fn report(
-        &self,
-        event: &QubitProgressEvent,
-    ) -> Result<(), qubit_progress::ProgressReportError> {
+impl Reporter for PanickingReporter {
+    fn report(&self, event: &QubitProgressEvent) -> Result<(), ReportError> {
         match event.phase() {
-            ProgressPhase::Started => {
+            Phase::Started => {
                 self.panic_if_configured(ProgressPanicPhase::Start)
             }
-            ProgressPhase::Running => {
+            Phase::Running => {
                 self.panic_if_configured(ProgressPanicPhase::Process)
             }
-            ProgressPhase::Finished
-            | ProgressPhase::Failed
-            | ProgressPhase::Canceled => {
+            Phase::Succeeded | Phase::Failed | Phase::Cancelled => {
                 self.panic_if_configured(ProgressPanicPhase::Finish);
             }
         }

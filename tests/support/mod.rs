@@ -13,13 +13,13 @@ mod test_callable;
 mod test_chunk_processor;
 mod test_task;
 
-pub use failing_progress_reporter::FailingProgressReporter;
+pub use failing_progress_reporter::FailingReporter;
 pub use progress_reporter::{
-    PanickingProgressReporter,
-    PhaseRecordingProgressReporter,
+    PanickingReporter,
+    PhaseRecordingReporter,
     ProgressEvent,
     ProgressPanicPhase,
-    RecordingProgressReporter,
+    RecordingReporter,
     panic_payload_message,
 };
 pub use test_callable::TestCallable;

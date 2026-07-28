@@ -262,32 +262,32 @@ use qubit_batch::{
     SequentialBatchExecutor,
 };
 use qubit_progress::{
-    ProgressEvent,
-    ProgressPhase,
-    ProgressReportError,
-    ProgressReporter,
+    Event,
+    Phase,
+    ReportError,
+    Reporter,
 };
 
 struct ConsoleReporter;
 
-impl ProgressReporter for ConsoleReporter {
-    fn report(&self, event: &ProgressEvent) -> Result<(), ProgressReportError> {
+impl Reporter for ConsoleReporter {
+    fn report(&self, event: &Event) -> Result<(), ReportError> {
         let counter = event
-            .counter("tasks")
+            .metric("tasks")
             .expect("batch progress events contain task counters");
-        let total = counter.total_count().unwrap_or(counter.completed_count());
+        let total = counter.total().unwrap_or(counter.completed());
         match event.phase() {
-            ProgressPhase::Started => println!("starting {total} tasks"),
-            ProgressPhase::Running => println!(
+            Phase::Started => println!("starting {total} tasks"),
+            Phase::Running => println!(
                 "completed {}/{total}, active {}, elapsed {:?}",
-                counter.completed_count(),
-                counter.active_count(),
+                counter.completed(),
+                counter.active(),
                 event.elapsed(),
             ),
-            ProgressPhase::Finished => println!("finished {total} tasks in {:?}", event.elapsed()),
-            ProgressPhase::Failed | ProgressPhase::Canceled => println!(
+            Phase::Succeeded => println!("finished {total} tasks in {:?}", event.elapsed()),
+            Phase::Failed | Phase::Cancelled => println!(
                 "stopped after {}/{total} tasks in {:?}",
-                counter.completed_count(),
+                counter.completed(),
                 event.elapsed(),
             ),
         }
@@ -310,7 +310,7 @@ assert!(result.is_success());
 任务体中的 panic 会被捕获为 `BatchTaskError::Panicked`。processor consumer 和
 进度上报器本身的 panic 会直接传播给调用者，因为它们不属于任务失败模型。
 顺序执行和顺序处理只会在两个任务或数据项之间上报进度；并行变体通过
-`Progress::spawn_running_reporter` 在 scoped 上报线程中周期性发送 running 进度。
+`Progress::spawn_auto_reporter` 在 scoped 上报线程中周期性发送 running 进度。
 
 配置的 `report_interval` 是在实现代码到达 running 进度点时检查的节流条件，
 不保证时间一到就立刻发出 running 事件。顺序变体在任务或数据项之间检查，
@@ -379,7 +379,7 @@ match error {
 - `BatchCallResult::values()` 只为成功 callable 保存 `Some(value)`；失败或 panic
   的 callable 位置为 `None`。
 - `BatchProcessResult::processed_count()` 是代理 processor 报告的成功数量。对于
-  受影响行数等目标侧计数，它可能与 `completed_count()` 不同。
+  受影响行数等目标侧计数，它可能与 `completed()` 不同。
 - `ChunkedBatchProcessError<E>` 在数量不匹配和代理失败时携带部分聚合结果。
 
 ## 项目结构

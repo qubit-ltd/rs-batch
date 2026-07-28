@@ -8,7 +8,7 @@
 use std::time::Duration;
 
 use qubit_atomic::AtomicCount;
-use qubit_progress::model::ProgressCounter;
+use qubit_progress::Snapshot;
 
 use crate::BatchProcessResult;
 
@@ -176,37 +176,28 @@ impl BatchProcessState {
             .expect("chunked batch process state should collect consistent counters")
     }
 
-    /// Returns progress counters for this processing state.
-    ///
-    /// # Returns
-    ///
-    /// A single item counter suitable for progress reporting.
+    /// Configures dynamic item counts for one progress snapshot.
     #[inline]
-    pub(crate) fn progress_counters(&self) -> Vec<ProgressCounter> {
-        vec![
-            ProgressCounter::new(PROCESS_PROGRESS_METRIC_ID)
-                .total(self.item_count as u64)
+    pub(crate) fn configure_progress(&self, snapshot: &mut Snapshot) {
+        snapshot.metric(PROCESS_PROGRESS_METRIC_ID, |counts| {
+            counts
                 .active(self.active_count.get() as u64)
                 .completed(self.completed_count.get() as u64)
-                .succeeded(self.processed_count.get() as u64),
-        ]
+                .succeeded(self.processed_count.get() as u64);
+        });
     }
 
-    /// Returns progress counters for in-flight chunk completion reports.
-    ///
-    /// # Returns
-    ///
-    /// Counters matching chunked processor running-event semantics.
+    /// Configures dynamic counts for an in-flight chunk report.
     #[inline]
-    pub(crate) fn running_chunk_progress_counters(
+    pub(crate) fn configure_running_chunk_progress(
         &self,
-    ) -> Vec<ProgressCounter> {
-        vec![
-            ProgressCounter::new(PROCESS_PROGRESS_METRIC_ID)
-                .total(self.item_count as u64)
+        snapshot: &mut Snapshot,
+    ) {
+        snapshot.metric(PROCESS_PROGRESS_METRIC_ID, |counts| {
+            counts
                 .completed(self.completed_count.get() as u64)
-                .succeeded(self.completed_count.get() as u64),
-        ]
+                .succeeded(self.completed_count.get() as u64);
+        });
     }
 }
 

@@ -11,8 +11,8 @@ use std::{
 };
 
 use qubit_progress::reporter::{
-    NoOpProgressReporter,
-    ProgressReporter,
+    NoopReporter,
+    Reporter,
 };
 
 use super::{
@@ -45,7 +45,7 @@ pub struct ParallelBatchExecutorBuilder {
     /// Minimum interval between progress callbacks.
     report_interval: Duration,
     /// Reporter receiving batch lifecycle callbacks.
-    reporter: Arc<dyn ProgressReporter>,
+    reporter: Arc<dyn Reporter>,
 }
 
 impl ParallelBatchExecutorBuilder {
@@ -112,7 +112,7 @@ impl ParallelBatchExecutorBuilder {
     #[inline]
     pub fn reporter<R>(mut self, reporter: R) -> Self
     where
-        R: ProgressReporter + 'static,
+        R: Reporter + 'static,
     {
         self.reporter = Arc::new(reporter);
         self
@@ -128,19 +128,19 @@ impl ParallelBatchExecutorBuilder {
     ///
     /// This builder for fluent configuration.
     #[inline]
-    pub fn reporter_arc(mut self, reporter: Arc<dyn ProgressReporter>) -> Self {
+    pub fn reporter_arc(mut self, reporter: Arc<dyn Reporter>) -> Self {
         self.reporter = reporter;
         self
     }
 
-    /// Disables progress callbacks by using [`NoOpProgressReporter`].
+    /// Disables progress callbacks by using [`NoopReporter`].
     ///
     /// # Returns
     ///
     /// This builder for fluent configuration.
     #[inline]
     pub fn no_reporter(mut self) -> Self {
-        self.reporter = Arc::new(NoOpProgressReporter);
+        self.reporter = Arc::new(NoopReporter);
         self
     }
 
@@ -184,7 +184,7 @@ impl Default for ParallelBatchExecutorBuilder {
             sequential_threshold:
                 ParallelBatchExecutor::DEFAULT_SEQUENTIAL_THRESHOLD,
             report_interval: ParallelBatchExecutor::DEFAULT_REPORT_INTERVAL,
-            reporter: Arc::new(NoOpProgressReporter),
+            reporter: Arc::new(NoopReporter),
         }
     }
 }

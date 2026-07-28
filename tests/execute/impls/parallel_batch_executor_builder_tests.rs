@@ -16,14 +16,13 @@ use qubit_batch::{
     ParallelBatchExecutor,
     ParallelBatchExecutorBuildError,
 };
-use qubit_progress::reporter::ProgressReporter;
+use qubit_progress::Reporter;
 
-use crate::support::RecordingProgressReporter;
+use crate::support::RecordingReporter;
 
 #[test]
 fn test_parallel_batch_executor_builder_builds_custom_config() {
-    let reporter: Arc<dyn ProgressReporter> =
-        Arc::new(RecordingProgressReporter::new());
+    let reporter: Arc<dyn Reporter> = Arc::new(RecordingReporter::new());
     let executor = ParallelBatchExecutor::builder()
         .thread_count(3)
         .sequential_threshold(2)
