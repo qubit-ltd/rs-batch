@@ -20,6 +20,7 @@ use qubit_progress::{
 use crate::{
     BatchExecutionError,
     BatchOutcome,
+    BatchOutcomeBuilder,
     BatchTermination,
     TaskFailurePolicy,
     execute::{
@@ -162,7 +163,6 @@ impl BatchExecutor for SequentialBatchExecutor {
         T: Runnable<E> + Send,
         E: Send,
     {
-        let state = BatchExecutionState::new(count);
         let mut progress = match Progress::builder(self.reporter.as_ref())
             .interval(self.report_interval)
             .metric(
@@ -178,18 +178,23 @@ impl BatchExecutor for SequentialBatchExecutor {
             Err(source) => {
                 return Err(BatchExecutionError::ProgressReport {
                     source,
-                    outcome: state.into_outcome(Duration::ZERO),
+                    outcome: BatchOutcomeBuilder::builder(count)
+                        .elapsed(Duration::ZERO)
+                        .build()
+                        .expect("empty batch outcome must be valid"),
                 });
             }
         };
+        let metric = progress
+            .metric(EXECUTION_PROGRESS_METRIC_ID)
+            .expect("configured execution metric must exist");
+        let state = BatchExecutionState::new(count, metric);
         let mut actual_count = 0;
         let mut stopped_by_task_failure_policy = false;
         for task in tasks {
             actual_count = state.record_task_observed();
             if actual_count > count {
-                let (elapsed, report_error) = match progress.fail(|snapshot| {
-                    state.configure_progress(snapshot);
-                }) {
+                let (elapsed, report_error) = match progress.fail() {
                     Ok(elapsed) => (elapsed, None),
                     Err(source) => (
                         source.elapsed(),
@@ -213,9 +218,7 @@ impl BatchExecutor for SequentialBatchExecutor {
                 break;
             }
             // Update the actual task count and report progress if due.
-            if let Err(source) = progress.report_if_due(|snapshot| {
-                state.configure_progress(snapshot);
-            }) {
+            if let Err(source) = progress.report_if_due() {
                 let elapsed = progress.elapsed();
                 return Err(BatchExecutionError::ProgressReport {
                     source,
@@ -225,9 +228,7 @@ impl BatchExecutor for SequentialBatchExecutor {
         }
 
         if stopped_by_task_failure_policy {
-            let elapsed = match progress.fail(|snapshot| {
-                state.configure_progress(snapshot);
-            }) {
+            let elapsed = match progress.fail() {
                 Ok(elapsed) => elapsed,
                 Err(source) => {
                     let elapsed = source.elapsed();
@@ -245,9 +246,7 @@ impl BatchExecutor for SequentialBatchExecutor {
                 BatchTermination::StoppedByTaskFailurePolicy,
             ))
         } else if actual_count < count {
-            let (elapsed, report_error) = match progress.fail(|snapshot| {
-                state.configure_progress(snapshot);
-            }) {
+            let (elapsed, report_error) = match progress.fail() {
                 Ok(elapsed) => (elapsed, None),
                 Err(source) => (
                     source.elapsed(),
@@ -261,9 +260,7 @@ impl BatchExecutor for SequentialBatchExecutor {
                 report_error,
             })
         } else if state.failure_count() > 0 {
-            let elapsed = match progress.fail(|snapshot| {
-                state.configure_progress(snapshot);
-            }) {
+            let elapsed = match progress.fail() {
                 Ok(elapsed) => elapsed,
                 Err(source) => {
                     let elapsed = source.elapsed();
@@ -275,9 +272,7 @@ impl BatchExecutor for SequentialBatchExecutor {
             };
             Ok(state.into_outcome(elapsed))
         } else {
-            let elapsed = match progress.finish(|snapshot| {
-                state.configure_progress(snapshot);
-            }) {
+            let elapsed = match progress.finish() {
                 Ok(elapsed) => elapsed,
                 Err(source) => {
                     let elapsed = source.elapsed();

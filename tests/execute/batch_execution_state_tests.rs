@@ -17,6 +17,11 @@ use qubit_batch::{
     SequentialBatchExecutor,
     TaskFailurePolicy,
 };
+use qubit_progress::{
+    Metric,
+    NoopReporter,
+    Progress,
+};
 
 use crate::support::TestTask;
 
@@ -47,7 +52,15 @@ fn test_batch_execution_state_counts_success_failure_and_panic() {
 
 #[test]
 fn test_batch_execution_state_executes_indexed_tasks_safely() {
-    let state = BatchExecutionState::<&'static str>::new(2);
+    let reporter = NoopReporter;
+    let progress = Progress::builder(&reporter)
+        .metric(Metric::new("tasks", "Tasks").total(2))
+        .start()
+        .expect("progress must start");
+    let metric = progress
+        .metric("tasks")
+        .expect("configured metric must exist");
+    let state = BatchExecutionState::<&'static str>::new(2, metric);
 
     state
         .execute_task(0, TestTask::fail("failed"))
@@ -75,14 +88,30 @@ fn test_batch_execution_state_executes_indexed_tasks_safely() {
 #[test]
 #[allow(deprecated)]
 fn test_batch_execution_state_public_api_builds_outcome() {
-    let state = BatchExecutionState::<&'static str>::new(2);
+    let reporter = NoopReporter;
+    let progress = Progress::builder(&reporter)
+        .metric(Metric::new("tasks", "Tasks").total(2))
+        .start()
+        .expect("progress must start");
+    let metric = progress
+        .metric("tasks")
+        .expect("configured metric must exist");
+    let state = BatchExecutionState::<&'static str>::new(2, metric);
 
     assert_eq!(state.record_task_observed(), 1);
-    state.record_task_started();
-    state.record_task_succeeded();
+    state
+        .record_task_started()
+        .expect("metric start must succeed");
+    state
+        .record_task_succeeded()
+        .expect("metric success must succeed");
     assert_eq!(state.record_task_observed(), 2);
-    state.record_task_started();
-    state.record_task_panicked(1, BatchTaskError::panicked("boom"));
+    state
+        .record_task_started()
+        .expect("metric start must succeed");
+    state
+        .record_task_panicked(1, BatchTaskError::panicked("boom"))
+        .expect("metric failure must succeed");
 
     let outcome = state.into_outcome(Duration::from_millis(7));
     assert_eq!(outcome.task_count(), 2);

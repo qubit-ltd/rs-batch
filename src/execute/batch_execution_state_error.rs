@@ -14,6 +14,9 @@ use thiserror::Error;
 /// Haixing Hu
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
 pub enum BatchExecutionStateError {
+    /// The progress metric rejected an execution lifecycle transition.
+    #[error("batch execution progress metric update failed: {0}")]
+    ProgressMetric(#[from] MetricError),
     /// The supplied task index is outside the declared batch range.
     #[error(
         "batch task index {index} is outside the declared task count {task_count}"
@@ -25,3 +28,4 @@ pub enum BatchExecutionStateError {
         task_count: usize,
     },
 }
+use qubit_progress::MetricError;

@@ -18,6 +18,7 @@ use qubit_progress::{
 
 use crate::BatchExecutionError;
 use crate::BatchOutcome;
+use crate::BatchOutcomeBuilder;
 use crate::TaskFailurePolicy;
 use crate::execute::{
     BatchExecutionState,
@@ -234,7 +235,6 @@ impl BatchExecutor for ParallelBatchExecutor {
             return self.sequential_executor().execute_with_count(tasks, count);
         }
 
-        let state = Arc::new(BatchExecutionState::new(count));
         let mut progress = match Progress::builder(self.reporter.as_ref())
             .interval(self.report_interval)
             .metric(
@@ -248,24 +248,24 @@ impl BatchExecutor for ParallelBatchExecutor {
         {
             Ok(progress) => progress,
             Err(source) => {
-                let state = Arc::into_inner(state).expect(
-                    "parallel batch execution state should have a single owner",
-                );
                 return Err(BatchExecutionError::ProgressReport {
                     source,
-                    outcome: state.into_outcome(Duration::ZERO),
+                    outcome: BatchOutcomeBuilder::builder(count)
+                        .elapsed(Duration::ZERO)
+                        .build()
+                        .expect("empty batch outcome must be valid"),
                 });
             }
         };
+        let metric = progress
+            .metric(EXECUTION_PROGRESS_METRIC_ID)
+            .expect("configured execution metric must exist");
+        let state = Arc::new(BatchExecutionState::new(count, metric));
         let mut actual_count = 0usize;
         let worker_count = self.thread_count.min(count);
 
         let running_result = thread::scope(|scope| {
-            let reporter_state = Arc::clone(&state);
-            let running_progress =
-                progress.spawn_auto_reporter(scope, move |snapshot| {
-                    reporter_state.configure_progress(snapshot);
-                });
+            let running_progress = progress.spawn_auto_reporter(scope);
             let running_point_handle = running_progress.notifier();
             let running_status = running_progress.status();
 
@@ -297,9 +297,7 @@ impl BatchExecutor for ParallelBatchExecutor {
             });
         }
         if actual_count < count {
-            let (elapsed, report_error) = match progress.fail(|snapshot| {
-                state.configure_progress(snapshot);
-            }) {
+            let (elapsed, report_error) = match progress.fail() {
                 Ok(elapsed) => (elapsed, None),
                 Err(source) => {
                     let elapsed = source.elapsed();
@@ -314,9 +312,7 @@ impl BatchExecutor for ParallelBatchExecutor {
                 report_error,
             })
         } else if actual_count > count {
-            let (elapsed, report_error) = match progress.fail(|snapshot| {
-                state.configure_progress(snapshot);
-            }) {
+            let (elapsed, report_error) = match progress.fail() {
                 Ok(elapsed) => (elapsed, None),
                 Err(source) => {
                     let elapsed = source.elapsed();
@@ -332,13 +328,9 @@ impl BatchExecutor for ParallelBatchExecutor {
             })
         } else {
             let terminal = if state.failure_count() > 0 {
-                progress.fail(|snapshot| {
-                    state.configure_progress(snapshot);
-                })
+                progress.fail()
             } else {
-                progress.finish(|snapshot| {
-                    state.configure_progress(snapshot);
-                })
+                progress.finish()
             };
             let terminal = match terminal {
                 Ok(elapsed) => elapsed,

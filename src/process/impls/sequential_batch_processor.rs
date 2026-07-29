@@ -181,7 +181,6 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
     where
         I: IntoIterator<Item = Item>,
     {
-        let state = BatchProcessState::new(count);
         let mut progress = match Progress::builder(self.reporter.as_ref())
             .interval(self.report_interval)
             .metric(
@@ -197,17 +196,22 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
             Err(source) => {
                 return Err(BatchProcessError::ProgressReport {
                     source,
-                    result: state.to_direct_result(Duration::ZERO),
+                    result: BatchProcessResult::builder(count)
+                        .elapsed(Duration::ZERO)
+                        .build()
+                        .expect("empty batch process result must be valid"),
                 });
             }
         };
+        let metric = progress
+            .metric(PROCESS_PROGRESS_METRIC_ID)
+            .expect("configured process metric must exist");
+        let state = BatchProcessState::new(count, metric);
 
         for item in items {
             let observed_count = state.record_item_observed();
             if observed_count > count {
-                let (elapsed, report_error) = match progress.fail(|snapshot| {
-                    state.configure_progress(snapshot);
-                }) {
+                let (elapsed, report_error) = match progress.fail() {
                     Ok(elapsed) => (elapsed, None),
                     Err(source) => {
                         let elapsed = source.elapsed();
@@ -222,12 +226,14 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
                     report_error,
                 });
             }
-            state.record_item_started();
+            state
+                .record_item_started()
+                .expect("batch progress state transition must be valid");
             self.consumer.accept(&item);
-            state.record_item_processed();
-            if let Err(source) = progress.report_if_due(|snapshot| {
-                state.configure_progress(snapshot);
-            }) {
+            state
+                .record_item_processed()
+                .expect("batch progress state transition must be valid");
+            if let Err(source) = progress.report_if_due() {
                 return Err(BatchProcessError::ProgressReport {
                     source,
                     result: state.to_direct_result(progress.elapsed()),
@@ -236,9 +242,7 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
         }
 
         if state.observed_count() < count {
-            let (elapsed, report_error) = match progress.fail(|snapshot| {
-                state.configure_progress(snapshot);
-            }) {
+            let (elapsed, report_error) = match progress.fail() {
                 Ok(elapsed) => (elapsed, None),
                 Err(source) => {
                     let elapsed = source.elapsed();
@@ -253,9 +257,7 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
                 report_error,
             })
         } else {
-            let finished = match progress.finish(|snapshot| {
-                state.configure_progress(snapshot);
-            }) {
+            let finished = match progress.finish() {
                 Ok(elapsed) => elapsed,
                 Err(source) => {
                     let elapsed = source.elapsed();
