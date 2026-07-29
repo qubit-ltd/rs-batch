@@ -19,7 +19,10 @@ use std::{
 
 use qubit_atomic::AtomicCount;
 use qubit_function::Runnable;
-use qubit_progress::Snapshot;
+use qubit_progress::{
+    MetricError,
+    MetricHandle,
+};
 
 use crate::{
     BatchExecutionStateError,
@@ -43,16 +46,8 @@ pub struct BatchExecutionState<E> {
     task_count: usize,
     /// Number of tasks observed from the source.
     observed_count: AtomicCount,
-    /// Number of tasks currently running.
-    active_count: AtomicCount,
-    /// Number of tasks that reached a terminal outcome.
-    completed_count: AtomicCount,
-    /// Number of tasks that completed successfully.
-    succeeded_count: AtomicCount,
-    /// Number of tasks that returned their own errors.
-    failed_count: AtomicCount,
-    /// Number of tasks that panicked.
-    panicked_count: AtomicCount,
+    /// Progress-owned lifecycle state for task counts.
+    metric: MetricHandle,
     /// Detailed failures collected during execution.
     failures: Mutex<Vec<BatchTaskFailure<E>>>,
 }
@@ -68,15 +63,11 @@ impl<E> BatchExecutionState<E> {
     ///
     /// Empty execution state.
     #[inline]
-    pub const fn new(task_count: usize) -> Self {
+    pub fn new(task_count: usize, metric: MetricHandle) -> Self {
         Self {
             task_count,
             observed_count: AtomicCount::zero(),
-            active_count: AtomicCount::zero(),
-            completed_count: AtomicCount::zero(),
-            succeeded_count: AtomicCount::zero(),
-            failed_count: AtomicCount::zero(),
-            panicked_count: AtomicCount::zero(),
+            metric,
             failures: Mutex::new(Vec::new()),
         }
     }
@@ -111,14 +102,14 @@ impl<E> BatchExecutionState<E> {
                 task_count: self.task_count,
             });
         }
-        self.record_task_started();
+        self.record_task_started()?;
         match catch_unwind(AssertUnwindSafe(|| task.run())) {
-            Ok(Ok(())) => self.record_task_succeeded(),
-            Ok(Err(error)) => self.record_task_failed(index, error),
+            Ok(Ok(())) => self.record_task_succeeded()?,
+            Ok(Err(error)) => self.record_task_failed(index, error)?,
             Err(payload) => self.record_task_panicked(
                 index,
                 panic_payload_to_error(payload.as_ref()),
-            ),
+            )?,
         }
         Ok(())
     }
@@ -139,8 +130,8 @@ impl<E> BatchExecutionState<E> {
         note = "use execute_task to keep execution state consistent"
     )]
     #[inline]
-    pub fn record_task_started(&self) {
-        self.active_count.inc();
+    pub fn record_task_started(&self) -> Result<(), MetricError> {
+        self.metric.start(1)
     }
 
     /// Records one successful task completion.
@@ -153,10 +144,8 @@ impl<E> BatchExecutionState<E> {
         note = "use execute_task to keep execution state consistent"
     )]
     #[inline]
-    pub fn record_task_succeeded(&self) {
-        self.active_count.dec();
-        self.completed_count.inc();
-        self.succeeded_count.inc();
+    pub fn record_task_succeeded(&self) -> Result<(), MetricError> {
+        self.metric.succeed(1)
     }
 
     /// Records one task error.
@@ -174,12 +163,15 @@ impl<E> BatchExecutionState<E> {
         note = "use execute_task to keep execution state consistent"
     )]
     #[inline]
-    pub fn record_task_failed(&self, index: usize, error: E) {
-        self.active_count.dec();
-        self.completed_count.inc();
-        self.failed_count.inc();
+    pub fn record_task_failed(
+        &self,
+        index: usize,
+        error: E,
+    ) -> Result<(), MetricError> {
+        self.metric.fail(1)?;
         Self::lock_failures(&self.failures)
             .push(BatchTaskFailure::new(index, BatchTaskError::Failed(error)));
+        Ok(())
     }
 
     /// Records one task panic.
@@ -197,12 +189,15 @@ impl<E> BatchExecutionState<E> {
         note = "use execute_task to keep execution state consistent"
     )]
     #[inline]
-    pub fn record_task_panicked(&self, index: usize, error: BatchTaskError<E>) {
-        self.active_count.dec();
-        self.completed_count.inc();
-        self.panicked_count.inc();
+    pub fn record_task_panicked(
+        &self,
+        index: usize,
+        error: BatchTaskError<E>,
+    ) -> Result<(), MetricError> {
+        self.metric.fail(1)?;
         Self::lock_failures(&self.failures)
             .push(BatchTaskFailure::new(index, error));
+        Ok(())
     }
 
     /// Returns the number of task errors and captured task panics.
@@ -212,21 +207,7 @@ impl<E> BatchExecutionState<E> {
     /// The total terminal task failure count recorded so far.
     #[inline]
     pub fn failure_count(&self) -> usize {
-        self.failed_count
-            .get()
-            .saturating_add(self.panicked_count.get())
-    }
-
-    /// Configures dynamic task counts for one progress snapshot.
-    #[inline]
-    pub fn configure_progress(&self, snapshot: &mut Snapshot) {
-        snapshot.metric(EXECUTION_PROGRESS_METRIC_ID, |counts| {
-            counts
-                .active(self.active_count.get() as u64)
-                .completed(self.completed_count.get() as u64)
-                .succeeded(self.succeeded_count.get() as u64)
-                .failed(self.failure_count() as u64);
-        });
+        Self::lock_failures(&self.failures).len()
     }
 
     /// Consumes this state and builds a batch outcome.
@@ -311,15 +292,24 @@ impl<E> BatchExecutionState<E> {
         elapsed: Duration,
         termination: BatchTermination,
     ) -> Result<BatchOutcome<E>, crate::BatchOutcomeBuildError> {
+        let snapshot = self
+            .metric
+            .snapshot()
+            .expect("batch progress metric state should remain readable");
         let failures = self
             .failures
             .into_inner()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let failed_count = failures
+            .iter()
+            .filter(|failure| failure.error().is_failed())
+            .count();
+        let panicked_count = failures.len() - failed_count;
         BatchOutcomeBuilder::builder(self.task_count)
-            .completed_count(self.completed_count.get())
-            .succeeded_count(self.succeeded_count.get())
-            .failed_count(self.failed_count.get())
-            .panicked_count(self.panicked_count.get())
+            .completed_count(snapshot.completed() as usize)
+            .succeeded_count(snapshot.succeeded() as usize)
+            .failed_count(failed_count)
+            .panicked_count(panicked_count)
             .termination(termination)
             .elapsed(elapsed)
             .failures(failures)

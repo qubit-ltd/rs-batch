@@ -249,7 +249,6 @@ where
     where
         I: IntoIterator<Item = Item>,
     {
-        let state = Arc::new(BatchProcessState::new(count));
         let mut progress = match Progress::builder(self.reporter.as_ref())
             .interval(self.report_interval)
             .metric(
@@ -265,10 +264,17 @@ where
             Err(source) => {
                 return Err(BatchProcessError::ProgressReport {
                     source,
-                    result: state.to_direct_result(Duration::ZERO),
+                    result: BatchProcessResult::builder(count)
+                        .elapsed(Duration::ZERO)
+                        .build()
+                        .expect("empty batch process result must be valid"),
                 });
             }
         };
+        let metric = progress
+            .metric(PROCESS_PROGRESS_METRIC_ID)
+            .expect("configured process metric must exist");
+        let state = Arc::new(BatchProcessState::new(count, metric));
 
         let running_result = if count > 0 {
             if count <= self.sequential_threshold
@@ -303,9 +309,7 @@ where
         }
 
         if state.observed_count() < count {
-            let (elapsed, report_error) = match progress.fail(|snapshot| {
-                state.configure_progress(snapshot);
-            }) {
+            let (elapsed, report_error) = match progress.fail() {
                 Ok(elapsed) => (elapsed, None),
                 Err(source) => {
                     let elapsed = source.elapsed();
@@ -320,9 +324,7 @@ where
                 report_error,
             })
         } else if state.observed_count() > count {
-            let (elapsed, report_error) = match progress.fail(|snapshot| {
-                state.configure_progress(snapshot);
-            }) {
+            let (elapsed, report_error) = match progress.fail() {
                 Ok(elapsed) => (elapsed, None),
                 Err(source) => {
                     let elapsed = source.elapsed();
@@ -337,9 +339,7 @@ where
                 report_error,
             })
         } else {
-            let finished = match progress.finish(|snapshot| {
-                state.configure_progress(snapshot);
-            }) {
+            let finished = match progress.finish() {
                 Ok(elapsed) => elapsed,
                 Err(source) => {
                     let elapsed = source.elapsed();
@@ -386,12 +386,14 @@ where
             if observed_count > count {
                 break;
             }
-            state.record_item_started();
+            state
+                .record_item_started()
+                .expect("batch progress state transition must be valid");
             self.consumer.accept(&item);
-            state.record_item_processed();
-            progress.report_if_due(|snapshot| {
-                state.configure_progress(snapshot);
-            })?;
+            state
+                .record_item_processed()
+                .expect("batch progress state transition must be valid");
+            progress.report_if_due()?;
         }
         Ok(())
     }
@@ -419,11 +421,7 @@ where
         I: IntoIterator<Item = Item>,
     {
         thread::scope(|scope| {
-            let reporter_state = Arc::clone(&state);
-            let running_progress =
-                progress.spawn_auto_reporter(scope, move |snapshot| {
-                    reporter_state.configure_progress(snapshot);
-                });
+            let running_progress = progress.spawn_auto_reporter(scope);
             let running_point_handle = running_progress.notifier();
 
             let worker_count = self.thread_count.get().min(count);
@@ -437,9 +435,13 @@ where
                 move || observer_state.record_item_observed(),
                 || false,
                 move |_index, item| {
-                    worker_state.record_item_started();
+                    worker_state.record_item_started().expect(
+                        "batch progress state transition must be valid",
+                    );
                     consumer.accept(&item);
-                    worker_state.record_item_processed();
+                    worker_state.record_item_processed().expect(
+                        "batch progress state transition must be valid",
+                    );
                     running_point_handle.notify();
                 },
             );

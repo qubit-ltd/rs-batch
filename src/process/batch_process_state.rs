@@ -8,7 +8,10 @@
 use std::time::Duration;
 
 use qubit_atomic::AtomicCount;
-use qubit_progress::Snapshot;
+use qubit_progress::{
+    MetricError,
+    MetricHandle,
+};
 
 use crate::BatchProcessResult;
 
@@ -24,12 +27,8 @@ pub(crate) struct BatchProcessState {
     item_count: usize,
     /// Number of items observed from the source.
     observed_count: AtomicCount,
-    /// Number of items currently being processed.
-    active_count: AtomicCount,
-    /// Number of input items whose processing completed.
-    completed_count: AtomicCount,
-    /// Number of items reported as successfully processed.
-    processed_count: AtomicCount,
+    /// Progress-owned lifecycle state for item counts.
+    metric: MetricHandle,
     /// Number of successfully delegated chunks.
     chunk_count: AtomicCount,
 }
@@ -45,13 +44,11 @@ impl BatchProcessState {
     ///
     /// Empty processing state.
     #[inline]
-    pub(crate) const fn new(item_count: usize) -> Self {
+    pub(crate) fn new(item_count: usize, metric: MetricHandle) -> Self {
         Self {
             item_count,
             observed_count: AtomicCount::zero(),
-            active_count: AtomicCount::zero(),
-            completed_count: AtomicCount::zero(),
-            processed_count: AtomicCount::zero(),
+            metric,
             chunk_count: AtomicCount::zero(),
         }
     }
@@ -68,16 +65,14 @@ impl BatchProcessState {
 
     /// Records that one item has started processing.
     #[inline]
-    pub(crate) fn record_item_started(&self) {
-        self.active_count.inc();
+    pub(crate) fn record_item_started(&self) -> Result<(), MetricError> {
+        self.metric.start(1)
     }
 
     /// Records one successfully processed item.
     #[inline]
-    pub(crate) fn record_item_processed(&self) {
-        self.active_count.dec();
-        self.completed_count.inc();
-        self.processed_count.inc();
+    pub(crate) fn record_item_processed(&self) -> Result<(), MetricError> {
+        self.metric.succeed(1)
     }
 
     /// Records one successfully delegated chunk.
@@ -91,10 +86,14 @@ impl BatchProcessState {
         &self,
         completed_count: usize,
         processed_count: usize,
-    ) {
-        self.completed_count.add(completed_count);
-        self.processed_count.add(processed_count);
+    ) -> Result<(), MetricError> {
+        let completed_count = self.to_signed_count(completed_count)?;
+        let processed_count = self.to_signed_count(processed_count)?;
+        self.metric.start(completed_count)?;
+        self.metric.succeed(processed_count)?;
+        self.metric.complete(completed_count - processed_count)?;
         self.chunk_count.inc();
+        Ok(())
     }
 
     /// Returns the observed item count.
@@ -114,7 +113,10 @@ impl BatchProcessState {
     /// The number of input items completed so far.
     #[inline]
     pub(crate) fn completed_count(&self) -> usize {
-        self.completed_count.get()
+        self.metric
+            .snapshot()
+            .expect("batch progress metric state should remain readable")
+            .completed() as usize
     }
 
     /// Returns the completed chunk count.
@@ -141,9 +143,13 @@ impl BatchProcessState {
         &self,
         elapsed: Duration,
     ) -> BatchProcessResult {
-        let processed_count = self.processed_count.get();
+        let snapshot = self
+            .metric
+            .snapshot()
+            .expect("batch progress metric state should remain readable");
+        let processed_count = snapshot.succeeded() as usize;
         BatchProcessResult::builder(self.item_count)
-            .completed_count(self.completed_count.get())
+            .completed_count(snapshot.completed() as usize)
             .processed_count(processed_count)
             .chunk_count(logical_chunk_count(processed_count))
             .elapsed(elapsed)
@@ -167,37 +173,24 @@ impl BatchProcessState {
         &self,
         elapsed: Duration,
     ) -> BatchProcessResult {
+        let snapshot = self
+            .metric
+            .snapshot()
+            .expect("batch progress metric state should remain readable");
         BatchProcessResult::builder(self.item_count)
-            .completed_count(self.completed_count.get())
-            .processed_count(self.processed_count.get())
+            .completed_count(snapshot.completed() as usize)
+            .processed_count(snapshot.succeeded() as usize)
             .chunk_count(self.chunk_count.get())
             .elapsed(elapsed)
             .build()
             .expect("chunked batch process state should collect consistent counters")
     }
 
-    /// Configures dynamic item counts for one progress snapshot.
-    #[inline]
-    pub(crate) fn configure_progress(&self, snapshot: &mut Snapshot) {
-        snapshot.metric(PROCESS_PROGRESS_METRIC_ID, |counts| {
-            counts
-                .active(self.active_count.get() as u64)
-                .completed(self.completed_count.get() as u64)
-                .succeeded(self.processed_count.get() as u64);
-        });
-    }
-
-    /// Configures dynamic counts for an in-flight chunk report.
-    #[inline]
-    pub(crate) fn configure_running_chunk_progress(
-        &self,
-        snapshot: &mut Snapshot,
-    ) {
-        snapshot.metric(PROCESS_PROGRESS_METRIC_ID, |counts| {
-            counts
-                .completed(self.completed_count.get() as u64)
-                .succeeded(self.completed_count.get() as u64);
-        });
+    /// Converts a batch count into the signed metric transition domain.
+    fn to_signed_count(&self, count: usize) -> Result<i64, MetricError> {
+        i64::try_from(count).map_err(|_| MetricError::CountOverflow {
+            metric_id: self.metric.id().into(),
+        })
     }
 }
 
