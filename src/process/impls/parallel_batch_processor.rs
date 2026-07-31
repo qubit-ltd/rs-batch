@@ -423,6 +423,7 @@ where
         thread::scope(|scope| {
             let running_progress = progress.spawn_auto_reporter(scope);
             let running_point_handle = running_progress.notifier();
+            let running_status = running_progress.status();
 
             let worker_count = self.thread_count.get().min(count);
             let observer_state = Arc::clone(&state);
@@ -433,7 +434,7 @@ where
                 count,
                 worker_count,
                 move || observer_state.record_item_observed(),
-                || false,
+                move || running_status.is_failed(),
                 move |_index, item| {
                     worker_state.record_item_started().expect(
                         "batch progress state transition must be valid",
