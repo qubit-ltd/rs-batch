@@ -87,8 +87,8 @@ impl BatchProcessState {
         completed_count: usize,
         processed_count: usize,
     ) -> Result<(), MetricError> {
-        let completed_count = self.to_signed_count(completed_count)?;
-        let processed_count = self.to_signed_count(processed_count)?;
+        let completed_count = completed_count as u64;
+        let processed_count = processed_count as u64;
         self.metric.start(completed_count)?;
         self.metric.succeed(processed_count)?;
         self.metric.complete(completed_count - processed_count)?;
@@ -186,12 +186,6 @@ impl BatchProcessState {
             .expect("chunked batch process state should collect consistent counters")
     }
 
-    /// Converts a batch count into the signed metric transition domain.
-    fn to_signed_count(&self, count: usize) -> Result<i64, MetricError> {
-        i64::try_from(count).map_err(|_| MetricError::CountOverflow {
-            metric_id: self.metric.id().into(),
-        })
-    }
 }
 
 /// Converts processed item count to a logical direct-processor chunk count.
