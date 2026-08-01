@@ -19,10 +19,9 @@ const PARALLEL_BATCH_PROCESSOR: &str =
 /// Ensures README dependency snippets use the same major.minor line as
 /// `[package] version`.
 fn test_readme_dependency_version_matches_cargo_toml() {
-    let cargo_version = extract_package_version(CARGO_TOML)
-        .expect("Failed to extract version from Cargo.toml");
-    let expected = minor_series(cargo_version)
-        .expect("Cargo.toml version must have major.minor");
+    let cargo_version =
+        extract_package_version(CARGO_TOML).expect("Failed to extract version from Cargo.toml");
+    let expected = minor_series(cargo_version).expect("Cargo.toml version must have major.minor");
     let readme_en_version = extract_readme_dependency_version(README_EN)
         .expect("Failed to extract version from README.md");
     let readme_zh_version = extract_readme_dependency_version(README_ZH)

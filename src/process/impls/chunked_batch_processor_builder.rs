@@ -5,16 +5,9 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    num::NonZeroUsize,
-    sync::Arc,
-    time::Duration,
-};
+use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
-use qubit_progress::reporter::{
-    NoopReporter,
-    Reporter,
-};
+use qubit_progress::reporter::{NoopReporter, Reporter};
 
 use super::ChunkedBatchProcessor;
 
@@ -72,8 +65,7 @@ impl<P> ChunkedBatchProcessorBuilder<P> {
         Self {
             delegate,
             chunk_size,
-            report_interval:
-                ChunkedBatchProcessor::<P>::DEFAULT_REPORT_INTERVAL,
+            report_interval: ChunkedBatchProcessor::<P>::DEFAULT_REPORT_INTERVAL,
             reporter: Arc::new(NoopReporter),
         }
     }

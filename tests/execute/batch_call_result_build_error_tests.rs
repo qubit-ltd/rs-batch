@@ -15,8 +15,7 @@ fn test_batch_call_result_build_error_displays_value_mapping_context() {
         succeeded_count: 2,
         value_count: 1,
     };
-    let index_error =
-        BatchCallResultBuildError::FailureValuePresent { index: 3 };
+    let index_error = BatchCallResultBuildError::FailureValuePresent { index: 3 };
 
     assert_eq!(
         count_error.to_string(),
