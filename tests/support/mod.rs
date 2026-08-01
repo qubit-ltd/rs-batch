@@ -15,16 +15,9 @@ mod test_task;
 
 pub use failing_progress_reporter::FailingReporter;
 pub use progress_reporter::{
-    PanickingReporter,
-    PhaseRecordingReporter,
-    ProgressEvent,
-    ProgressPanicPhase,
-    RecordingReporter,
-    panic_payload_message,
+    PanickingReporter, PhaseRecordingReporter, ProgressEvent, ProgressPanicPhase,
+    RecordingReporter, panic_payload_message,
 };
 pub use test_callable::TestCallable;
-pub use test_chunk_processor::{
-    TestChunkOutcome,
-    TestChunkProcessor,
-};
+pub use test_chunk_processor::{TestChunkOutcome, TestChunkProcessor};
 pub use test_task::TestTask;

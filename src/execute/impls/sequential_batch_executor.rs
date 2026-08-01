@@ -5,28 +5,15 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    sync::Arc,
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 use qubit_function::Runnable;
-use qubit_progress::{
-    Metric,
-    Progress,
-    Reporter,
-};
+use qubit_progress::{Metric, Progress, Reporter};
 
 use crate::{
-    BatchExecutionError,
-    BatchOutcome,
-    BatchOutcomeBuilder,
-    BatchTermination,
-    TaskFailurePolicy,
+    BatchExecutionError, BatchOutcome, BatchOutcomeBuilder, BatchTermination, TaskFailurePolicy,
     execute::{
-        BatchExecutionState,
-        BatchExecutor,
-        EXECUTION_PROGRESS_METRIC_ID,
+        BatchExecutionState, BatchExecutor, EXECUTION_PROGRESS_METRIC_ID,
         EXECUTION_PROGRESS_METRIC_NAME,
     },
 };
@@ -166,11 +153,8 @@ impl BatchExecutor for SequentialBatchExecutor {
         let mut progress = match Progress::builder(self.reporter.as_ref())
             .interval(self.report_interval)
             .metric(
-                Metric::new(
-                    EXECUTION_PROGRESS_METRIC_ID,
-                    EXECUTION_PROGRESS_METRIC_NAME,
-                )
-                .total(count as u64),
+                Metric::new(EXECUTION_PROGRESS_METRIC_ID, EXECUTION_PROGRESS_METRIC_NAME)
+                    .total(count as u64),
             )
             .start()
         {
@@ -210,9 +194,9 @@ impl BatchExecutor for SequentialBatchExecutor {
                 });
             }
             // Execute the task and update the state.
-            state.execute_task(actual_count - 1, task).expect(
-                "observed task index must be within the declared count",
-            );
+            state
+                .execute_task(actual_count - 1, task)
+                .expect("observed task index must be within the declared count");
             if self.task_failure_policy.should_stop(state.failure_count()) {
                 stopped_by_task_failure_policy = true;
                 break;

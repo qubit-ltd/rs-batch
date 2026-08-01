@@ -5,28 +5,14 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    sync::Arc,
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
-use qubit_function::{
-    BoxConsumer,
-    Consumer,
-};
-use qubit_progress::{
-    Metric,
-    Progress,
-    Reporter,
-};
+use qubit_function::{BoxConsumer, Consumer};
+use qubit_progress::{Metric, Progress, Reporter};
 
 use crate::process::{
-    BatchProcessError,
-    BatchProcessResult,
-    BatchProcessState,
-    BatchProcessor,
-    PROCESS_PROGRESS_METRIC_ID,
-    PROCESS_PROGRESS_METRIC_NAME,
+    BatchProcessError, BatchProcessResult, BatchProcessState, BatchProcessor,
+    PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME,
 };
 
 use super::SequentialBatchProcessorBuilder;
@@ -184,11 +170,8 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
         let mut progress = match Progress::builder(self.reporter.as_ref())
             .interval(self.report_interval)
             .metric(
-                Metric::new(
-                    PROCESS_PROGRESS_METRIC_ID,
-                    PROCESS_PROGRESS_METRIC_NAME,
-                )
-                .total(count as u64),
+                Metric::new(PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME)
+                    .total(count as u64),
             )
             .start()
         {

@@ -44,7 +44,7 @@ use crate::BatchOutcome;
 ///
 /// * `E` - The task-specific error type stored inside the attached outcome.
 #[non_exhaustive]
-#[derive(Debug, Clone, Error, PartialEq, Eq)]
+#[derive(Debug, Clone, Error)]
 pub enum BatchExecutionError<E> {
     /// Reporting batch progress failed.
     #[error("batch progress reporting failed")]
@@ -149,9 +149,7 @@ impl<E> BatchExecutionError<E> {
         match self {
             Self::ProgressReport { source, .. } => Some(source),
             Self::CountShortfall { report_error, .. }
-            | Self::CountExceeded { report_error, .. } => {
-                report_error.as_deref()
-            }
+            | Self::CountExceeded { report_error, .. } => report_error.as_deref(),
         }
     }
 }

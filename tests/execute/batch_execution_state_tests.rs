@@ -10,18 +10,10 @@
 use std::time::Duration;
 
 use qubit_batch::{
-    BatchExecutionState,
-    BatchExecutionStateError,
-    BatchExecutor,
-    BatchTaskError,
-    SequentialBatchExecutor,
-    TaskFailurePolicy,
+    BatchExecutionState, BatchExecutionStateError, BatchExecutor, BatchTaskError,
+    SequentialBatchExecutor, TaskFailurePolicy,
 };
-use qubit_progress::{
-    Metric,
-    NoopReporter,
-    Progress,
-};
+use qubit_progress::{Metric, NoopReporter, Progress};
 
 use crate::support::TestTask;
 

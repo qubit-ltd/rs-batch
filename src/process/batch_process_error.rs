@@ -38,7 +38,7 @@ use super::BatchProcessResult;
 ///     _ => unreachable!(),
 /// }
 /// ```
-#[derive(Debug, Clone, Error, PartialEq, Eq)]
+#[derive(Debug, Clone, Error)]
 #[non_exhaustive]
 pub enum BatchProcessError {
     /// Reporting batch progress failed.

@@ -10,22 +10,15 @@ use std::thread;
 use std::time::Duration;
 
 use qubit_function::Runnable;
-use qubit_progress::{
-    Metric,
-    Progress,
-    Reporter,
-};
+use qubit_progress::{Metric, Progress, Reporter};
 
 use crate::BatchExecutionError;
 use crate::BatchOutcome;
 use crate::BatchOutcomeBuilder;
 use crate::TaskFailurePolicy;
 use crate::execute::{
-    BatchExecutionState,
-    BatchExecutor,
-    EXECUTION_PROGRESS_METRIC_ID,
-    EXECUTION_PROGRESS_METRIC_NAME,
-    SequentialBatchExecutor,
+    BatchExecutionState, BatchExecutor, EXECUTION_PROGRESS_METRIC_ID,
+    EXECUTION_PROGRESS_METRIC_NAME, SequentialBatchExecutor,
 };
 use crate::utils::run_scoped_parallel;
 
@@ -121,9 +114,7 @@ impl ParallelBatchExecutor {
     /// Returns [`ParallelBatchExecutorBuildError::ZeroThreadCount`] when
     /// `thread_count` is zero.
     #[inline]
-    pub fn new(
-        thread_count: usize,
-    ) -> Result<Self, ParallelBatchExecutorBuildError> {
+    pub fn new(thread_count: usize) -> Result<Self, ParallelBatchExecutorBuildError> {
         Self::builder().thread_count(thread_count).build()
     }
 
@@ -238,11 +229,8 @@ impl BatchExecutor for ParallelBatchExecutor {
         let mut progress = match Progress::builder(self.reporter.as_ref())
             .interval(self.report_interval)
             .metric(
-                Metric::new(
-                    EXECUTION_PROGRESS_METRIC_ID,
-                    EXECUTION_PROGRESS_METRIC_NAME,
-                )
-                .total(count as u64),
+                Metric::new(EXECUTION_PROGRESS_METRIC_ID, EXECUTION_PROGRESS_METRIC_NAME)
+                    .total(count as u64),
             )
             .start()
         {
@@ -287,9 +275,8 @@ impl BatchExecutor for ParallelBatchExecutor {
             running_progress.stop()
         });
 
-        let state = Arc::into_inner(state).expect(
-            "parallel batch execution state should have a single owner",
-        );
+        let state = Arc::into_inner(state)
+            .expect("parallel batch execution state should have a single owner");
         if let Err(source) = running_result {
             return Err(BatchExecutionError::ProgressReport {
                 source,

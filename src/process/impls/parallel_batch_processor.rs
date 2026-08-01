@@ -5,31 +5,14 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    num::NonZeroUsize,
-    sync::Arc,
-    thread,
-    time::Duration,
-};
+use std::{num::NonZeroUsize, sync::Arc, thread, time::Duration};
 
-use qubit_function::{
-    ArcConsumer,
-    Consumer,
-};
-use qubit_progress::{
-    Metric,
-    Progress,
-    ProgressError,
-    reporter::Reporter,
-};
+use qubit_function::{ArcConsumer, Consumer};
+use qubit_progress::{Metric, Progress, ProgressError, reporter::Reporter};
 
 use crate::process::{
-    BatchProcessError,
-    BatchProcessResult,
-    BatchProcessState,
-    BatchProcessor,
-    PROCESS_PROGRESS_METRIC_ID,
-    PROCESS_PROGRESS_METRIC_NAME,
+    BatchProcessError, BatchProcessResult, BatchProcessState, BatchProcessor,
+    PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME,
 };
 use crate::utils::run_scoped_parallel;
 
@@ -252,11 +235,8 @@ where
         let mut progress = match Progress::builder(self.reporter.as_ref())
             .interval(self.report_interval)
             .metric(
-                Metric::new(
-                    PROCESS_PROGRESS_METRIC_ID,
-                    PROCESS_PROGRESS_METRIC_NAME,
-                )
-                .total(count as u64),
+                Metric::new(PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME)
+                    .total(count as u64),
             )
             .start()
         {
@@ -277,22 +257,10 @@ where
         let state = Arc::new(BatchProcessState::new(count, metric));
 
         let running_result = if count > 0 {
-            if count <= self.sequential_threshold
-                || self.thread_count.get() <= 1
-            {
-                self.process_sequential(
-                    items,
-                    count,
-                    state.as_ref(),
-                    &mut progress,
-                )
+            if count <= self.sequential_threshold || self.thread_count.get() <= 1 {
+                self.process_sequential(items, count, state.as_ref(), &mut progress)
             } else {
-                self.process_parallel_non_empty(
-                    items,
-                    count,
-                    Arc::clone(&state),
-                    &mut progress,
-                )
+                self.process_parallel_non_empty(items, count, Arc::clone(&state), &mut progress)
             }
         } else if items.into_iter().next().is_some() {
             state.record_item_observed();
@@ -436,13 +404,13 @@ where
                 move || observer_state.record_item_observed(),
                 move || running_status.is_failed(),
                 move |_index, item| {
-                    worker_state.record_item_started().expect(
-                        "batch progress state transition must be valid",
-                    );
+                    worker_state
+                        .record_item_started()
+                        .expect("batch progress state transition must be valid");
                     consumer.accept(&item);
-                    worker_state.record_item_processed().expect(
-                        "batch progress state transition must be valid",
-                    );
+                    worker_state
+                        .record_item_processed()
+                        .expect("batch progress state transition must be valid");
                     running_point_handle.notify();
                 },
             );

@@ -7,17 +7,10 @@
 // =============================================================================
 use std::{
     io,
-    sync::atomic::{
-        AtomicUsize,
-        Ordering,
-    },
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
-use qubit_progress::{
-    Event,
-    ReportError,
-    Reporter,
-};
+use qubit_progress::{Event, ReportError, Reporter};
 
 /// Progress reporter that fails after a configured number of successful calls.
 pub struct FailingReporter {

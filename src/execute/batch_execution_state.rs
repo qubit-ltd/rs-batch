@@ -6,32 +6,18 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::{
-    panic::{
-        AssertUnwindSafe,
-        catch_unwind,
-    },
-    sync::{
-        Mutex,
-        MutexGuard,
-    },
+    panic::{AssertUnwindSafe, catch_unwind},
+    sync::{Mutex, MutexGuard},
     time::Duration,
 };
 
 use qubit_atomic::AtomicCount;
 use qubit_function::Runnable;
-use qubit_progress::{
-    MetricError,
-    MetricHandle,
-};
+use qubit_progress::{MetricError, MetricHandle};
 
 use crate::{
-    BatchExecutionStateError,
-    BatchOutcome,
-    BatchOutcomeBuilder,
-    BatchTaskError,
-    BatchTaskFailure,
-    BatchTermination,
-    execute::panic_payload_to_error,
+    BatchExecutionStateError, BatchOutcome, BatchOutcomeBuilder, BatchTaskError, BatchTaskFailure,
+    BatchTermination, execute::panic_payload_to_error,
 };
 
 /// Metric id used for task progress counters.
@@ -88,11 +74,7 @@ impl<E> BatchExecutionState<E> {
     /// [`BatchExecutionStateError::TaskIndexOutOfRange`] before executing an
     /// out-of-range task.
     #[allow(deprecated)]
-    pub fn execute_task<T>(
-        &self,
-        index: usize,
-        mut task: T,
-    ) -> Result<(), BatchExecutionStateError>
+    pub fn execute_task<T>(&self, index: usize, mut task: T) -> Result<(), BatchExecutionStateError>
     where
         T: Runnable<E>,
     {
@@ -106,10 +88,9 @@ impl<E> BatchExecutionState<E> {
         match catch_unwind(AssertUnwindSafe(|| task.run())) {
             Ok(Ok(())) => self.record_task_succeeded()?,
             Ok(Err(error)) => self.record_task_failed(index, error)?,
-            Err(payload) => self.record_task_panicked(
-                index,
-                panic_payload_to_error(payload.as_ref()),
-            )?,
+            Err(payload) => {
+                self.record_task_panicked(index, panic_payload_to_error(payload.as_ref()))?
+            }
         }
         Ok(())
     }
@@ -163,11 +144,7 @@ impl<E> BatchExecutionState<E> {
         note = "use execute_task to keep execution state consistent"
     )]
     #[inline]
-    pub fn record_task_failed(
-        &self,
-        index: usize,
-        error: E,
-    ) -> Result<(), MetricError> {
+    pub fn record_task_failed(&self, index: usize, error: E) -> Result<(), MetricError> {
         self.metric.fail(1)?;
         Self::lock_failures(&self.failures)
             .push(BatchTaskFailure::new(index, BatchTaskError::Failed(error)));
@@ -195,8 +172,7 @@ impl<E> BatchExecutionState<E> {
         error: BatchTaskError<E>,
     ) -> Result<(), MetricError> {
         self.metric.fail(1)?;
-        Self::lock_failures(&self.failures)
-            .push(BatchTaskFailure::new(index, error));
+        Self::lock_failures(&self.failures).push(BatchTaskFailure::new(index, error));
         Ok(())
     }
 
@@ -269,10 +245,7 @@ impl<E> BatchExecutionState<E> {
         self,
         elapsed: Duration,
     ) -> Result<BatchOutcome<E>, crate::BatchOutcomeBuildError> {
-        self.try_into_outcome_with_termination(
-            elapsed,
-            BatchTermination::Finished,
-        )
+        self.try_into_outcome_with_termination(elapsed, BatchTermination::Finished)
     }
 
     /// Consumes this state, applies `termination`, and validates the outcome.
@@ -292,10 +265,7 @@ impl<E> BatchExecutionState<E> {
         elapsed: Duration,
         termination: BatchTermination,
     ) -> Result<BatchOutcome<E>, crate::BatchOutcomeBuildError> {
-        let snapshot = self
-            .metric
-            .snapshot()
-            .expect("batch progress metric state should remain readable");
+        let snapshot = self.metric.snapshot();
         let failures = self
             .failures
             .into_inner()
