@@ -56,6 +56,10 @@ pub mod execute;
 pub mod process;
 pub(crate) mod utils;
 
+mod progress_failure;
+
+pub use progress_failure::ProgressFailure;
+
 pub use execute::{
     BatchCallResult, BatchCallResultBuildError, BatchExecutionError, BatchExecutionState,
     BatchExecutionStateError, BatchExecutor, BatchOutcome, BatchOutcomeBuildError,

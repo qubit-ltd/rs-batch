@@ -9,6 +9,7 @@ use std::{cmp, num::NonZeroUsize, sync::Arc, time::Duration};
 
 use qubit_progress::{Metric, Progress, Reporter};
 
+use crate::ProgressFailure;
 use crate::process::{
     BatchProcessResult, BatchProcessState, BatchProcessor, ChunkedBatchProcessError,
     PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME,
@@ -241,7 +242,7 @@ where
             Ok(progress) => progress,
             Err(source) => {
                 return Err(ChunkedBatchProcessError::ProgressReport {
-                    source,
+                    source: Box::new(ProgressFailure::from(source)),
                     result: BatchProcessResult::builder(count)
                         .elapsed(Duration::ZERO)
                         .build()
@@ -266,7 +267,7 @@ where
                     Ok(elapsed) => (elapsed, None),
                     Err(source) => {
                         let elapsed = source.elapsed();
-                        (elapsed, Some(source.into_progress_error()))
+                        (elapsed, Some(ProgressFailure::from(source)))
                     }
                 };
                 let result = state.to_chunked_result(elapsed);
@@ -292,7 +293,7 @@ where
                 Ok(elapsed) => (elapsed, None),
                 Err(source) => {
                     let elapsed = source.elapsed();
-                    (elapsed, Some(source.into_progress_error()))
+                    (elapsed, Some(ProgressFailure::from(source)))
                 }
             };
             let result = state.to_chunked_result(elapsed);
@@ -303,12 +304,14 @@ where
                 report_error,
             })
         } else {
+            let progress_elapsed = progress.elapsed();
             let finished = match progress.finish() {
                 Ok(elapsed) => elapsed,
                 Err(source) => {
-                    let elapsed = source.elapsed();
+                    let failure = ProgressFailure::from_finish_error(source);
+                    let elapsed = failure.elapsed().unwrap_or(progress_elapsed);
                     return Err(ChunkedBatchProcessError::ProgressReport {
-                        source: source.into_progress_error(),
+                        source: Box::new(failure),
                         result: state.to_chunked_result(elapsed),
                     });
                 }
@@ -336,6 +339,7 @@ impl<P> ChunkedBatchProcessor<P> {
     ///
     /// Returns [`ChunkedBatchProcessError::ChunkFailed`] when the delegate
     /// returns an error.
+    #[allow(clippy::result_large_err)]
     fn process_chunk<'progress, Item>(
         &mut self,
         chunk: &mut Vec<Item>,
@@ -358,7 +362,7 @@ impl<P> ChunkedBatchProcessor<P> {
                         Ok(elapsed) => (elapsed, None),
                         Err(source) => {
                             let elapsed = source.elapsed();
-                            (elapsed, Some(source.into_progress_error()))
+                            (elapsed, Some(ProgressFailure::from(source)))
                         }
                     };
                     let result = state.to_chunked_result(elapsed);
@@ -377,7 +381,7 @@ impl<P> ChunkedBatchProcessor<P> {
                     .expect("batch progress state transition must be valid");
                 if let Err(source) = progress.report_if_due() {
                     return Err(ChunkedBatchProcessError::ProgressReport {
-                        source,
+                        source: Box::new(ProgressFailure::from(source)),
                         result: state.to_chunked_result(progress.elapsed()),
                     });
                 }
@@ -388,7 +392,7 @@ impl<P> ChunkedBatchProcessor<P> {
                     Ok(elapsed) => (elapsed, None),
                     Err(report_source) => {
                         let elapsed = report_source.elapsed();
-                        (elapsed, Some(report_source.into_progress_error()))
+                        (elapsed, Some(ProgressFailure::from(report_source)))
                     }
                 };
                 let result = state.to_chunked_result(elapsed);

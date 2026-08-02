@@ -9,7 +9,7 @@
 
 use std::{any::Any, panic::panic_any, sync::Mutex};
 
-use qubit_progress::{Event as QubitProgressEvent, Phase, ReportError, Reporter};
+use qubit_progress::{Event as QubitProgressEvent, Phase, Reporter, ReporterError};
 
 /// Progress callback that should panic during a test.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -96,7 +96,7 @@ impl Reporter for PhaseRecordingReporter {
     /// # Returns
     ///
     /// `Ok(())` after recording the event phase.
-    fn report(&self, event: &QubitProgressEvent) -> Result<(), ReportError> {
+    fn report(&self, event: &QubitProgressEvent) -> Result<(), ReporterError> {
         self.phases
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -130,7 +130,7 @@ impl RecordingReporter {
 }
 
 impl Reporter for RecordingReporter {
-    fn report(&self, event: &QubitProgressEvent) -> Result<(), ReportError> {
+    fn report(&self, event: &QubitProgressEvent) -> Result<(), ReporterError> {
         let counter = event
             .metrics()
             .first()
@@ -210,7 +210,7 @@ impl PanickingReporter {
 }
 
 impl Reporter for PanickingReporter {
-    fn report(&self, event: &QubitProgressEvent) -> Result<(), ReportError> {
+    fn report(&self, event: &QubitProgressEvent) -> Result<(), ReporterError> {
         match event.phase() {
             Phase::Started => self.panic_if_configured(ProgressPanicPhase::Start),
             Phase::Running => self.panic_if_configured(ProgressPanicPhase::Process),

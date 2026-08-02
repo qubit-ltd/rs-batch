@@ -5,10 +5,10 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use qubit_progress::ProgressError;
 use thiserror::Error;
 
 use super::BatchProcessResult;
+use crate::ProgressFailure;
 
 /// Error returned by [`crate::ChunkedBatchProcessor`].
 ///
@@ -57,7 +57,7 @@ pub enum ChunkedBatchProcessError<E> {
     ProgressReport {
         /// Reporter error returned by the configured progress sink.
         #[source]
-        source: ProgressError,
+        source: Box<ProgressFailure>,
         /// Result accumulated before reporting failed.
         result: BatchProcessResult,
     },
@@ -72,7 +72,7 @@ pub enum ChunkedBatchProcessError<E> {
         /// Result accumulated before the shortfall was reported.
         result: BatchProcessResult,
         /// Terminal progress-report error, when reporting the failure failed.
-        report_error: Option<ProgressError>,
+        report_error: Option<ProgressFailure>,
     },
 
     /// The input source yielded more items than the declared item count.
@@ -87,7 +87,7 @@ pub enum ChunkedBatchProcessError<E> {
         /// Result accumulated before the excess item was observed.
         result: BatchProcessResult,
         /// Terminal progress-report error, when reporting the failure failed.
-        report_error: Option<ProgressError>,
+        report_error: Option<ProgressFailure>,
     },
 
     /// The delegate processor failed while processing one chunk.
@@ -104,7 +104,7 @@ pub enum ChunkedBatchProcessError<E> {
         /// Result accumulated before this chunk failed.
         result: BatchProcessResult,
         /// Terminal progress-report error, when reporting the failure failed.
-        report_error: Option<ProgressError>,
+        report_error: Option<ProgressFailure>,
     },
 
     /// The delegate returned `Ok` with counters that do not describe the
@@ -131,7 +131,7 @@ pub enum ChunkedBatchProcessError<E> {
         /// Result accumulated before this invalid chunk result was reported.
         result: BatchProcessResult,
         /// Terminal progress-report error, when reporting the failure failed.
-        report_error: Option<ProgressError>,
+        report_error: Option<ProgressFailure>,
     },
 }
 
@@ -174,7 +174,7 @@ impl<E> ChunkedBatchProcessError<E> {
     ///
     /// The report error retained by the primary processing error, if any.
     #[inline]
-    pub const fn progress_report_error(&self) -> Option<&ProgressError> {
+    pub fn progress_report_error(&self) -> Option<&ProgressFailure> {
         match self {
             Self::ProgressReport { source, .. } => Some(source),
             Self::CountShortfall { report_error, .. }

@@ -12,7 +12,6 @@ use std::time::Duration;
 use qubit_function::Runnable;
 use qubit_progress::{Metric, Progress, Reporter};
 
-use crate::BatchExecutionError;
 use crate::BatchOutcome;
 use crate::BatchOutcomeBuilder;
 use crate::TaskFailurePolicy;
@@ -21,6 +20,7 @@ use crate::execute::{
     EXECUTION_PROGRESS_METRIC_NAME, SequentialBatchExecutor,
 };
 use crate::utils::run_scoped_parallel;
+use crate::{BatchExecutionError, ProgressFailure};
 
 use super::ParallelBatchExecutorBuildError;
 use super::ParallelBatchExecutorBuilder;
@@ -237,7 +237,7 @@ impl BatchExecutor for ParallelBatchExecutor {
             Ok(progress) => progress,
             Err(source) => {
                 return Err(BatchExecutionError::ProgressReport {
-                    source,
+                    source: Box::new(ProgressFailure::from(source)),
                     outcome: BatchOutcomeBuilder::builder(count)
                         .elapsed(Duration::ZERO)
                         .build()
@@ -279,7 +279,7 @@ impl BatchExecutor for ParallelBatchExecutor {
             .expect("parallel batch execution state should have a single owner");
         if let Err(source) = running_result {
             return Err(BatchExecutionError::ProgressReport {
-                source,
+                source: Box::new(ProgressFailure::from(source)),
                 outcome: state.into_outcome(progress.elapsed()),
             });
         }
@@ -288,7 +288,7 @@ impl BatchExecutor for ParallelBatchExecutor {
                 Ok(elapsed) => (elapsed, None),
                 Err(source) => {
                     let elapsed = source.elapsed();
-                    (elapsed, Some(Box::new(source.into_progress_error())))
+                    (elapsed, Some(Box::new(ProgressFailure::from(source))))
                 }
             };
             let result = state.into_outcome(elapsed);
@@ -303,7 +303,7 @@ impl BatchExecutor for ParallelBatchExecutor {
                 Ok(elapsed) => (elapsed, None),
                 Err(source) => {
                     let elapsed = source.elapsed();
-                    (elapsed, Some(Box::new(source.into_progress_error())))
+                    (elapsed, Some(Box::new(ProgressFailure::from(source))))
                 }
             };
             let result = state.into_outcome(elapsed);
@@ -314,17 +314,20 @@ impl BatchExecutor for ParallelBatchExecutor {
                 report_error,
             })
         } else {
+            let progress_elapsed = progress.elapsed();
             let terminal = if state.failure_count() > 0 {
-                progress.fail()
+                progress.fail().map_err(ProgressFailure::from)
             } else {
-                progress.finish()
+                progress
+                    .finish()
+                    .map_err(ProgressFailure::from_finish_error)
             };
             let terminal = match terminal {
                 Ok(elapsed) => elapsed,
                 Err(source) => {
-                    let elapsed = source.elapsed();
+                    let elapsed = source.elapsed().unwrap_or(progress_elapsed);
                     return Err(BatchExecutionError::ProgressReport {
-                        source: source.into_progress_error(),
+                        source: Box::new(source),
                         outcome: state.into_outcome(elapsed),
                     });
                 }

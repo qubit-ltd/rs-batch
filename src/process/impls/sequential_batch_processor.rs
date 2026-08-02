@@ -10,6 +10,7 @@ use std::{sync::Arc, time::Duration};
 use qubit_function::{BoxConsumer, Consumer};
 use qubit_progress::{Metric, Progress, Reporter};
 
+use crate::ProgressFailure;
 use crate::process::{
     BatchProcessError, BatchProcessResult, BatchProcessState, BatchProcessor,
     PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME,
@@ -178,7 +179,7 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
             Ok(progress) => progress,
             Err(source) => {
                 return Err(BatchProcessError::ProgressReport {
-                    source,
+                    source: Box::new(ProgressFailure::from(source)),
                     result: BatchProcessResult::builder(count)
                         .elapsed(Duration::ZERO)
                         .build()
@@ -198,7 +199,7 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
                     Ok(elapsed) => (elapsed, None),
                     Err(source) => {
                         let elapsed = source.elapsed();
-                        (elapsed, Some(source.into_progress_error()))
+                        (elapsed, Some(ProgressFailure::from(source)))
                     }
                 };
                 let result = state.to_direct_result(elapsed);
@@ -218,7 +219,7 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
                 .expect("batch progress state transition must be valid");
             if let Err(source) = progress.report_if_due() {
                 return Err(BatchProcessError::ProgressReport {
-                    source,
+                    source: Box::new(ProgressFailure::from(source)),
                     result: state.to_direct_result(progress.elapsed()),
                 });
             }
@@ -229,7 +230,7 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
                 Ok(elapsed) => (elapsed, None),
                 Err(source) => {
                     let elapsed = source.elapsed();
-                    (elapsed, Some(source.into_progress_error()))
+                    (elapsed, Some(ProgressFailure::from(source)))
                 }
             };
             let result = state.to_direct_result(elapsed);
@@ -240,12 +241,14 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
                 report_error,
             })
         } else {
+            let progress_elapsed = progress.elapsed();
             let finished = match progress.finish() {
                 Ok(elapsed) => elapsed,
                 Err(source) => {
-                    let elapsed = source.elapsed();
+                    let failure = ProgressFailure::from_finish_error(source);
+                    let elapsed = failure.elapsed().unwrap_or(progress_elapsed);
                     return Err(BatchProcessError::ProgressReport {
-                        source: source.into_progress_error(),
+                        source: Box::new(failure),
                         result: state.to_direct_result(elapsed),
                     });
                 }
