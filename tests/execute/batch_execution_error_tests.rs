@@ -50,7 +50,7 @@ fn test_batch_execution_error_shortfall_helpers() {
         _ => panic!("expect count shortfall"),
     }
 
-    let outcome = error.clone().into_outcome();
+    let outcome = error.into_outcome();
     assert_eq!(outcome.completed_count(), 2);
 }
 
@@ -78,7 +78,7 @@ fn test_batch_execution_error_exceeded_helpers() {
         _ => panic!("expect count exceeded"),
     }
 
-    let outcome = error.clone().into_outcome();
+    let outcome = error.into_outcome();
     assert_eq!(outcome.task_count(), 2);
     assert_eq!(outcome.completed_count(), 2);
 }

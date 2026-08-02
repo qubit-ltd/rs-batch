@@ -139,8 +139,8 @@ impl BatchExecutor for SequentialBatchExecutor {
     ///
     /// # Panics
     ///
-    /// Panics from tasks are captured in the result. Panics from the configured
-    /// progress reporter are propagated to the caller.
+    /// Panics from tasks are captured in the result. Panics from synchronous
+    /// progress reporter callbacks are propagated to the caller.
     fn execute_with_count<T, E, I>(
         &self,
         tasks: I,

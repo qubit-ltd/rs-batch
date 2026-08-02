@@ -7,11 +7,13 @@
 // =============================================================================
 //! Progress failures normalized for batch APIs.
 
-use qubit_progress::{CompletionError, EmissionError, FinishError, StartError, TerminalError};
+use qubit_progress::{
+    AutoReporterError, CompletionError, EmissionError, FinishError, StartError, TerminalError,
+};
 use thiserror::Error;
 
 /// Progress failure observed by a batch executor or processor.
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum ProgressFailure {
     /// Progress operation could not start.
@@ -20,6 +22,9 @@ pub enum ProgressFailure {
     /// A running event could not be delivered.
     #[error("progress running event failed")]
     Emission(#[source] EmissionError),
+    /// A scoped automatic reporter stopped with an emission error or panic.
+    #[error("progress automatic reporter failed")]
+    AutoReporter(#[source] AutoReporterError),
     /// A terminal event could not be delivered.
     #[error("progress terminal event failed")]
     Terminal(#[source] TerminalError),
@@ -39,6 +44,13 @@ impl From<EmissionError> for ProgressFailure {
     /// Wraps a running emission failure.
     fn from(error: EmissionError) -> Self {
         Self::Emission(error)
+    }
+}
+
+impl From<AutoReporterError> for ProgressFailure {
+    /// Wraps a scoped automatic reporter failure.
+    fn from(error: AutoReporterError) -> Self {
+        Self::AutoReporter(error)
     }
 }
 
@@ -65,7 +77,7 @@ impl ProgressFailure {
     pub fn elapsed(&self) -> Option<std::time::Duration> {
         match self {
             Self::Terminal(error) => Some(error.elapsed()),
-            Self::Start(_) | Self::Emission(_) | Self::Completion(_) => None,
+            Self::Start(_) | Self::Emission(_) | Self::AutoReporter(_) | Self::Completion(_) => None,
         }
     }
 }

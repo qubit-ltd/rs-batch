@@ -380,13 +380,11 @@ fn test_chunked_batch_process_error_helpers_and_display() {
     };
 
     assert_eq!(shortfall.result(), &result);
-    assert_eq!(shortfall.clone().into_result(), result);
     assert_eq!(
         shortfall.to_string(),
         "batch item count shortfall: expected 3, actual 1"
     );
     assert_eq!(exceeded.result(), &result);
-    assert_eq!(exceeded.clone().into_result(), result);
     assert_eq!(
         exceeded.to_string(),
         "batch item count exceeded: expected 3, observed at least 4"
@@ -406,12 +404,14 @@ fn test_chunked_batch_process_error_helpers_and_display() {
     assert!(shortfall.source().is_none());
     assert!(exceeded.source().is_none());
     assert_eq!(invalid.result(), &result);
-    assert_eq!(invalid.clone().into_result(), result);
     assert_eq!(
         invalid.to_string(),
         "batch chunk 1 returned invalid result at item 2: expected 2 completed items, got item_count 2, completed_count 1"
     );
     assert!(invalid.source().is_none());
+    assert_eq!(shortfall.into_result(), result.clone());
+    assert_eq!(exceeded.into_result(), result.clone());
+    assert_eq!(invalid.into_result(), result.clone());
     assert_eq!(failed.into_result(), result);
 }
 

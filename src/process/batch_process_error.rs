@@ -38,7 +38,7 @@ use crate::ProgressFailure;
 ///     _ => unreachable!(),
 /// }
 /// ```
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum BatchProcessError {
     /// Reporting batch progress failed.

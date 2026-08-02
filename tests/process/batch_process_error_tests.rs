@@ -35,15 +35,15 @@ fn test_batch_process_error_helpers_and_display() {
 
     assert_eq!(shortfall.result(), &result);
     assert!(shortfall.progress_report_error().is_none());
-    assert_eq!(shortfall.clone().into_result(), result);
     assert_eq!(
         shortfall.to_string(),
         "batch item count shortfall: expected 3, actual 1"
     );
     assert_eq!(exceeded.result(), &result);
-    assert_eq!(exceeded.clone().into_result(), result);
     assert_eq!(
         exceeded.to_string(),
         "batch item count exceeded: expected 3, observed at least 4"
     );
+    assert_eq!(shortfall.into_result(), result.clone());
+    assert_eq!(exceeded.into_result(), result);
 }

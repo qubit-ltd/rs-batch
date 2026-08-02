@@ -9,7 +9,8 @@ use std::{num::NonZeroUsize, sync::Arc, thread, time::Duration};
 
 use qubit_function::{ArcConsumer, Consumer};
 use qubit_progress::{
-    AutoReporterStatus, EmissionError, Metric, Progress, ProgressNotifier, reporter::Reporter,
+    AutoReporterError, AutoReporterStatus, EmissionError, Metric, Progress, ProgressNotifier,
+    reporter::Reporter,
 };
 
 use crate::ProgressFailure;
@@ -259,11 +260,13 @@ where
             .expect("configured process metric must exist");
         let state = Arc::new(BatchProcessState::new(count, metric));
 
-        let running_result = if count > 0 {
+        let running_result: Result<(), ProgressFailure> = if count > 0 {
             if count <= self.sequential_threshold || self.thread_count.get() <= 1 {
                 self.process_sequential(items, count, state.as_ref(), &mut progress)
+                    .map_err(ProgressFailure::from)
             } else {
                 self.process_parallel_non_empty(items, count, Arc::clone(&state), &mut progress)
+                    .map_err(ProgressFailure::from)
             }
         } else if items.into_iter().next().is_some() {
             state.record_item_observed();
@@ -274,7 +277,7 @@ where
 
         if let Err(source) = running_result {
             return Err(BatchProcessError::ProgressReport {
-                source: Box::new(ProgressFailure::from(source)),
+                source: Box::new(source),
                 result: state.to_direct_result(progress.elapsed()),
             });
         }
@@ -389,7 +392,7 @@ where
         count: usize,
         state: Arc<BatchProcessState>,
         progress: &mut Progress<'_>,
-    ) -> Result<(), EmissionError>
+    ) -> Result<(), AutoReporterError>
     where
         I: IntoIterator<Item = Item>,
     {

@@ -18,9 +18,10 @@ use std::{
 use qubit_atomic::{ArcAtomic, ArcAtomicCount, AtomicCount};
 use qubit_batch::{
     BatchExecutionError, BatchExecutor, ParallelBatchExecutor, ParallelBatchExecutorBuildError,
+    ProgressFailure,
 };
 use qubit_function::Runnable;
-use qubit_progress::Phase;
+use qubit_progress::{AutoReporterError, Phase};
 
 use crate::support::{
     PanickingReporter, PhaseRecordingReporter, ProgressEvent, ProgressPanicPhase,
@@ -360,10 +361,16 @@ fn test_parallel_batch_executor_propagates_progress_reporter_process_panic() {
         TestTask::sleep_success(Duration::from_millis(50)),
     ];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 2)))
-        .expect_err("progress reporter process panic should be propagated");
-
-    assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
+    let error = executor
+        .execute_with_count(tasks, 2)
+        .expect_err("progress reporter process panic should be returned");
+    let BatchExecutionError::ProgressReport { source, .. } = error else {
+        panic!("progress reporter panic should be a progress report error");
+    };
+    let ProgressFailure::AutoReporter(AutoReporterError::Panicked(panic)) = source.as_ref() else {
+        panic!("progress reporter panic should preserve structured panic information");
+    };
+    assert_eq!(panic.message(), Some(PANIC_MESSAGE));
 }
 
 /// Task that records the maximum number of concurrently active tasks.
