@@ -214,7 +214,7 @@ fn test_batch_execution_error_accessors() {
         shortfall.to_string(),
         "batch task count shortfall: expected 2, actual 1"
     );
-    assert_eq!(shortfall.clone().into_outcome(), outcome);
+    assert_eq!(shortfall.into_outcome(), outcome.clone());
 
     let exceeded = BatchExecutionError::CountExceeded {
         expected: 2,

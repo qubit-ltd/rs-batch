@@ -43,7 +43,7 @@ use crate::{BatchOutcome, ProgressFailure};
 ///
 /// * `E` - The task-specific error type stored inside the attached outcome.
 #[non_exhaustive]
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Error)]
 pub enum BatchExecutionError<E> {
     /// Reporting batch progress failed.
     #[error("batch progress reporting failed")]

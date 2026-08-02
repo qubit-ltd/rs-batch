@@ -49,7 +49,7 @@ use crate::ProgressFailure;
 /// # Type Parameters
 ///
 /// * `E` - Error type returned by the delegate processor.
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum ChunkedBatchProcessError<E> {
     /// Reporting batch progress failed.
