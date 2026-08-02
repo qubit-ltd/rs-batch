@@ -8,8 +8,11 @@
 use std::{num::NonZeroUsize, sync::Arc, thread, time::Duration};
 
 use qubit_function::{ArcConsumer, Consumer};
-use qubit_progress::{Metric, Progress, ProgressError, reporter::Reporter};
+use qubit_progress::{
+    AutoReporterStatus, EmissionError, Metric, Progress, ProgressNotifier, reporter::Reporter,
+};
 
+use crate::ProgressFailure;
 use crate::process::{
     BatchProcessError, BatchProcessResult, BatchProcessState, BatchProcessor,
     PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME,
@@ -243,7 +246,7 @@ where
             Ok(progress) => progress,
             Err(source) => {
                 return Err(BatchProcessError::ProgressReport {
-                    source,
+                    source: Box::new(ProgressFailure::from(source)),
                     result: BatchProcessResult::builder(count)
                         .elapsed(Duration::ZERO)
                         .build()
@@ -271,7 +274,7 @@ where
 
         if let Err(source) = running_result {
             return Err(BatchProcessError::ProgressReport {
-                source,
+                source: Box::new(ProgressFailure::from(source)),
                 result: state.to_direct_result(progress.elapsed()),
             });
         }
@@ -281,7 +284,7 @@ where
                 Ok(elapsed) => (elapsed, None),
                 Err(source) => {
                     let elapsed = source.elapsed();
-                    (elapsed, Some(source.into_progress_error()))
+                    (elapsed, Some(ProgressFailure::from(source)))
                 }
             };
             let result = state.to_direct_result(elapsed);
@@ -296,7 +299,7 @@ where
                 Ok(elapsed) => (elapsed, None),
                 Err(source) => {
                     let elapsed = source.elapsed();
-                    (elapsed, Some(source.into_progress_error()))
+                    (elapsed, Some(ProgressFailure::from(source)))
                 }
             };
             let result = state.to_direct_result(elapsed);
@@ -307,12 +310,14 @@ where
                 report_error,
             })
         } else {
+            let progress_elapsed = progress.elapsed();
             let finished = match progress.finish() {
                 Ok(elapsed) => elapsed,
                 Err(source) => {
-                    let elapsed = source.elapsed();
+                    let failure = ProgressFailure::from_finish_error(source);
+                    let elapsed = failure.elapsed().unwrap_or(progress_elapsed);
                     return Err(BatchProcessError::ProgressReport {
-                        source: source.into_progress_error(),
+                        source: Box::new(failure),
                         result: state.to_direct_result(elapsed),
                     });
                 }
@@ -345,7 +350,7 @@ where
         count: usize,
         state: &BatchProcessState,
         progress: &mut Progress<'_>,
-    ) -> Result<(), ProgressError>
+    ) -> Result<(), EmissionError>
     where
         I: IntoIterator<Item = Item>,
     {
@@ -384,14 +389,14 @@ where
         count: usize,
         state: Arc<BatchProcessState>,
         progress: &mut Progress<'_>,
-    ) -> Result<(), ProgressError>
+    ) -> Result<(), EmissionError>
     where
         I: IntoIterator<Item = Item>,
     {
         thread::scope(|scope| {
             let running_progress = progress.spawn_auto_reporter(scope);
-            let running_point_handle = running_progress.notifier();
-            let running_status = running_progress.status();
+            let running_point_handle: ProgressNotifier = running_progress.notifier();
+            let running_status: AutoReporterStatus = running_progress.status();
 
             let worker_count = self.thread_count.get().min(count);
             let observer_state = Arc::clone(&state);

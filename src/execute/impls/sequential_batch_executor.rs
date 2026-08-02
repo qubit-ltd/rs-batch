@@ -11,7 +11,8 @@ use qubit_function::Runnable;
 use qubit_progress::{Metric, Progress, Reporter};
 
 use crate::{
-    BatchExecutionError, BatchOutcome, BatchOutcomeBuilder, BatchTermination, TaskFailurePolicy,
+    BatchExecutionError, BatchOutcome, BatchOutcomeBuilder, BatchTermination, ProgressFailure,
+    TaskFailurePolicy,
     execute::{
         BatchExecutionState, BatchExecutor, EXECUTION_PROGRESS_METRIC_ID,
         EXECUTION_PROGRESS_METRIC_NAME,
@@ -161,7 +162,7 @@ impl BatchExecutor for SequentialBatchExecutor {
             Ok(progress) => progress,
             Err(source) => {
                 return Err(BatchExecutionError::ProgressReport {
-                    source,
+                    source: Box::new(ProgressFailure::from(source)),
                     outcome: BatchOutcomeBuilder::builder(count)
                         .elapsed(Duration::ZERO)
                         .build()
@@ -182,7 +183,7 @@ impl BatchExecutor for SequentialBatchExecutor {
                     Ok(elapsed) => (elapsed, None),
                     Err(source) => (
                         source.elapsed(),
-                        Some(Box::new(source.into_progress_error())),
+                        Some(Box::new(ProgressFailure::from(source))),
                     ),
                 };
                 let outcome = state.into_outcome(elapsed);
@@ -205,7 +206,7 @@ impl BatchExecutor for SequentialBatchExecutor {
             if let Err(source) = progress.report_if_due() {
                 let elapsed = progress.elapsed();
                 return Err(BatchExecutionError::ProgressReport {
-                    source,
+                    source: Box::new(ProgressFailure::from(source)),
                     outcome: state.into_outcome(elapsed),
                 });
             }
@@ -217,7 +218,7 @@ impl BatchExecutor for SequentialBatchExecutor {
                 Err(source) => {
                     let elapsed = source.elapsed();
                     return Err(BatchExecutionError::ProgressReport {
-                        source: source.into_progress_error(),
+                        source: Box::new(ProgressFailure::from(source)),
                         outcome: state.into_outcome_with_termination(
                             elapsed,
                             BatchTermination::StoppedByTaskFailurePolicy,
@@ -234,7 +235,7 @@ impl BatchExecutor for SequentialBatchExecutor {
                 Ok(elapsed) => (elapsed, None),
                 Err(source) => (
                     source.elapsed(),
-                    Some(Box::new(source.into_progress_error())),
+                    Some(Box::new(ProgressFailure::from(source))),
                 ),
             };
             Err(BatchExecutionError::CountShortfall {
@@ -249,19 +250,21 @@ impl BatchExecutor for SequentialBatchExecutor {
                 Err(source) => {
                     let elapsed = source.elapsed();
                     return Err(BatchExecutionError::ProgressReport {
-                        source: source.into_progress_error(),
+                        source: Box::new(ProgressFailure::from(source)),
                         outcome: state.into_outcome(elapsed),
                     });
                 }
             };
             Ok(state.into_outcome(elapsed))
         } else {
+            let progress_elapsed = progress.elapsed();
             let elapsed = match progress.finish() {
                 Ok(elapsed) => elapsed,
                 Err(source) => {
-                    let elapsed = source.elapsed();
+                    let failure = ProgressFailure::from_finish_error(source);
+                    let elapsed = failure.elapsed().unwrap_or(progress_elapsed);
                     return Err(BatchExecutionError::ProgressReport {
-                        source: source.into_progress_error(),
+                        source: Box::new(failure),
                         outcome: state.into_outcome(elapsed),
                     });
                 }

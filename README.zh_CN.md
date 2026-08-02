@@ -264,14 +264,14 @@ use qubit_batch::{
 use qubit_progress::{
     Event,
     Phase,
-    ReportError,
+    ReporterError,
     Reporter,
 };
 
 struct ConsoleReporter;
 
 impl Reporter for ConsoleReporter {
-    fn report(&self, event: &Event) -> Result<(), ReportError> {
+    fn report(&self, event: &Event) -> Result<(), ReporterError> {
         let counter = event
             .metric("tasks")
             .expect("batch progress events contain task counters");
