@@ -257,12 +257,11 @@ impl BatchExecutor for SequentialBatchExecutor {
             };
             Ok(state.into_outcome(elapsed))
         } else {
-            let progress_elapsed = progress.elapsed();
             let elapsed = match progress.finish() {
                 Ok(elapsed) => elapsed,
                 Err(source) => {
+                    let elapsed = source.elapsed();
                     let failure = ProgressFailure::from_finish_error(source);
-                    let elapsed = failure.elapsed().unwrap_or(progress_elapsed);
                     return Err(BatchExecutionError::ProgressReport {
                         source: Box::new(failure),
                         outcome: state.into_outcome(elapsed),
