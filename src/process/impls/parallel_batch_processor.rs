@@ -236,7 +236,7 @@ where
     where
         I: IntoIterator<Item = Item>,
     {
-        let mut progress = match Progress::builder(self.reporter.as_ref())
+        let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
             .interval(self.report_interval)
             .metric(
                 Metric::new(PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME)
