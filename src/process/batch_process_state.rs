@@ -8,7 +8,7 @@
 use std::time::Duration;
 
 use qubit_atomic::AtomicCount;
-use qubit_progress::{MetricError, MetricHandle};
+use qubit_progress::{MetricDelta, MetricError, MetricHandle};
 
 use crate::BatchProcessResult;
 
@@ -86,9 +86,12 @@ impl BatchProcessState {
     ) -> Result<(), MetricError> {
         let completed_count = completed_count as u64;
         let processed_count = processed_count as u64;
-        self.metric.start(completed_count)?;
-        self.metric.succeed(processed_count)?;
-        self.metric.complete(completed_count - processed_count)?;
+        self.metric.apply_delta(
+            MetricDelta::new()
+                .started(completed_count)
+                .succeeded(processed_count)
+                .unclassified(completed_count - processed_count),
+        )?;
         self.chunk_count.inc();
         Ok(())
     }

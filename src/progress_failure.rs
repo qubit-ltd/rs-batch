@@ -64,9 +64,9 @@ impl From<TerminalError> for ProgressFailure {
 impl ProgressFailure {
     /// Converts a checked finish failure while discarding the unusable
     /// operation returned with an incomplete finish.
-    pub fn from_finish_error(error: FinishError<'_>) -> Self {
+    pub fn from_finish_error(error: FinishError) -> Self {
         match error {
-            FinishError::Incomplete { source, .. } => Self::Completion(source),
+            FinishError::Incomplete(source) => Self::Completion(source),
             FinishError::Terminal(source) => Self::Terminal(source),
         }
     }
