@@ -241,12 +241,11 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
                 report_error,
             })
         } else {
-            let progress_elapsed = progress.elapsed();
             let finished = match progress.finish() {
                 Ok(elapsed) => elapsed,
                 Err(source) => {
+                    let elapsed = source.elapsed();
                     let failure = ProgressFailure::from_finish_error(source);
-                    let elapsed = failure.elapsed().unwrap_or(progress_elapsed);
                     return Err(BatchProcessError::ProgressReport {
                         source: Box::new(failure),
                         result: state.to_direct_result(elapsed),

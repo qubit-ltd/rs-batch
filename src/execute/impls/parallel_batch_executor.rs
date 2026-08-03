@@ -315,18 +315,23 @@ impl BatchExecutor for ParallelBatchExecutor {
                 report_error,
             })
         } else {
-            let progress_elapsed = progress.elapsed();
             let terminal = if state.failure_count() > 0 {
-                progress.fail().map_err(ProgressFailure::from)
+                progress.fail().map_err(|source| {
+                    (source.elapsed(), ProgressFailure::from(source))
+                })
             } else {
                 progress
                     .finish()
-                    .map_err(ProgressFailure::from_finish_error)
+                    .map_err(|source| {
+                        (
+                            source.elapsed(),
+                            ProgressFailure::from_finish_error(source),
+                        )
+                    })
             };
             let terminal = match terminal {
                 Ok(elapsed) => elapsed,
-                Err(source) => {
-                    let elapsed = source.elapsed().unwrap_or(progress_elapsed);
+                Err((elapsed, source)) => {
                     return Err(BatchExecutionError::ProgressReport {
                         source: Box::new(source),
                         outcome: state.into_outcome(elapsed),
