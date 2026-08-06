@@ -2,7 +2,6 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
-//
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::sync::Arc;
@@ -10,20 +9,13 @@ use std::sync::Arc;
 use qubit_function::Runnable;
 use qubit_progress::{AutoReporterStatus, ProgressNotifier};
 
-use super::{BatchExecutionState, BatchExecutionStateError};
+use super::{BatchExecutionState, ParallelBatchExecutionContextError};
 
-/// Worker-facing state for one parallel batch execution.
+/// Worker-facing context for one parallel batch execution.
 ///
-/// Runtime-specific executors receive this context from
-/// [`ParallelBatchExecution`](super::ParallelBatchExecution). They use it to
-/// observe source tasks, execute accepted tasks, and cooperate with automatic
-/// progress-reporting failure. The context is cloneable so scoped worker tasks
-/// can share the same accounting state without exposing progress internals.
-///
-/// # Type Parameters
-///
-/// * `E` - Task-specific error type recorded for returned task errors.
-#[derive(Clone)]
+/// Runtime-specific executors receive this context from the coordinator and use
+/// it to observe source tasks, execute accepted tasks, and detect auto-reporting
+/// terminal failures.
 pub struct ParallelBatchExecutionContext<E> {
     /// Shared task accounting and failure collection state.
     state: Arc<BatchExecutionState<E>>,
@@ -36,20 +28,11 @@ pub struct ParallelBatchExecutionContext<E> {
 impl<E> ParallelBatchExecutionContext<E> {
     /// Creates worker-facing execution state for one active batch run.
     ///
-    /// This constructor is only intended for runtime adapters. Most callers
-    /// should use [`ParallelBatchExecution::run`](super::ParallelBatchExecution::run).
-    ///
-    /// # Parameters
-    ///
-    /// * `state` - Shared batch accounting state.
-    /// * `notifier` - Automatic-reporter wakeup handle.
-    /// * `status` - Automatic-reporter terminal status.
-    ///
-    /// # Returns
-    ///
-    /// A context that records work for the active batch run.
+    /// This constructor is only intended for runtime executors.
+    /// Most callers should use
+    /// [`crate::execute::ParallelBatchExecutionCoordinator::execute`].
     #[inline]
-    pub fn new(
+    pub(crate) fn new(
         state: Arc<BatchExecutionState<E>>,
         notifier: ProgressNotifier,
         status: AutoReporterStatus,
@@ -73,13 +56,8 @@ impl<E> ParallelBatchExecutionContext<E> {
 
     /// Returns whether automatic progress reporting has failed.
     ///
-    /// Schedulers should stop accepting and executing new work when this
-    /// returns `true`; [`ParallelBatchExecution::run`](super::ParallelBatchExecution::run)
-    /// will return the captured progress failure with the partial outcome.
-    ///
-    /// # Returns
-    ///
-    /// `true` when automatic progress reporting has reached a terminal error.
+    /// Schedulers should stop accepting and executing new work when this is
+    /// `true`.
     #[inline]
     pub fn reporting_failed(&self) -> bool {
         self.status.is_failed()
@@ -88,7 +66,7 @@ impl<E> ParallelBatchExecutionContext<E> {
     /// Runs one accepted task and records its terminal task outcome.
     ///
     /// Task-returned errors and task panics are stored in the batch outcome;
-    /// they do not become this method's error.
+    /// they are not returned as this method's error.
     ///
     /// # Parameters
     ///
@@ -97,26 +75,18 @@ impl<E> ParallelBatchExecutionContext<E> {
     ///
     /// # Returns
     ///
-    /// `Ok(())` after recording a terminal task outcome, or
-    /// [`BatchExecutionStateError::TaskIndexOutOfRange`] before running an
-    /// invalid index.
+    /// `Ok(())` when the accepted task reaches one of the terminal states and
+    /// running progress was notified.
     pub fn execute_task<T>(
         &self,
         index: usize,
         task: T,
-    ) -> Result<(), BatchExecutionStateError>
+    ) -> Result<(), ParallelBatchExecutionContextError>
     where
         T: Runnable<E>,
     {
-        self.state.execute_task(index, task)
-    }
-
-    /// Signals that a worker reached a task terminal point.
-    ///
-    /// The signal prompts zero-interval automatic reporters to emit a running
-    /// update and wakes interval-based reporters without forcing an emission.
-    #[inline]
-    pub fn notify_task_terminal(&self) {
+        self.state.execute_task(index, task)?;
         self.notifier.notify();
+        Ok(())
     }
 }

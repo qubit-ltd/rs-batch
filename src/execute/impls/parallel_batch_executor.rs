@@ -14,7 +14,7 @@ use qubit_progress::Reporter;
 
 use crate::TaskFailurePolicy;
 use crate::execute::{
-    BatchExecutor, ParallelBatchExecution, SequentialBatchExecutor,
+    BatchExecutor, ParallelBatchExecutionCoordinator, SequentialBatchExecutor,
 };
 use crate::utils::run_scoped_parallel;
 use crate::{BatchExecutionError, BatchOutcome};
@@ -61,10 +61,8 @@ pub struct ParallelBatchExecutor {
     pub(crate) thread_count: usize,
     /// Maximum batch size that still uses sequential execution.
     pub(crate) sequential_threshold: usize,
-    /// Minimum interval between progress callbacks.
-    pub(crate) report_interval: Duration,
-    /// Reporter receiving batch lifecycle callbacks.
-    pub(crate) reporter: Arc<dyn Reporter>,
+    /// Shared coordinator used for parallel execution flow.
+    pub(crate) coordinator: ParallelBatchExecutionCoordinator,
 }
 
 impl ParallelBatchExecutor {
@@ -142,7 +140,7 @@ impl ParallelBatchExecutor {
     /// The minimum interval between due-based running progress callbacks.
     #[inline]
     pub const fn report_interval(&self) -> Duration {
-        self.report_interval
+        self.coordinator.report_interval()
     }
 
     /// Returns the progress reporter used by this executor.
@@ -152,7 +150,7 @@ impl ParallelBatchExecutor {
     /// A shared reference to the configured progress reporter.
     #[inline]
     pub fn reporter(&self) -> &Arc<dyn Reporter> {
-        &self.reporter
+        &self.coordinator.reporter()
     }
 
     /// Creates a sequential executor with matching progress configuration.
@@ -226,11 +224,9 @@ impl BatchExecutor for ParallelBatchExecutor {
         }
 
         let worker_count = self.thread_count.min(count);
-        ParallelBatchExecution::run(
+        self.coordinator.execute(
             tasks,
             count,
-            Arc::clone(&self.reporter),
-            self.report_interval,
             move |tasks, count, context| {
                 run_scoped_parallel(
                     tasks,
@@ -242,7 +238,6 @@ impl BatchExecutor for ParallelBatchExecutor {
                         context
                             .execute_task(index, task)
                             .expect("producer must assign an in-range task index");
-                        context.notify_task_terminal();
                     },
                 )
             },
