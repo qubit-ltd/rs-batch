@@ -9,11 +9,12 @@ use thiserror::Error;
 
 use crate::{BatchOutcome, ProgressFailure};
 
-/// Batch-level error returned when the batch contract is violated.
+/// Batch-level error returned when batch progress or source-count validation
+/// fails.
 ///
 /// Task failures are reported through [`BatchOutcome`], not through
-/// this enum. This error is reserved for situations such as declared task-count
-/// mismatches.
+/// this enum. This error reports progress-reporter failures and declared
+/// task-count mismatches.
 ///
 /// ```rust
 /// use qubit_batch::{

@@ -53,15 +53,15 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns [`BatchExecutionError`] only if the iterator violates its exact
+    /// Returns [`BatchExecutionError::ProgressReport`] when progress reporting
+    /// fails, or a count-mismatch variant when the iterator violates its exact
     /// length contract while being consumed.
     ///
     /// # Panics
     ///
-    /// Panics from individual tasks are captured in [`BatchOutcome`].
-    /// Panics from the configured
-    /// [`qubit_progress::Reporter`] are propagated to the
-    /// caller.
+    /// Panics from individual tasks are captured in [`BatchOutcome`]. Reporter
+    /// callbacks invoked synchronously may panic; automatic reporter failures
+    /// are returned as [`BatchExecutionError::ProgressReport`].
     fn execute<T, E, I>(&self, tasks: I) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = T>,
@@ -87,20 +87,20 @@ pub trait BatchExecutor: Send + Sync {
     /// when a configured task-failure policy stops consumption before the
     /// remaining source count can be validated. Inspect
     /// [`BatchOutcome::termination`] to distinguish the latter case.
-    /// `Err(BatchExecutionError)` when a fully consumed source yields fewer or
-    /// more tasks than declared.
+    /// `Err(BatchExecutionError)` when progress reporting fails or when a fully
+    /// consumed source yields fewer or more tasks than declared.
     ///
     /// # Errors
     ///
-    /// Returns [`BatchExecutionError`] when a fully consumed source task count
-    /// does not match `count`.
+    /// Returns [`BatchExecutionError::ProgressReport`] when progress reporting
+    /// fails, or a count-mismatch variant when a fully consumed source task
+    /// count does not match `count`.
     ///
     /// # Panics
     ///
-    /// Panics from individual tasks are captured in [`BatchOutcome`].
-    /// Panics from the configured
-    /// [`qubit_progress::Reporter`] are propagated to the
-    /// caller.
+    /// Panics from individual tasks are captured in [`BatchOutcome`]. Reporter
+    /// callbacks invoked synchronously may panic; automatic reporter failures
+    /// are returned as [`BatchExecutionError::ProgressReport`].
     fn execute_with_count<T, E, I>(
         &self,
         tasks: I,
@@ -125,15 +125,15 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns [`BatchExecutionError`] only if the iterator violates its exact
+    /// Returns [`BatchExecutionError::ProgressReport`] when progress reporting
+    /// fails, or a count-mismatch variant when the iterator violates its exact
     /// length contract while being consumed.
     ///
     /// # Panics
     ///
     /// Panics from individual callables are captured in the execution result.
-    /// Panics from the configured
-    /// [`qubit_progress::Reporter`] are propagated to the
-    /// caller.
+    /// Reporter callbacks invoked synchronously may panic; automatic reporter
+    /// failures are returned as [`BatchExecutionError::ProgressReport`].
     fn call<C, R, E, I>(&self, tasks: I) -> Result<BatchCallResult<R, E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = C>,
@@ -162,15 +162,15 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns [`BatchExecutionError`] when the source callable count does not
-    /// match `count`.
+    /// Returns [`BatchExecutionError::ProgressReport`] when progress reporting
+    /// fails, or a count-mismatch variant when the source callable count does
+    /// not match `count`.
     ///
     /// # Panics
     ///
     /// Panics from individual callables are captured in the execution result.
-    /// Panics from the configured
-    /// [`qubit_progress::Reporter`] are propagated to the
-    /// caller.
+    /// Reporter callbacks invoked synchronously may panic; automatic reporter
+    /// failures are returned as [`BatchExecutionError::ProgressReport`].
     fn call_with_count<C, R, E, I>(
         &self,
         tasks: I,
