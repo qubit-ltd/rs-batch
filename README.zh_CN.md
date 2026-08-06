@@ -379,7 +379,7 @@ match error {
 - `BatchCallResult::values()` 只为成功 callable 保存 `Some(value)`；失败或 panic
   的 callable 位置为 `None`。
 - `BatchProcessResult::processed_count()` 是代理 processor 报告的成功数量。对于
-  受影响行数等目标侧计数，它可能与 `completed()` 不同。
+  受影响行数等目标侧计数，它可能与 `completed_count()` 不同。
 - `ChunkedBatchProcessError<E>` 在数量不匹配和代理失败时携带部分聚合结果。
 
 ## 项目结构

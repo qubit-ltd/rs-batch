@@ -405,7 +405,7 @@ Important result semantics:
 - `BatchCallResult::values()` stores `Some(value)` only for successful
   callables; failed and panicked callables have `None`.
 - `BatchProcessResult::processed_count()` is the delegate-reported success
-  count. It can differ from `completed()` for processors that report
+  count. It can differ from `completed_count()` for processors that report
   affected rows or similar target-side counts.
 - `ChunkedBatchProcessError<E>` carries the partial aggregate result for count
   mismatches and delegate failures.
