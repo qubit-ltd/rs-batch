@@ -10,6 +10,8 @@
 const CARGO_TOML: &str = include_str!("../../Cargo.toml");
 const README_EN: &str = include_str!("../../README.md");
 const README_ZH: &str = include_str!("../../README.zh_CN.md");
+const PARALLEL_BATCH_EXECUTION: &str =
+    include_str!("../../src/execute/parallel_batch_execution.rs");
 const PARALLEL_BATCH_EXECUTOR: &str =
     include_str!("../../src/execute/impls/parallel_batch_executor.rs");
 const PARALLEL_BATCH_PROCESSOR: &str =
@@ -42,7 +44,8 @@ fn test_readme_mentions_current_executor_types() {
 #[test]
 /// Ensures parallel implementations use the shared scoped progress guard.
 fn test_parallel_progress_reporting_uses_scoped_progress_guard() {
-    assert!(PARALLEL_BATCH_EXECUTOR.contains("spawn_auto_reporter"));
+    assert!(PARALLEL_BATCH_EXECUTION.contains("spawn_auto_reporter"));
+    assert!(PARALLEL_BATCH_EXECUTOR.contains("ParallelBatchExecution::run"));
     assert!(PARALLEL_BATCH_PROCESSOR.contains("spawn_auto_reporter"));
     assert!(!PARALLEL_BATCH_EXECUTOR.contains("RunningProgressLoop"));
     assert!(!PARALLEL_BATCH_PROCESSOR.contains("RunningProgressLoop"));

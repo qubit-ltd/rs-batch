@@ -30,9 +30,9 @@
 //! assert!(outcome.is_success());
 //! ```
 //!
-//! [`BatchExecutionState`] is public so runtime-specific executor crates can
-//! reuse the same accounting and outcome-building rules as the built-in
-//! executors.
+//! [`ParallelBatchExecution`] and [`ParallelBatchExecutionContext`] let
+//! runtime-specific executor crates reuse the built-in progress, accounting,
+//! and outcome rules while supplying only their scheduler.
 //!
 //! # Progress Interval Semantics
 //!
@@ -65,7 +65,8 @@ pub use execute::{
     BatchExecutionStateError, BatchExecutor, BatchOutcome, BatchOutcomeBuildError,
     BatchOutcomeBuilder, BatchTaskError, BatchTaskFailure, BatchTermination,
     EXECUTION_PROGRESS_METRIC_ID, EXECUTION_PROGRESS_METRIC_NAME, ParallelBatchExecutor,
-    ParallelBatchExecutorBuildError, ParallelBatchExecutorBuilder, SequentialBatchExecutor,
+    ParallelBatchExecution, ParallelBatchExecutionContext, ParallelBatchExecutorBuildError,
+    ParallelBatchExecutorBuilder, SequentialBatchExecutor,
     SequentialBatchExecutorBuilder, TaskFailurePolicy,
 };
 pub use process::{

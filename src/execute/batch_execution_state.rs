@@ -44,6 +44,7 @@ impl<E> BatchExecutionState<E> {
     /// # Parameters
     ///
     /// * `task_count` - Declared number of tasks in the batch.
+    /// * `metric` - Progress metric whose transitions track task lifecycle.
     ///
     /// # Returns
     ///
