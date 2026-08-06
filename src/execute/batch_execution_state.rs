@@ -1,8 +1,7 @@
 // =============================================================================
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
-//    SPDX-License-Identifier: Apache-2.0
-//
+//    SPDX-License-Identifier: Apache-2.0.
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::{
@@ -16,18 +15,18 @@ use qubit_function::Runnable;
 use qubit_progress::{MetricError, MetricHandle};
 
 use crate::{
-    BatchExecutionStateError, BatchOutcome, BatchOutcomeBuilder, BatchTaskError, BatchTaskFailure,
-    BatchTermination, execute::panic_payload_to_error,
+    BatchOutcome, BatchOutcomeBuilder, BatchTaskError, BatchTaskFailure,
+    ParallelBatchExecutionContextError, execute::panic_payload_to_error,
 };
 
 /// Metric id used for task progress counters.
-pub const EXECUTION_PROGRESS_METRIC_ID: &str = "tasks";
+pub(crate) const EXECUTION_PROGRESS_METRIC_ID: &str = "tasks";
 
 /// Metric display name used for task progress counters.
-pub const EXECUTION_PROGRESS_METRIC_NAME: &str = "Tasks";
+pub(crate) const EXECUTION_PROGRESS_METRIC_NAME: &str = "Tasks";
 
 /// Shared state collected while a batch executor is running.
-pub struct BatchExecutionState<E> {
+pub(crate) struct BatchExecutionState<E> {
     /// Declared task count.
     task_count: usize,
     /// Number of tasks observed from the source.
@@ -43,14 +42,14 @@ impl<E> BatchExecutionState<E> {
     ///
     /// # Parameters
     ///
-    /// * `task_count` - Declared number of tasks in the batch.
+    /// * `task_count` - Declared task count for the batch.
     /// * `metric` - Progress metric whose transitions track task lifecycle.
     ///
     /// # Returns
     ///
     /// Empty execution state.
     #[inline]
-    pub fn new(task_count: usize, metric: MetricHandle) -> Self {
+    pub(crate) const fn new(task_count: usize, metric: MetricHandle) -> Self {
         Self {
             task_count,
             observed_count: AtomicCount::zero(),
@@ -71,29 +70,43 @@ impl<E> BatchExecutionState<E> {
     ///
     /// # Returns
     ///
-    /// `Ok(())` after the task's terminal outcome was recorded, or
-    /// [`BatchExecutionStateError::TaskIndexOutOfRange`] before executing an
-    /// out-of-range task.
-    #[allow(deprecated)]
-    pub fn execute_task<T>(&self, index: usize, mut task: T) -> Result<(), BatchExecutionStateError>
+    /// The terminal status for this task.
+    ///
+    /// # Errors
+    ///
+    /// [`ParallelBatchExecutionContextError::TaskIndexOutOfRange`] when `index`
+    /// is outside the declared range.
+    #[inline]
+    pub(crate) fn execute_task<T>(
+        &self,
+        index: usize,
+        mut task: T,
+    ) -> Result<TaskExecutionStatus, ParallelBatchExecutionContextError>
     where
         T: Runnable<E>,
     {
         if index >= self.task_count {
-            return Err(BatchExecutionStateError::TaskIndexOutOfRange {
+            return Err(ParallelBatchExecutionContextError::TaskIndexOutOfRange {
                 index,
                 task_count: self.task_count,
             });
         }
         self.record_task_started()?;
-        match catch_unwind(AssertUnwindSafe(|| task.run())) {
-            Ok(Ok(())) => self.record_task_succeeded()?,
-            Ok(Err(error)) => self.record_task_failed(index, error)?,
-            Err(payload) => {
-                self.record_task_panicked(index, panic_payload_to_error(payload.as_ref()))?
+        let status = match catch_unwind(AssertUnwindSafe(|| task.run())) {
+            Ok(Ok(())) => {
+                self.record_task_succeeded()?;
+                TaskExecutionStatus::Succeeded
             }
-        }
-        Ok(())
+            Ok(Err(error)) => {
+                self.record_task_failed(index, error)?;
+                TaskExecutionStatus::Failed
+            }
+            Err(payload) => {
+                self.record_task_panicked(index, panic_payload_to_error(payload.as_ref()))?;
+                TaskExecutionStatus::Failed
+            }
+        };
+        Ok(status)
     }
 
     /// Records one observed task.
@@ -102,17 +115,21 @@ impl<E> BatchExecutionState<E> {
     ///
     /// The observed task count after this task was recorded.
     #[inline]
-    pub fn record_task_observed(&self) -> usize {
+    pub(crate) fn record_task_observed(&self) -> usize {
         self.observed_count.inc()
     }
 
     /// Records that one task has started.
+    ///
+    /// # Panics
+    ///
+    /// Panics if no active task was recorded for this completion.
     #[deprecated(
         since = "0.10.0",
         note = "use execute_task to keep execution state consistent"
     )]
     #[inline]
-    pub fn record_task_started(&self) -> Result<(), MetricError> {
+    pub(crate) fn record_task_started(&self) -> Result<(), MetricError> {
         self.metric.start(1)
     }
 
@@ -126,7 +143,7 @@ impl<E> BatchExecutionState<E> {
         note = "use execute_task to keep execution state consistent"
     )]
     #[inline]
-    pub fn record_task_succeeded(&self) -> Result<(), MetricError> {
+    pub(crate) fn record_task_succeeded(&self) -> Result<(), MetricError> {
         self.metric.succeed(1)
     }
 
@@ -145,10 +162,9 @@ impl<E> BatchExecutionState<E> {
         note = "use execute_task to keep execution state consistent"
     )]
     #[inline]
-    pub fn record_task_failed(&self, index: usize, error: E) -> Result<(), MetricError> {
+    pub(crate) fn record_task_failed(&self, index: usize, error: E) -> Result<(), MetricError> {
         self.metric.fail(1)?;
-        Self::lock_failures(&self.failures)
-            .push(BatchTaskFailure::new(index, BatchTaskError::Failed(error)));
+        Self::lock_failures(&self.failures).push(BatchTaskFailure::new(index, BatchTaskError::Failed(error)));
         Ok(())
     }
 
@@ -167,7 +183,7 @@ impl<E> BatchExecutionState<E> {
         note = "use execute_task to keep execution state consistent"
     )]
     #[inline]
-    pub fn record_task_panicked(
+    pub(crate) fn record_task_panicked(
         &self,
         index: usize,
         error: BatchTaskError<E>,
@@ -183,7 +199,7 @@ impl<E> BatchExecutionState<E> {
     ///
     /// The total terminal task failure count recorded so far.
     #[inline]
-    pub fn failure_count(&self) -> usize {
+    pub(crate) fn failure_count(&self) -> usize {
         Self::lock_failures(&self.failures).len()
     }
 
@@ -202,7 +218,7 @@ impl<E> BatchExecutionState<E> {
     /// Panics if callers used the low-level recording methods to create
     /// counters or failure details that violate [`BatchOutcome`] invariants.
     #[inline]
-    pub fn into_outcome(self, elapsed: Duration) -> BatchOutcome<E> {
+    pub(crate) fn into_outcome(self, elapsed: Duration) -> BatchOutcome<E> {
         self.into_outcome_with_termination(elapsed, BatchTermination::Finished)
     }
 
@@ -222,7 +238,7 @@ impl<E> BatchExecutionState<E> {
     /// Panics if callers used the low-level recording methods to create
     /// counters or failure details that violate [`BatchOutcome`] invariants.
     #[inline]
-    pub fn into_outcome_with_termination(
+    pub(crate) fn into_outcome_with_termination(
         self,
         elapsed: Duration,
         termination: BatchTermination,
@@ -242,7 +258,7 @@ impl<E> BatchExecutionState<E> {
     /// A validated final or partial outcome, or a build error if low-level
     /// recording calls created inconsistent counters.
     #[inline]
-    pub fn try_into_outcome(
+    pub(crate) fn try_into_outcome(
         self,
         elapsed: Duration,
     ) -> Result<BatchOutcome<E>, crate::BatchOutcomeBuildError> {
@@ -254,14 +270,14 @@ impl<E> BatchExecutionState<E> {
     /// # Parameters
     ///
     /// * `elapsed` - Monotonic elapsed duration.
-    /// * `termination` - How the executor stopped consuming its task source.
+    /// * `termination` - How execution stopped consuming the task source.
     ///
     /// # Returns
     ///
     /// A validated final or partial outcome, or a build error if low-level
     /// recording calls created inconsistent counters.
     #[inline]
-    pub fn try_into_outcome_with_termination(
+    pub(crate) fn try_into_outcome_with_termination(
         self,
         elapsed: Duration,
         termination: BatchTermination,
@@ -303,4 +319,13 @@ impl<E> BatchExecutionState<E> {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
+}
+
+/// Terminal outcome status for one executable task.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TaskExecutionStatus {
+    /// Task reached success.
+    Succeeded,
+    /// Task failed or panicked.
+    Failed,
 }

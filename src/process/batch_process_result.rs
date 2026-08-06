@@ -34,6 +34,7 @@ use crate::BatchProcessResultBuilder;
 /// assert_eq!(result.chunk_count(), 1);
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[must_use]
 pub struct BatchProcessResult {
     /// Declared item count for the batch.
     item_count: usize,

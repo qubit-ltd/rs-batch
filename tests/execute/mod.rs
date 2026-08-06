@@ -10,6 +10,8 @@ mod batch_call_result_tests;
 mod batch_execution_error_tests;
 mod batch_execution_state_error_tests;
 mod batch_execution_state_tests;
+mod parallel_batch_execution_coordinator_tests;
+mod parallel_batch_execution_context_tests;
 mod batch_executor_tests;
 mod batch_outcome_build_error_tests;
 mod batch_outcome_builder_tests;
