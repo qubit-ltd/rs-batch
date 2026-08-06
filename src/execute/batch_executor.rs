@@ -210,7 +210,8 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns [`BatchExecutionError`] only if the iterator violates its exact
+    /// Returns [`BatchExecutionError::ProgressReport`] when progress reporting
+    /// fails, or a count-mismatch variant when the iterator violates its exact
     /// length contract while being consumed.
     fn for_each<Item, E, I, F>(
         &self,
@@ -244,7 +245,8 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns [`BatchExecutionError`] when the source item count does not
+    /// Returns [`BatchExecutionError::ProgressReport`] when progress reporting
+    /// fails, or a count-mismatch variant when the source item count does not
     /// match `count`.
     fn for_each_with_count<Item, E, I, F>(
         &self,
