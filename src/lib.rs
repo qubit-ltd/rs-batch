@@ -30,7 +30,7 @@
 //! assert!(outcome.is_success());
 //! ```
 //!
-//! [`ParallelBatchExecution`] and [`ParallelBatchExecutionContext`] let
+//! [`ParallelBatchExecutionCoordinator`] and [`ParallelBatchExecutionContext`] let
 //! runtime-specific executor crates reuse the built-in progress, accounting,
 //! and outcome rules while supplying only their scheduler.
 //!
@@ -61,11 +61,11 @@ mod progress_failure;
 pub use progress_failure::ProgressFailure;
 
 pub use execute::{
-    BatchCallResult, BatchCallResultBuildError, BatchExecutionError, BatchExecutionState,
-    BatchExecutionStateError, BatchExecutor, BatchOutcome, BatchOutcomeBuildError,
-    BatchOutcomeBuilder, BatchTaskError, BatchTaskFailure, BatchTermination,
-    EXECUTION_PROGRESS_METRIC_ID, EXECUTION_PROGRESS_METRIC_NAME, ParallelBatchExecutor,
-    ParallelBatchExecution, ParallelBatchExecutionContext, ParallelBatchExecutorBuildError,
+    BatchCallResult, BatchCallResultBuildError, BatchExecutionError, BatchExecutor, BatchOutcome,
+    BatchOutcomeBuildError, BatchOutcomeBuilder, BatchTaskError, BatchTaskFailure, BatchTermination,
+    ParallelBatchExecutor,
+    ParallelBatchExecutionCoordinator, ParallelBatchExecutionContext,
+    ParallelBatchExecutorBuildError,
     ParallelBatchExecutorBuilder, SequentialBatchExecutor,
     SequentialBatchExecutorBuilder, TaskFailurePolicy,
 };

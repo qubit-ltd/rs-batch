@@ -15,7 +15,7 @@ use crate::{
     TaskFailurePolicy,
     execute::{
         BatchExecutionState, BatchExecutor, EXECUTION_PROGRESS_METRIC_ID,
-        EXECUTION_PROGRESS_METRIC_NAME,
+        EXECUTION_PROGRESS_METRIC_NAME, TaskExecutionStatus,
     },
 };
 
@@ -176,6 +176,7 @@ impl BatchExecutor for SequentialBatchExecutor {
         let state = BatchExecutionState::new(count, metric);
         let mut actual_count = 0;
         let mut stopped_by_task_failure_policy = false;
+        let mut failure_count = 0usize;
         for task in tasks {
             actual_count = state.record_task_observed();
             if actual_count > count {
@@ -195,10 +196,14 @@ impl BatchExecutor for SequentialBatchExecutor {
                 });
             }
             // Execute the task and update the state.
-            state
+            match state
                 .execute_task(actual_count - 1, task)
-                .expect("observed task index must be within the declared count");
-            if self.task_failure_policy.should_stop(state.failure_count()) {
+                .expect("observed task index must be within the declared count")
+            {
+                TaskExecutionStatus::Succeeded => {}
+                TaskExecutionStatus::Failed => failure_count += 1,
+            }
+            if self.task_failure_policy.should_stop(failure_count) {
                 stopped_by_task_failure_policy = true;
                 break;
             }
@@ -244,7 +249,7 @@ impl BatchExecutor for SequentialBatchExecutor {
                 outcome: state.into_outcome(elapsed),
                 report_error,
             })
-        } else if state.failure_count() > 0 {
+        } else if failure_count > 0 {
             let elapsed = match progress.fail() {
                 Ok(elapsed) => elapsed,
                 Err(source) => {

@@ -11,7 +11,7 @@
 
 mod docs;
 mod execute;
-mod lib_tests;
 mod process;
+mod progress_failure_tests;
 mod support;
 mod utils;
