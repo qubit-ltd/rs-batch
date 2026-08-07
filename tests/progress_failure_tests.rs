@@ -12,8 +12,16 @@ use std::time::Duration;
 
 use qubit_batch::ProgressFailure;
 use qubit_progress::{
-    AutoReporterError, CompletionError, EmissionError, Event, FinishError, Metric, Progress,
-    Reporter, ReporterError, StartError,
+    AutoReporterError,
+    CompletionError,
+    EmissionError,
+    Event,
+    FinishError,
+    Metric,
+    Progress,
+    Reporter,
+    ReporterError,
+    StartError,
 };
 
 #[derive(Debug)]
@@ -55,7 +63,7 @@ fn test_progress_failure_converts_emission_error() {
     let failure = ProgressFailure::from(EmissionError::SequenceExhausted);
     assert!(matches!(failure, ProgressFailure::Emission(_)));
     assert!(!failure.to_string().is_empty());
-    assert!(Error::source(&failure).is_none());
+    assert!(Error::source(&failure).is_some());
 }
 
 #[test]
@@ -67,13 +75,14 @@ fn test_progress_failure_converts_auto_reporter_error() {
 
 #[test]
 fn test_progress_failure_from_finish_error_maps_completion_and_terminal() {
-    let incomplete = ProgressFailure::from_finish_error(FinishError::Incomplete {
-        elapsed: Duration::ZERO,
-        source: CompletionError::ActiveWork {
-            metric_id: "tasks".into(),
-            active: 1,
-        },
-    });
+    let incomplete =
+        ProgressFailure::from_finish_error(FinishError::Incomplete {
+            elapsed: Duration::ZERO,
+            source: CompletionError::ActiveWork {
+                metric_id: "tasks".into(),
+                active: 1,
+            },
+        });
     assert!(matches!(incomplete, ProgressFailure::Completion(_)));
 
     let terminal_error = Progress::builder(&TerminalFailingReporter::new())

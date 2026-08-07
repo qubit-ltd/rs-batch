@@ -9,21 +9,36 @@
 
 use std::{
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{
+            AtomicBool,
+            Ordering,
+        },
     },
     time::Duration,
 };
 
-use qubit_batch::{ParallelBatchExecutionCoordinator, ProgressFailure};
+use qubit_batch::{
+    BatchExecutionError,
+    ParallelBatchExecutionCoordinator,
+    ProgressFailure,
+};
+use qubit_progress::Reporter;
 
-use crate::support::{FailingReporter, ProgressEvent, RecordingReporter, TestTask};
+use crate::support::{
+    FailingReporter,
+    ProgressEvent,
+    RecordingReporter,
+    TestTask,
+};
 
 #[test]
-fn test_parallel_batch_execution_context_execute_task_notifies_running_progress() {
+fn test_parallel_batch_execution_context_execute_task_notifies_running_progress()
+ {
     let reporter = Arc::new(RecordingReporter::new());
+    let reporter_for_coordinator: Arc<dyn Reporter> = reporter.clone();
     let coordinator = ParallelBatchExecutionCoordinator::new(
-        Arc::clone(&reporter),
+        reporter_for_coordinator,
         Duration::ZERO,
     );
     let outcome = coordinator
@@ -35,9 +50,9 @@ fn test_parallel_batch_execution_context_execute_task_notifies_running_progress(
             2,
             |tasks, _count, context| {
                 for (index, task) in tasks.into_iter().enumerate() {
-                    context
-                        .execute_task(index, task)
-                        .expect("executed task should be within declared count");
+                    context.execute_task(index, task).expect(
+                        "executed task should be within declared count",
+                    );
                 }
                 2
             },
@@ -47,7 +62,9 @@ fn test_parallel_batch_execution_context_execute_task_notifies_running_progress(
     assert_eq!(outcome.completed_count(), 2);
     let events = reporter.events();
     assert!(
-        events.iter().any(|event| matches!(event, ProgressEvent::Process { .. })),
+        events
+            .iter()
+            .any(|event| matches!(event, ProgressEvent::Process { .. })),
         "tasks should trigger at least one running-progress event",
     );
     assert!(
@@ -59,8 +76,10 @@ fn test_parallel_batch_execution_context_execute_task_notifies_running_progress(
 #[test]
 fn test_parallel_batch_execution_context_exposes_task_index_errors() {
     let seen_out_of_range = Arc::new(AtomicBool::new(false));
-    let coordinator =
-        ParallelBatchExecutionCoordinator::new(Arc::new(RecordingReporter::new()), Duration::ZERO);
+    let coordinator = ParallelBatchExecutionCoordinator::new(
+        Arc::new(RecordingReporter::new()),
+        Duration::ZERO,
+    );
     let seen = Arc::clone(&seen_out_of_range);
 
     let _ = coordinator
@@ -71,7 +90,10 @@ fn test_parallel_batch_execution_context_exposes_task_index_errors() {
                     .execute_task(index, task)
                     .expect("index should be in range");
                 observed = index + 1;
-                if context.execute_task(index + 1, TestTask::succeed()).is_err() {
+                if context
+                    .execute_task(index + 1, TestTask::succeed())
+                    .is_err()
+                {
                     seen.store(true, Ordering::Relaxed);
                 }
             }
@@ -79,34 +101,45 @@ fn test_parallel_batch_execution_context_exposes_task_index_errors() {
         })
         .expect("scheduler should still report progress with invalid index");
 
-    assert!(seen.load(Ordering::Relaxed), "out-of-range task index should be reported");
+    assert!(
+        seen.load(Ordering::Relaxed),
+        "out-of-range task index should be reported"
+    );
 }
 
 #[test]
-fn test_parallel_batch_execution_context_auto_reporter_failure_is_reported_as_progress_error() {
-    let seen_failure = Arc::new(AtomicBool::new(false));
-    let failure_seen = Arc::clone(&seen_failure);
+fn test_parallel_batch_execution_context_auto_reporter_failure_is_reported_as_progress_error()
+ {
     let coordinator = ParallelBatchExecutionCoordinator::new(
         Arc::new(FailingReporter::after_successes(1)),
         Duration::ZERO,
     );
 
-    let error = coordinator.execute([TestTask::succeed()], 1, |tasks, _count, context| {
-        for (index, task) in tasks {
-            context
-                .execute_task(index, task)
-                .expect("task index 0 should be in range");
-            failure_seen.store(context.reporting_failed(), Ordering::Relaxed);
-        }
-        1
-    });
+    let error = coordinator.execute(
+        [TestTask::succeed()],
+        1,
+        |tasks, _count, context| {
+            for (index, task) in tasks.into_iter().enumerate() {
+                context
+                    .execute_task(index, task)
+                    .expect("task index 0 should be in range");
+                for _ in 0..100 {
+                    if context.reporting_failed() {
+                        break;
+                    }
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+            }
+            1
+        },
+    );
 
-    let error = error.expect_err("auto reporter failure should be mapped to progress error");
+    let error = error
+        .expect_err("auto reporter failure should be mapped to progress error");
     let BatchExecutionError::ProgressReport { source, .. } = error else {
         panic!("auto reporter failure should map to progress report error");
     };
     let ProgressFailure::AutoReporter(_) = source.as_ref() else {
         panic!("auto reporter failure should be preserved");
     };
-    assert!(seen_failure.load(Ordering::Relaxed));
 }

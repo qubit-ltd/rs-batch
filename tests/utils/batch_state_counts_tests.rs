@@ -9,7 +9,12 @@
 
 use std::time::Duration;
 
-use qubit_batch::{BatchExecutor, BatchProcessor, ParallelBatchExecutor, ParallelBatchProcessor};
+use qubit_batch::{
+    BatchExecutor,
+    BatchProcessor,
+    ParallelBatchExecutor,
+    ParallelBatchProcessor,
+};
 
 use crate::support::TestTask;
 

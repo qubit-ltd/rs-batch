@@ -6,7 +6,11 @@
 // =============================================================================
 //! Behavioral coverage for sequential execution outcome accounting.
 
-use qubit_batch::{BatchExecutionError, BatchExecutor, SequentialBatchExecutor};
+use qubit_batch::{
+    BatchExecutionError,
+    BatchExecutor,
+    SequentialBatchExecutor,
+};
 
 use crate::support::TestTask;
 
@@ -18,7 +22,11 @@ fn test_batch_execution_state_tracks_success_failure_and_panic() {
 
     let outcome = executor
         .execute_with_count(
-            [TestTask::succeed(), TestTask::fail("failed"), TestTask::panic("panic")],
+            [
+                TestTask::succeed(),
+                TestTask::fail("failed"),
+                TestTask::panic("panic"),
+            ],
             3,
         )
         .expect("task failures should stay in the outcome");

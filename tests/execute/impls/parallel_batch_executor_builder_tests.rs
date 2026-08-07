@@ -7,9 +7,15 @@
 // =============================================================================
 //! Tests for [`ParallelBatchExecutorBuilder`](qubit_batch::ParallelBatchExecutorBuilder).
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 
-use qubit_batch::{ParallelBatchExecutor, ParallelBatchExecutorBuildError};
+use qubit_batch::{
+    ParallelBatchExecutor,
+    ParallelBatchExecutorBuildError,
+};
 use qubit_progress::Reporter;
 
 use crate::support::RecordingReporter;
