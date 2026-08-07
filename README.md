@@ -432,7 +432,7 @@ Important result semantics:
 - Crate package: [crates.io/crates/qubit-batch](https://crates.io/crates/qubit-batch)
 - Source repository: [github.com/qubit-ltd/rs-batch](https://github.com/qubit-ltd/rs-batch)
 
-## Testing and CI
+## Testing
 
 Run the fast local checks from the crate root:
 
@@ -462,13 +462,13 @@ or user-visible behavior changes.
 By contributing, you agree that your contribution is licensed under the same
 [Apache License, Version 2.0](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE) as this project.
 
-## License and Copyright
+## License
 
 Copyright (c) 2026. Haixing Hu.
 
 This software is licensed under the [Apache License, Version 2.0](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE).
 
-## Author and Maintenance
+## Author
 
 **Haixing Hu** — Qubit Co. Ltd.
 
