@@ -401,7 +401,7 @@ match error {
 - Crate 发布页：[crates.io/crates/qubit-batch](https://crates.io/crates/qubit-batch)
 - 源码仓库：[github.com/qubit-ltd/rs-batch](https://github.com/qubit-ltd/rs-batch)
 
-## 测试与 CI
+## 测试
 
 在 crate 根目录快速执行本地检查：
 
@@ -421,7 +421,7 @@ cargo clippy --all-targets -- -D warnings
 `./align-ci.sh` 会先对齐本地工具链和 CI 相关配置；`./ci-check.sh` 复现流水线检查。
 修改运行期行为并需要关注覆盖率时，可配合使用 `./coverage.sh`。
 
-## 参与贡献
+## 贡献
 
 欢迎通过 Issue 与 Pull Request 参与本仓库。建议单次变更聚焦一个主题；修改行为时
 补充或更新测试；影响公开 API 或用户可见行为时，同步更新本文档或 rustdoc。
@@ -429,14 +429,14 @@ cargo clippy --all-targets -- -D warnings
 向本仓库贡献内容即表示您同意以 [Apache License, Version 2.0](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE)（与本项目相同）
 授权您的贡献。
 
-## 许可证与版权
+## 许可证
 
 Copyright (c) 2026. Haixing Hu.
 
 本软件依据 [Apache License, Version 2.0](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE) 授权；完整许可文本见仓库根目录的
 `LICENSE` 文件。
 
-## 作者与维护
+## 作者
 
 **Haixing Hu** — Qubit Co. Ltd.
 
