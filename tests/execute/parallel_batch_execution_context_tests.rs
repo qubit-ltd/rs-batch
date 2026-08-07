@@ -50,11 +50,11 @@ fn test_parallel_batch_execution_context_execute_task_notifies_running_progress(
             2,
             |tasks, _count, context| {
                 for (index, task) in tasks.into_iter().enumerate() {
+                    context.record_task_observed();
                     context.execute_task(index, task).expect(
                         "executed task should be within declared count",
                     );
                 }
-                2
             },
         )
         .expect("coordinator should complete");
@@ -84,12 +84,11 @@ fn test_parallel_batch_execution_context_exposes_task_index_errors() {
 
     let _ = coordinator
         .execute([TestTask::succeed()], 1, |tasks, _count, context| {
-            let mut observed = 0usize;
             for (index, task) in tasks.into_iter().enumerate() {
+                context.record_task_observed();
                 context
                     .execute_task(index, task)
                     .expect("index should be in range");
-                observed = index + 1;
                 if context
                     .execute_task(index + 1, TestTask::succeed())
                     .is_err()
@@ -97,7 +96,6 @@ fn test_parallel_batch_execution_context_exposes_task_index_errors() {
                     seen.store(true, Ordering::Relaxed);
                 }
             }
-            observed
         })
         .expect("scheduler should still report progress with invalid index");
 
@@ -120,6 +118,7 @@ fn test_parallel_batch_execution_context_auto_reporter_failure_is_reported_as_pr
         1,
         |tasks, _count, context| {
             for (index, task) in tasks.into_iter().enumerate() {
+                context.record_task_observed();
                 context
                     .execute_task(index, task)
                     .expect("task index 0 should be in range");
@@ -130,7 +129,6 @@ fn test_parallel_batch_execution_context_auto_reporter_failure_is_reported_as_pr
                     std::thread::sleep(Duration::from_millis(1));
                 }
             }
-            1
         },
     );
 

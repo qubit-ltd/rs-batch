@@ -244,7 +244,7 @@ impl BatchExecutor for ParallelBatchExecutor {
                             "producer must assign an in-range task index",
                         );
                     },
-                )
+                );
             })
     }
 }

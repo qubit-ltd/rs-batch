@@ -1,7 +1,8 @@
 // =============================================================================
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
-//    SPDX-License-Identifier: Apache-2.0.
+//    SPDX-License-Identifier: Apache-2.0
+//
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::{
@@ -143,6 +144,12 @@ impl<E> BatchExecutionState<E> {
     #[inline]
     pub(crate) fn record_task_observed(&self) -> usize {
         self.observed_count.inc()
+    }
+
+    /// Returns the number of source tasks observed by the scheduler.
+    #[inline]
+    pub(crate) fn observed_count(&self) -> usize {
+        self.observed_count.get()
     }
 
     /// Returns the number of task errors and captured task panics.

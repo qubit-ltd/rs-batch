@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+mod batch_call_error_tests;
 mod batch_call_result_build_error_tests;
 mod batch_call_result_tests;
 mod batch_execution_error_tests;

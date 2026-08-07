@@ -2,10 +2,12 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Batch execution abstractions, outcomes, and task-failure types.
 
+mod batch_call_error;
 mod batch_call_result;
 mod batch_call_result_build_error;
 mod batch_execution_error;
@@ -26,6 +28,7 @@ mod parallel_batch_execution_coordinator;
 mod task_execution_status;
 mod task_failure_policy;
 
+pub use batch_call_error::BatchCallError;
 pub use batch_call_result::BatchCallResult;
 pub use batch_call_result_build_error::BatchCallResultBuildError;
 pub use batch_execution_error::BatchExecutionError;

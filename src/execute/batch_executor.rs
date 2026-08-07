@@ -19,6 +19,7 @@ use crate::{
 };
 
 use super::{
+    BatchCallError,
     BatchCallResult,
     callable_task::CallableTask,
     for_each_task::ForEachTask,
@@ -138,9 +139,9 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns [`BatchExecutionError::ProgressReport`] when progress reporting
-    /// fails, or a count-mismatch variant when the iterator violates its exact
-    /// length contract while being consumed.
+    /// Returns [`BatchCallError`] when progress reporting fails or when the
+    /// iterator violates its exact length contract. The error preserves values
+    /// returned by callables that completed before execution stopped.
     ///
     /// # Panics
     ///
@@ -150,7 +151,7 @@ pub trait BatchExecutor: Send + Sync {
     fn call<C, R, E, I>(
         &self,
         tasks: I,
-    ) -> Result<BatchCallResult<R, E>, BatchExecutionError<E>>
+    ) -> Result<BatchCallResult<R, E>, BatchCallError<R, E>>
     where
         I: IntoIterator<Item = C>,
         I::IntoIter: ExactSizeIterator,
@@ -178,9 +179,9 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns [`BatchExecutionError::ProgressReport`] when progress reporting
-    /// fails, or a count-mismatch variant when the source callable count does
-    /// not match `count`.
+    /// Returns [`BatchCallError`] when progress reporting fails or when the
+    /// source callable count does not match `count`. The error preserves values
+    /// returned by callables that completed before execution stopped.
     ///
     /// # Panics
     ///
@@ -191,7 +192,7 @@ pub trait BatchExecutor: Send + Sync {
         &self,
         tasks: I,
         count: usize,
-    ) -> Result<BatchCallResult<R, E>, BatchExecutionError<E>>
+    ) -> Result<BatchCallResult<R, E>, BatchCallError<R, E>>
     where
         I: IntoIterator<Item = C>,
         C: Callable<R, E> + Send,
@@ -208,10 +209,13 @@ pub trait BatchExecutor: Send + Sync {
                 CallableTask::new(callable, index, Arc::clone(&outputs))
             }
         });
-        let outcome = self.execute_with_count(runnable_tasks, count)?;
+        let execution = self.execute_with_count(runnable_tasks, count);
         let values = collect_call_outputs(outputs, count);
-        Ok(BatchCallResult::try_new(outcome, values)
-            .expect("call output collection must return one value slot per declared task"))
+        match execution {
+            Ok(outcome) => Ok(BatchCallResult::try_new(outcome, values)
+                .expect("call output collection must return one value slot per declared task")),
+            Err(source) => Err(BatchCallError::new(source, values)),
+        }
     }
 
     /// Applies `action` to every item whose iterator exposes an exact length.

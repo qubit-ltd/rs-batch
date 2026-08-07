@@ -55,8 +55,7 @@ pub(crate) fn run_scoped_parallel<I, T, O, S, F>(
     observe_item: O,
     should_stop: S,
     run_item: F,
-) -> usize
-where
+) where
     I: IntoIterator<Item = T>,
     T: Send,
     O: Fn() -> usize,
@@ -67,7 +66,6 @@ where
         worker_count > 0,
         "scoped parallel worker count must be positive"
     );
-    let mut observed_count = 0usize;
     thread::scope(|scope| {
         let (work_sender, work_receiver) = mpsc::sync_channel(worker_count);
         let work_receiver = Arc::new(Mutex::new(work_receiver));
@@ -90,7 +88,7 @@ where
             if should_stop() {
                 break;
             }
-            observed_count = observe_item();
+            let observed_count = observe_item();
             if observed_count > declared_count {
                 break;
             }
@@ -112,7 +110,6 @@ where
             }
         }
     });
-    observed_count
 }
 
 /// Runs one scoped worker until the work channel closes.
