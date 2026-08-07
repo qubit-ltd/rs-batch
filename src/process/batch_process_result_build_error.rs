@@ -53,7 +53,9 @@ pub enum BatchProcessResultBuildError {
     },
 
     /// Completed items require at least one submitted chunk.
-    #[error("chunk count must be positive when items completed: completed_count {completed_count}")]
+    #[error(
+        "chunk count must be positive when items completed: completed_count {completed_count}"
+    )]
     MissingChunkForCompletedItems {
         /// Number of completed items.
         completed_count: usize,

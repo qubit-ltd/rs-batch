@@ -5,14 +5,27 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{cmp, num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{
+    cmp,
+    num::NonZeroUsize,
+    sync::Arc,
+    time::Duration,
+};
 
-use qubit_progress::{Metric, Progress, Reporter};
+use qubit_progress::{
+    Metric,
+    Progress,
+    Reporter,
+};
 
 use crate::ProgressFailure;
 use crate::process::{
-    BatchProcessResult, BatchProcessState, BatchProcessor, ChunkedBatchProcessError,
-    PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME,
+    BatchProcessResult,
+    BatchProcessState,
+    BatchProcessor,
+    ChunkedBatchProcessError,
+    PROCESS_PROGRESS_METRIC_ID,
+    PROCESS_PROGRESS_METRIC_NAME,
 };
 
 use super::ChunkedBatchProcessorBuilder;
@@ -135,7 +148,10 @@ impl<P> ChunkedBatchProcessor<P> {
     ///
     /// A builder initialized with default settings.
     #[inline]
-    pub fn builder(delegate: P, chunk_size: NonZeroUsize) -> ChunkedBatchProcessorBuilder<P> {
+    pub fn builder(
+        delegate: P,
+        chunk_size: NonZeroUsize,
+    ) -> ChunkedBatchProcessorBuilder<P> {
         ChunkedBatchProcessorBuilder::new(delegate, chunk_size)
     }
 
@@ -230,25 +246,29 @@ where
     where
         I: IntoIterator<Item = Item>,
     {
-        let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
-            .interval(self.report_interval)
-            .metric(
-                Metric::new(PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME)
+        let mut progress =
+            match Progress::builder_arc(Arc::clone(&self.reporter))
+                .interval(self.report_interval)
+                .metric(
+                    Metric::new(
+                        PROCESS_PROGRESS_METRIC_ID,
+                        PROCESS_PROGRESS_METRIC_NAME,
+                    )
                     .total(count as u64),
-            )
-            .start()
-        {
-            Ok(progress) => progress,
-            Err(source) => {
-                return Err(ChunkedBatchProcessError::ProgressReport {
-                    source: Box::new(ProgressFailure::from(source)),
-                    result: BatchProcessResult::builder(count)
-                        .elapsed(Duration::ZERO)
-                        .build()
-                        .expect("empty batch process result must be valid"),
-                });
-            }
-        };
+                )
+                .start()
+            {
+                Ok(progress) => progress,
+                Err(source) => {
+                    return Err(ChunkedBatchProcessError::ProgressReport {
+                        source: Box::new(ProgressFailure::from(source)),
+                        result: BatchProcessResult::builder(count)
+                            .elapsed(Duration::ZERO)
+                            .build()
+                            .expect("empty batch process result must be valid"),
+                    });
+                }
+            };
         let metric = progress
             .metric(PROCESS_PROGRESS_METRIC_ID)
             .expect("configured process metric must exist");
@@ -260,7 +280,8 @@ where
             let observed_count = state.record_item_observed();
             if observed_count > count {
                 if !chunk.is_empty() {
-                    progress = self.process_chunk(&mut chunk, &state, progress)?;
+                    progress =
+                        self.process_chunk(&mut chunk, &state, progress)?;
                 }
                 let (elapsed, report_error) = match progress.fail() {
                     Ok(elapsed) => (elapsed, None),
@@ -375,7 +396,10 @@ impl<P> ChunkedBatchProcessor<P> {
                     });
                 }
                 state
-                    .record_chunk_processed(chunk_len, chunk_result.processed_count())
+                    .record_chunk_processed(
+                        chunk_len,
+                        chunk_result.processed_count(),
+                    )
                     .expect("batch progress state transition must be valid");
                 if let Err(source) = progress.report_if_due() {
                     return Err(ChunkedBatchProcessError::ProgressReport {

@@ -7,7 +7,10 @@
 // =============================================================================
 use thiserror::Error;
 
-use crate::{BatchOutcome, ProgressFailure};
+use crate::{
+    BatchOutcome,
+    ProgressFailure,
+};
 
 /// Batch-level error returned when batch progress or source-count validation
 /// fails.
@@ -149,7 +152,9 @@ impl<E> BatchExecutionError<E> {
         match self {
             Self::ProgressReport { source, .. } => Some(source.as_ref()),
             Self::CountShortfall { report_error, .. }
-            | Self::CountExceeded { report_error, .. } => report_error.as_deref(),
+            | Self::CountExceeded { report_error, .. } => {
+                report_error.as_deref()
+            }
         }
     }
 }

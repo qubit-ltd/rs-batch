@@ -8,7 +8,11 @@
 use std::time::Duration;
 
 use qubit_atomic::AtomicCount;
-use qubit_progress::{MetricDelta, MetricError, MetricHandle};
+use qubit_progress::{
+    MetricDelta,
+    MetricError,
+    MetricHandle,
+};
 
 use crate::BatchProcessResult;
 
@@ -136,7 +140,10 @@ impl BatchProcessState {
     ///
     /// A direct processor result containing the current counters.
     #[inline]
-    pub(crate) fn to_direct_result(&self, elapsed: Duration) -> BatchProcessResult {
+    pub(crate) fn to_direct_result(
+        &self,
+        elapsed: Duration,
+    ) -> BatchProcessResult {
         let snapshot = self.metric.snapshot();
         let processed_count = snapshot.succeeded() as usize;
         BatchProcessResult::builder(self.item_count)
@@ -145,7 +152,9 @@ impl BatchProcessState {
             .chunk_count(logical_chunk_count(processed_count))
             .elapsed(elapsed)
             .build()
-            .expect("direct batch process state should collect consistent counters")
+            .expect(
+                "direct batch process state should collect consistent counters",
+            )
     }
 
     /// Converts this state into a chunked processor result.
@@ -158,7 +167,10 @@ impl BatchProcessState {
     ///
     /// A chunked processor result containing the current counters.
     #[inline]
-    pub(crate) fn to_chunked_result(&self, elapsed: Duration) -> BatchProcessResult {
+    pub(crate) fn to_chunked_result(
+        &self,
+        elapsed: Duration,
+    ) -> BatchProcessResult {
         let snapshot = self.metric.snapshot();
         BatchProcessResult::builder(self.item_count)
             .completed_count(snapshot.completed() as usize)

@@ -5,7 +5,10 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use crate::{BatchCallResultBuildError, BatchOutcome};
+use crate::{
+    BatchCallResultBuildError,
+    BatchOutcome,
+};
 
 /// Result produced by [`crate::BatchExecutor::call`].
 ///
@@ -90,10 +93,12 @@ impl<R, E> BatchCallResult<R, E> {
         let succeeded_count = outcome.succeeded_count();
         let value_count = values.iter().filter(|value| value.is_some()).count();
         if value_count != succeeded_count {
-            return Err(BatchCallResultBuildError::SucceededValueCountMismatch {
-                succeeded_count,
-                value_count,
-            });
+            return Err(
+                BatchCallResultBuildError::SucceededValueCountMismatch {
+                    succeeded_count,
+                    value_count,
+                },
+            );
         }
         Ok(Self { outcome, values })
     }

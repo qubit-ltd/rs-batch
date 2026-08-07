@@ -8,11 +8,21 @@
 use std::sync::Arc;
 
 use crossbeam_queue::SegQueue;
-use qubit_function::{Callable, Runnable};
+use qubit_function::{
+    Callable,
+    Runnable,
+};
 
-use crate::{BatchExecutionError, BatchOutcome};
+use crate::{
+    BatchExecutionError,
+    BatchOutcome,
+};
 
-use super::{BatchCallResult, callable_task::CallableTask, for_each_task::ForEachTask};
+use super::{
+    BatchCallResult,
+    callable_task::CallableTask,
+    for_each_task::ForEachTask,
+};
 
 /// Executes batches of fallible tasks.
 ///
@@ -62,7 +72,10 @@ pub trait BatchExecutor: Send + Sync {
     /// Panics from individual tasks are captured in [`BatchOutcome`]. Reporter
     /// callbacks invoked synchronously may panic; automatic reporter failures
     /// are returned as [`BatchExecutionError::ProgressReport`].
-    fn execute<T, E, I>(&self, tasks: I) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    fn execute<T, E, I>(
+        &self,
+        tasks: I,
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = T>,
         I::IntoIter: ExactSizeIterator,
@@ -134,7 +147,10 @@ pub trait BatchExecutor: Send + Sync {
     /// Panics from individual callables are captured in the execution result.
     /// Reporter callbacks invoked synchronously may panic; automatic reporter
     /// failures are returned as [`BatchExecutionError::ProgressReport`].
-    fn call<C, R, E, I>(&self, tasks: I) -> Result<BatchCallResult<R, E>, BatchExecutionError<E>>
+    fn call<C, R, E, I>(
+        &self,
+        tasks: I,
+    ) -> Result<BatchCallResult<R, E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = C>,
         I::IntoIter: ExactSizeIterator,
@@ -188,7 +204,9 @@ pub trait BatchExecutor: Send + Sync {
         // still executed later by `CallableTask::run`.
         let runnable_tasks = tasks.into_iter().enumerate().map({
             let outputs = Arc::clone(&outputs);
-            move |(index, callable)| CallableTask::new(callable, index, Arc::clone(&outputs))
+            move |(index, callable)| {
+                CallableTask::new(callable, index, Arc::clone(&outputs))
+            }
         });
         let outcome = self.execute_with_count(runnable_tasks, count)?;
         let values = collect_call_outputs(outputs, count);
@@ -283,10 +301,15 @@ pub trait BatchExecutor: Send + Sync {
 ///
 /// Panics if callable wrappers still hold references to `outputs`, or if a
 /// queued output index is outside the declared batch size.
-fn collect_call_outputs<R>(outputs: Arc<SegQueue<(usize, R)>>, count: usize) -> Vec<Option<R>> {
+fn collect_call_outputs<R>(
+    outputs: Arc<SegQueue<(usize, R)>>,
+    count: usize,
+) -> Vec<Option<R>> {
     let outputs = match Arc::try_unwrap(outputs) {
         Ok(outputs) => outputs,
-        Err(_) => panic!("callable output queue should have a single owner after execution"),
+        Err(_) => panic!(
+            "callable output queue should have a single owner after execution"
+        ),
     };
     let mut values = Vec::with_capacity(count);
     values.resize_with(count, || None);

@@ -6,7 +6,11 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::panic::resume_unwind;
-use std::sync::{Arc, Mutex, mpsc};
+use std::sync::{
+    Arc,
+    Mutex,
+    mpsc,
+};
 use std::thread;
 
 /// Indexed work item sent to scoped workers.
@@ -73,7 +77,11 @@ where
             let worker_should_stop = &should_stop;
             let worker_run_item = &run_item;
             worker_handles.push(scope.spawn(move || {
-                run_scoped_worker(worker_receiver, worker_should_stop, worker_run_item);
+                run_scoped_worker(
+                    worker_receiver,
+                    worker_should_stop,
+                    worker_run_item,
+                );
             }));
         }
         drop(work_receiver);
