@@ -61,6 +61,7 @@ mod progress_failure;
 pub use progress_failure::ProgressFailure;
 
 pub use execute::{
+    BatchCallError,
     BatchCallResult,
     BatchCallResultBuildError,
     BatchExecutionError,

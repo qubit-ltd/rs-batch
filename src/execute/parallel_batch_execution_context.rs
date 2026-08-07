@@ -2,6 +2,7 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::sync::Arc;
@@ -58,6 +59,12 @@ impl<E> ParallelBatchExecutionContext<E> {
     #[inline]
     pub fn record_task_observed(&self) -> usize {
         self.state.record_task_observed()
+    }
+
+    /// Returns the number of source tasks observed by the scheduler.
+    #[inline]
+    pub(crate) fn observed_count(&self) -> usize {
+        self.state.observed_count()
     }
 
     /// Returns whether automatic progress reporting has failed.

@@ -179,15 +179,15 @@ fn test_parallel_batch_executor_call_reports_count_mismatches() {
     let shortfall = executor
         .call_with_count(vec![TestCallable::returning(10)], 2)
         .expect_err("call shortfall should be reported");
-    match shortfall {
+    match shortfall.source() {
         BatchExecutionError::CountShortfall {
             expected,
             actual,
             outcome,
             ..
         } => {
-            assert_eq!(expected, 2);
-            assert_eq!(actual, 1);
+            assert_eq!(*expected, 2);
+            assert_eq!(*actual, 1);
             assert_eq!(outcome.completed_count(), 1);
         }
         other => panic!("unexpected error: {other:?}"),
@@ -203,19 +203,37 @@ fn test_parallel_batch_executor_call_reports_count_mismatches() {
             2,
         )
         .expect_err("call overflow should be reported");
-    match exceeded {
+    match exceeded.source() {
         BatchExecutionError::CountExceeded {
             expected,
             observed_at_least,
             outcome,
             ..
         } => {
-            assert_eq!(expected, 2);
-            assert_eq!(observed_at_least, 3);
+            assert_eq!(*expected, 2);
+            assert_eq!(*observed_at_least, 3);
             assert_eq!(outcome.completed_count(), 2);
         }
         other => panic!("unexpected error: {other:?}"),
     }
+}
+
+#[test]
+fn test_batch_executor_call_error_preserves_success_values() {
+    let executor = SequentialBatchExecutor::new();
+    let error = executor
+        .call_with_count(
+            vec![TestCallable::returning(10), TestCallable::returning(20)],
+            3,
+        )
+        .expect_err("call shortfall should preserve partial values");
+
+    assert_eq!(error.values(), &[Some(10), Some(20), None]);
+    assert_eq!(error.outcome().completed_count(), 2);
+    assert!(error.source().is_count_shortfall());
+    let (source, values) = error.into_parts();
+    assert!(source.is_count_shortfall());
+    assert_eq!(values, vec![Some(10), Some(20), None]);
 }
 
 #[test]
