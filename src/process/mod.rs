@@ -21,12 +21,18 @@ pub use batch_process_result::BatchProcessResult;
 pub use batch_process_result_build_error::BatchProcessResultBuildError;
 pub use batch_process_result_builder::BatchProcessResultBuilder;
 pub(crate) use batch_process_state::{
-    BatchProcessState, PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME,
+    BatchProcessState,
+    PROCESS_PROGRESS_METRIC_ID,
+    PROCESS_PROGRESS_METRIC_NAME,
 };
 pub use batch_processor::BatchProcessor;
 pub use chunked_batch_process_error::ChunkedBatchProcessError;
 pub use impls::{
-    ChunkedBatchProcessor, ChunkedBatchProcessorBuilder, ParallelBatchProcessor,
-    ParallelBatchProcessorBuildError, ParallelBatchProcessorBuilder, SequentialBatchProcessor,
+    ChunkedBatchProcessor,
+    ChunkedBatchProcessorBuilder,
+    ParallelBatchProcessor,
+    ParallelBatchProcessorBuildError,
+    ParallelBatchProcessorBuilder,
+    SequentialBatchProcessor,
     SequentialBatchProcessorBuilder,
 };

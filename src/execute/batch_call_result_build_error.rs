@@ -33,7 +33,9 @@ pub enum BatchCallResultBuildError {
     },
 
     /// A failed or panicked callable still contains a success value.
-    #[error("failed or panicked callable at index {index} must not contain a value")]
+    #[error(
+        "failed or panicked callable at index {index} must not contain a value"
+    )]
     FailureValuePresent {
         /// Original zero-based callable index.
         index: usize,
