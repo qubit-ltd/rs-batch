@@ -5,13 +5,21 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 
-use qubit_progress::reporter::{NoopReporter, Reporter};
+use qubit_progress::reporter::{
+    NoopReporter,
+    Reporter,
+};
 
 use super::{
-    ParallelBatchExecutor, ParallelBatchExecutorBuildError, ParallelBatchExecutionCoordinator,
+    ParallelBatchExecutor,
+    ParallelBatchExecutorBuildError,
 };
+use crate::execute::ParallelBatchExecutionCoordinator;
 
 /// Builder for [`ParallelBatchExecutor`].
 ///
@@ -68,7 +76,10 @@ impl ParallelBatchExecutorBuilder {
     ///
     /// This builder for fluent configuration.
     #[inline]
-    pub const fn sequential_threshold(mut self, sequential_threshold: usize) -> Self {
+    pub const fn sequential_threshold(
+        mut self,
+        sequential_threshold: usize,
+    ) -> Self {
         self.sequential_threshold = sequential_threshold;
         self
     }
@@ -144,11 +155,16 @@ impl ParallelBatchExecutorBuilder {
     ///
     /// Returns [`ParallelBatchExecutorBuildError`] when the worker count is
     /// zero.
-    pub fn build(self) -> Result<ParallelBatchExecutor, ParallelBatchExecutorBuildError> {
+    pub fn build(
+        self,
+    ) -> Result<ParallelBatchExecutor, ParallelBatchExecutorBuildError> {
         if self.thread_count == 0 {
             return Err(ParallelBatchExecutorBuildError::ZeroThreadCount);
         }
-        let coordinator = ParallelBatchExecutionCoordinator::new(self.reporter, self.report_interval);
+        let coordinator = ParallelBatchExecutionCoordinator::new(
+            self.reporter,
+            self.report_interval,
+        );
         Ok(ParallelBatchExecutor {
             thread_count: self.thread_count,
             sequential_threshold: self.sequential_threshold,
@@ -169,7 +185,8 @@ impl Default for ParallelBatchExecutorBuilder {
     fn default() -> Self {
         Self {
             thread_count: ParallelBatchExecutor::default_thread_count(),
-            sequential_threshold: ParallelBatchExecutor::DEFAULT_SEQUENTIAL_THRESHOLD,
+            sequential_threshold:
+                ParallelBatchExecutor::DEFAULT_SEQUENTIAL_THRESHOLD,
             report_interval: ParallelBatchExecutor::DEFAULT_REPORT_INTERVAL,
             reporter: Arc::new(NoopReporter),
         }

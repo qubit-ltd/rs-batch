@@ -7,15 +7,21 @@
 use std::sync::Arc;
 
 use qubit_function::Runnable;
-use qubit_progress::{AutoReporterStatus, ProgressNotifier};
+use qubit_progress::{
+    AutoReporterStatus,
+    ProgressNotifier,
+};
 
-use super::{BatchExecutionState, ParallelBatchExecutionContextError};
+use super::{
+    BatchExecutionState,
+    ParallelBatchExecutionContextError,
+};
 
 /// Worker-facing context for one parallel batch execution.
 ///
 /// Runtime-specific executors receive this context from the coordinator and use
-/// it to observe source tasks, execute accepted tasks, and detect auto-reporting
-/// terminal failures.
+/// it to observe source tasks, execute accepted tasks, and detect
+/// auto-reporting terminal failures.
 pub struct ParallelBatchExecutionContext<E> {
     /// Shared task accounting and failure collection state.
     state: Arc<BatchExecutionState<E>>,

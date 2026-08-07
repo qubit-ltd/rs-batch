@@ -5,17 +5,31 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 
 use qubit_function::Runnable;
-use qubit_progress::{Metric, Progress, Reporter};
+use qubit_progress::{
+    Metric,
+    Progress,
+    Reporter,
+};
 
 use crate::{
-    BatchExecutionError, BatchOutcome, BatchOutcomeBuilder, BatchTermination, ProgressFailure,
+    BatchExecutionError,
+    BatchOutcome,
+    BatchOutcomeBuilder,
+    BatchTermination,
+    ProgressFailure,
     TaskFailurePolicy,
     execute::{
-        BatchExecutionState, BatchExecutor, EXECUTION_PROGRESS_METRIC_ID,
-        EXECUTION_PROGRESS_METRIC_NAME, TaskExecutionStatus,
+        BatchExecutionState,
+        BatchExecutor,
+        EXECUTION_PROGRESS_METRIC_ID,
+        EXECUTION_PROGRESS_METRIC_NAME,
+        TaskExecutionStatus,
     },
 };
 
@@ -151,25 +165,29 @@ impl BatchExecutor for SequentialBatchExecutor {
         T: Runnable<E> + Send,
         E: Send,
     {
-        let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
-            .interval(self.report_interval)
-            .metric(
-                Metric::new(EXECUTION_PROGRESS_METRIC_ID, EXECUTION_PROGRESS_METRIC_NAME)
+        let mut progress =
+            match Progress::builder_arc(Arc::clone(&self.reporter))
+                .interval(self.report_interval)
+                .metric(
+                    Metric::new(
+                        EXECUTION_PROGRESS_METRIC_ID,
+                        EXECUTION_PROGRESS_METRIC_NAME,
+                    )
                     .total(count as u64),
-            )
-            .start()
-        {
-            Ok(progress) => progress,
-            Err(source) => {
-                return Err(BatchExecutionError::ProgressReport {
-                    source: Box::new(ProgressFailure::from(source)),
-                    outcome: BatchOutcomeBuilder::builder(count)
-                        .elapsed(Duration::ZERO)
-                        .build()
-                        .expect("empty batch outcome must be valid"),
-                });
-            }
-        };
+                )
+                .start()
+            {
+                Ok(progress) => progress,
+                Err(source) => {
+                    return Err(BatchExecutionError::ProgressReport {
+                        source: Box::new(ProgressFailure::from(source)),
+                        outcome: BatchOutcomeBuilder::builder(count)
+                            .elapsed(Duration::ZERO)
+                            .build()
+                            .expect("empty batch outcome must be valid"),
+                    });
+                }
+            };
         let metric = progress
             .metric(EXECUTION_PROGRESS_METRIC_ID)
             .expect("configured execution metric must exist");
