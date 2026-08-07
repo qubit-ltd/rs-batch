@@ -14,7 +14,6 @@ use std::{
 
 use qubit_atomic::ArcAtomicCount;
 use qubit_batch::{
-    BatchExecutor,
     BatchTermination,
     SequentialBatchExecutor,
     TaskFailurePolicy,

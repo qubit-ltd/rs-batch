@@ -8,10 +8,12 @@
 //! Tests for [`SequentialBatchExecutor`](qubit_batch::SequentialBatchExecutor).
 
 use std::{
+    cell::RefCell,
     panic::{
         AssertUnwindSafe,
         catch_unwind,
     },
+    rc::Rc,
     sync::Arc,
     time::Duration,
 };
@@ -19,10 +21,10 @@ use std::{
 use qubit_atomic::ArcAtomicCount;
 use qubit_batch::{
     BatchExecutionError,
-    BatchExecutor,
     SequentialBatchExecutor,
     TaskFailurePolicy,
 };
+use qubit_function::Callable;
 use qubit_function::Runnable;
 
 use crate::support::{
@@ -97,6 +99,61 @@ fn test_sequential_batch_executor_executes_successfully() {
 }
 
 #[test]
+fn test_sequential_batch_executor_runs_non_send_local_tasks() {
+    let executor = SequentialBatchExecutor::new();
+    let counter = Rc::new(RefCell::new(0));
+    let tasks = (0..3)
+        .map(|_| LocalTask(Rc::clone(&counter)))
+        .collect::<Vec<_>>();
+
+    let result = executor
+        .execute_with_count(tasks, 3)
+        .expect("local tasks should execute sequentially");
+
+    assert!(result.is_success());
+    assert_eq!(*counter.borrow(), 3);
+}
+
+#[test]
+fn test_sequential_batch_executor_runs_non_send_for_each_action() {
+    let executor = SequentialBatchExecutor::new();
+    let seen = Rc::new(RefCell::new(Vec::new()));
+    let action_seen = Rc::clone(&seen);
+
+    let result = executor
+        .for_each_with_count([1, 2, 3], 3, move |item| {
+            action_seen.borrow_mut().push(item);
+            Ok::<(), &'static str>(())
+        })
+        .expect("local action should execute sequentially");
+
+    assert!(result.is_success());
+    assert_eq!(&*seen.borrow(), &[1, 2, 3]);
+}
+
+#[test]
+fn test_sequential_batch_executor_calls_non_send_local_callables() {
+    let executor = SequentialBatchExecutor::new();
+    let prefix = Rc::new(String::from("local"));
+    let callables = vec![
+        LocalCallable(Rc::clone(&prefix)),
+        LocalCallable(Rc::clone(&prefix)),
+    ];
+
+    let result = executor
+        .call_with_count(callables, 2)
+        .expect("local callables should execute sequentially");
+
+    assert_eq!(
+        result.into_values(),
+        vec![
+            Some(Rc::new(String::from("local"))),
+            Some(Rc::new(String::from("local")))
+        ]
+    );
+}
+
+#[test]
 fn test_sequential_batch_executor_accepts_non_debug_errors() {
     let executor = SequentialBatchExecutor::new();
     let result = executor.execute_with_count([NonDebugTask], 1);
@@ -119,6 +176,77 @@ fn test_sequential_batch_executor_accessors_and_value_reporter() {
     assert_eq!(executor.report_interval(), Duration::from_millis(25));
     assert!(Arc::strong_count(executor.reporter()) >= 1);
     assert!(Arc::strong_count(no_reporter_executor.reporter()) >= 1);
+    assert_eq!(executor.task_failure_policy(), TaskFailurePolicy::Continue);
+}
+
+#[test]
+fn test_sequential_batch_executor_exact_execute_accepts_non_send_tasks() {
+    let executor = SequentialBatchExecutor::new();
+    let counter = Rc::new(RefCell::new(0));
+    let result = executor
+        .execute([LocalTask(Rc::clone(&counter))])
+        .expect("exact-size local task should execute");
+
+    assert!(result.is_success());
+    assert_eq!(*counter.borrow(), 1);
+}
+
+#[test]
+fn test_sequential_batch_executor_reports_start_failure() {
+    let executor = SequentialBatchExecutor::builder()
+        .reporter(FailingReporter::after_successes(0))
+        .build();
+
+    let error = executor
+        .execute_with_count([TestTask::succeed()], 1)
+        .expect_err("start reporter failure should be returned");
+
+    assert!(matches!(error, BatchExecutionError::ProgressReport { .. }));
+}
+
+#[test]
+fn test_sequential_batch_executor_preserves_count_exceeded_when_failure_report_fails()
+ {
+    let executor = SequentialBatchExecutor::builder()
+        .reporter(FailingReporter::after_successes(1))
+        .build();
+
+    let error = executor
+        .execute_with_count([TestTask::succeed(), TestTask::succeed()], 1)
+        .expect_err("count overflow should be returned");
+
+    let BatchExecutionError::CountExceeded { report_error, .. } = error else {
+        panic!("count overflow should remain the primary error");
+    };
+    assert!(report_error.is_some());
+}
+
+#[test]
+fn test_sequential_batch_executor_reports_failure_terminal_error() {
+    let executor = SequentialBatchExecutor::builder()
+        .reporter(FailingReporter::after_successes(1))
+        .task_failure_policy(TaskFailurePolicy::Continue)
+        .build();
+
+    let error = executor
+        .execute_with_count([TestTask::fail("failed")], 1)
+        .expect_err("failure terminal reporter should fail");
+
+    assert!(matches!(error, BatchExecutionError::ProgressReport { .. }));
+}
+
+#[test]
+fn test_sequential_batch_executor_reports_stopped_policy_terminal_error() {
+    let executor = SequentialBatchExecutor::builder()
+        .reporter(FailingReporter::after_successes(1))
+        .task_failure_policy(TaskFailurePolicy::StopOnFirstFailure)
+        .build();
+
+    let error = executor
+        .execute_with_count([TestTask::fail("failed")], 1)
+        .expect_err("stopped-policy terminal reporter should fail");
+
+    assert!(matches!(error, BatchExecutionError::ProgressReport { .. }));
 }
 
 #[test]
@@ -347,5 +475,26 @@ impl Runnable<NonDebugError> for NonDebugTask {
     /// Always returns `Ok(())`.
     fn run(&mut self) -> Result<(), NonDebugError> {
         Ok(())
+    }
+}
+
+/// Non-`Send` task used to exercise the concrete sequential executor API.
+struct LocalTask(Rc<RefCell<usize>>);
+
+impl Runnable<&'static str> for LocalTask {
+    /// Runs the task by updating local shared state.
+    fn run(&mut self) -> Result<(), &'static str> {
+        *self.0.borrow_mut() += 1;
+        Ok(())
+    }
+}
+
+/// Non-`Send` callable used to exercise the concrete sequential executor API.
+struct LocalCallable(Rc<String>);
+
+impl Callable<Rc<String>, Rc<String>> for LocalCallable {
+    /// Returns the locally owned string.
+    fn call(&mut self) -> Result<Rc<String>, Rc<String>> {
+        Ok(Rc::clone(&self.0))
     }
 }

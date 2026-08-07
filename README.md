@@ -36,10 +36,12 @@ consumes the supplied iterator once and returns a structured result.
 - `BatchExecutionError` reports progress failures and iterator count-contract
   violations, and carries the partial `BatchOutcome`.
 - `BatchCallError` is returned by `call` and `call_with_count` for those same
-  batch-level failures while preserving successful callable values collected
-  before execution stopped.
+  batch-level failures while preserving sparse `BatchCallOutput` entries for
+  successful callables collected before execution stopped.
 - `SequentialBatchExecutor` runs tasks in iterator order on the caller thread
-  and continues through task errors and captured panics by default. Configure
+  and exposes concrete methods that also accept non-`Send` tasks, callables,
+  values, and errors. It continues through task errors and captured panics by
+  default. Configure
   `TaskFailurePolicy::StopOnFirstFailure` or `StopAfterFailures(...)` when
   early termination is required.
 - `ParallelBatchExecutor` runs tasks on fixed-width scoped standard threads.
@@ -388,8 +390,8 @@ Important result semantics:
 - `Err(BatchExecutionError)` means progress reporting failed or the iterator
   produced fewer or more items than declared; it carries a partial
   `BatchOutcome`.
-- `Err(BatchCallError)` additionally preserves the indexed callable values
-  collected before the error.
+- `Err(BatchCallError)` additionally preserves sparse `BatchCallOutput` entries
+  collected before the error; each entry exposes its original callable index.
 
 ## API Cheat Sheet
 
@@ -409,6 +411,8 @@ Important result semantics:
   index.
 - `BatchCallResult::values()` stores `Some(value)` only for successful
   callables; failed and panicked callables have `None`.
+- `BatchCallError::outputs()` returns only successful callable outputs collected
+  before the batch-level error, sorted by original index.
 - `BatchProcessResult::processed_count()` is the delegate-reported success
   count. It can differ from `completed_count()` for processors that report
   affected rows or similar target-side counts.

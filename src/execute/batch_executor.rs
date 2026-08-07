@@ -20,6 +20,7 @@ use crate::{
 
 use super::{
     BatchCallError,
+    BatchCallOutput,
     BatchCallResult,
     callable_task::CallableTask,
     for_each_task::ForEachTask,
@@ -210,11 +211,14 @@ pub trait BatchExecutor: Send + Sync {
             }
         });
         let execution = self.execute_with_count(runnable_tasks, count);
-        let values = collect_call_outputs(outputs, count);
+        let outputs = collect_call_outputs(outputs);
         match execution {
-            Ok(outcome) => Ok(BatchCallResult::try_new(outcome, values)
+            Ok(outcome) => Ok(BatchCallResult::try_new(
+                outcome,
+                collect_call_values(outputs, count),
+            )
                 .expect("call output collection must return one value slot per declared task")),
-            Err(source) => Err(BatchCallError::new(source, values)),
+            Err(source) => Err(BatchCallError::new(source, outputs)),
         }
     }
 
@@ -290,34 +294,57 @@ pub trait BatchExecutor: Send + Sync {
     }
 }
 
-/// Consumes shared callable outputs into an indexed value vector.
+/// Consumes shared callable outputs into sorted sparse outputs.
 ///
 /// # Parameters
 ///
 /// * `outputs` - Shared output queue filled by callable wrappers.
-/// * `count` - Declared callable count used to size the result vector.
-///
 /// # Returns
 ///
-/// Optional success values indexed by callable position.
+/// Successful outputs sorted by callable index.
 ///
 /// # Panics
 ///
-/// Panics if callable wrappers still hold references to `outputs`, or if a
-/// queued output index is outside the declared batch size.
-fn collect_call_outputs<R>(
+/// Panics if callable wrappers still hold references to `outputs`.
+pub(crate) fn collect_call_outputs<R>(
     outputs: Arc<SegQueue<(usize, R)>>,
-    count: usize,
-) -> Vec<Option<R>> {
+) -> Vec<BatchCallOutput<R>> {
     let outputs = match Arc::try_unwrap(outputs) {
         Ok(outputs) => outputs,
         Err(_) => panic!(
             "callable output queue should have a single owner after execution"
         ),
     };
+    let mut collected = Vec::new();
+    while let Some((index, value)) = outputs.pop() {
+        collected.push(BatchCallOutput::new(index, value));
+    }
+    collected.sort_unstable_by_key(BatchCallOutput::index);
+    collected
+}
+
+/// Densifies validated callable outputs for a successful batch result.
+///
+/// # Parameters
+///
+/// * `outputs` - Successful outputs sorted by callable index.
+/// * `count` - Validated callable count used to size the dense vector.
+///
+/// # Returns
+///
+/// Optional successful values indexed by callable position.
+///
+/// # Panics
+///
+/// Panics if an output index is outside the validated callable range.
+pub(crate) fn collect_call_values<R>(
+    outputs: Vec<BatchCallOutput<R>>,
+    count: usize,
+) -> Vec<Option<R>> {
     let mut values = Vec::with_capacity(count);
     values.resize_with(count, || None);
-    while let Some((index, value)) = outputs.pop() {
+    for output in outputs {
+        let (index, value) = output.into_parts();
         let slot = values
             .get_mut(index)
             .expect("callable index must be within the declared count");

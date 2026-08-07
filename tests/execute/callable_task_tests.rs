@@ -228,12 +228,32 @@ fn test_batch_executor_call_error_preserves_success_values() {
         )
         .expect_err("call shortfall should preserve partial values");
 
-    assert_eq!(error.values(), &[Some(10), Some(20), None]);
+    assert_eq!(error.outputs().len(), 2);
+    assert_eq!(error.outputs()[0].index(), 0);
+    assert_eq!(error.outputs()[0].value(), &10);
+    assert_eq!(error.outputs()[1].index(), 1);
+    assert_eq!(error.outputs()[1].value(), &20);
     assert_eq!(error.outcome().completed_count(), 2);
     assert!(error.source().is_count_shortfall());
     let (source, values) = error.into_parts();
     assert!(source.is_count_shortfall());
-    assert_eq!(values, vec![Some(10), Some(20), None]);
+    assert_eq!(values.len(), 2);
+    let mut values = values.into_iter();
+    assert_eq!(values.next().expect("first output").into_parts(), (0, 10));
+    assert_eq!(values.next().expect("second output").into_parts(), (1, 20));
+}
+
+#[test]
+fn test_batch_executor_call_huge_count_shortfall_is_sparse() {
+    let executor = SequentialBatchExecutor::new();
+    let error = executor
+        .call_with_count(vec![TestCallable::returning(10)], usize::MAX)
+        .expect_err("huge count shortfall should return a batch call error");
+
+    assert!(error.source().is_count_shortfall());
+    assert_eq!(error.outputs().len(), 1);
+    assert_eq!(error.outputs()[0].index(), 0);
+    assert_eq!(error.outputs()[0].value(), &10);
 }
 
 #[test]

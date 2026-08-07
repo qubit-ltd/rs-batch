@@ -76,9 +76,9 @@ impl ParallelBatchExecutionCoordinator {
     ///
     /// * `tasks` - Task source consumed by the scheduler.
     /// * `count` - Declared task count expected from `tasks`.
-    /// * `schedule` - Runtime-specific scheduler that consumes tasks and calls
-    ///   [`ParallelBatchExecutionContext::record_task_observed`] for every
-    ///   source item it observes.
+    /// * `schedule` - Runtime-specific scheduler that consumes tasks and uses
+    ///   [`ParallelBatchExecutionContext::accept_task`] before dispatching each
+    ///   accepted token.
     pub fn execute<I, E, S>(
         &self,
         tasks: I,
@@ -88,7 +88,7 @@ impl ParallelBatchExecutionCoordinator {
     where
         I: IntoIterator,
         E: Send,
-        S: FnOnce(I, usize, &ParallelBatchExecutionContext<E>),
+        S: FnOnce(I, &ParallelBatchExecutionContext<E>),
     {
         let mut progress =
             match Progress::builder_arc(Arc::clone(&self.reporter))
@@ -123,8 +123,8 @@ impl ParallelBatchExecutionCoordinator {
                 running_progress.notifier(),
                 running_progress.status(),
             );
-            schedule(tasks, count, &context);
-            let observed_count = context.observed_count();
+            schedule(tasks, &context);
+            let observed_count = state.observed_count();
             running_progress.stop().map(|()| observed_count)
         });
         let state = Arc::into_inner(state).expect(

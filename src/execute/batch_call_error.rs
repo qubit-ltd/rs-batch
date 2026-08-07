@@ -12,12 +12,14 @@ use crate::{
     BatchOutcome,
 };
 
+use super::BatchCallOutput;
+
 /// Batch-level callable error that preserves successful values collected before
 /// execution stopped.
 ///
-/// The nested [`BatchExecutionError`] retains the partial execution outcome and
-/// the values slice retains one slot per declared callable. A slot is `Some`
-/// only when its callable completed successfully.
+/// The nested [`BatchExecutionError`] retains the partial execution outcome.
+/// `outputs` contains only callables that completed successfully, sorted by
+/// their original zero-based indexes.
 ///
 /// # Type Parameters
 ///
@@ -26,43 +28,43 @@ use crate::{
 #[must_use = "call errors preserve partial callable values"]
 pub struct BatchCallError<R, E> {
     source: Box<BatchExecutionError<E>>,
-    values: Vec<Option<R>>,
+    outputs: Vec<BatchCallOutput<R>>,
 }
 
 impl<R, E> fmt::Debug for BatchCallError<R, E>
 where
     E: fmt::Debug,
 {
-    /// Formats the nested error and the number of preserved values.
+    /// Formats the nested error and the number of preserved outputs.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("BatchCallError")
             .field("source", &self.source)
-            .field("value_count", &self.values.len())
+            .field("output_count", &self.outputs.len())
             .finish()
     }
 }
 
 impl<R, E> BatchCallError<R, E> {
-    /// Creates a callable error from a batch execution error and indexed
-    /// values.
+    /// Creates a callable error from a batch execution error and sparse
+    /// outputs.
     ///
     /// # Parameters
     ///
     /// * `source` - Batch-level execution error with its partial outcome.
-    /// * `values` - Callable values indexed by declared task position.
+    /// * `outputs` - Successful callable outputs sorted by callable index.
     ///
     /// # Returns
     ///
-    /// A callable error preserving both execution metadata and partial values.
+    /// A callable error preserving both execution metadata and sparse outputs.
     #[inline]
     pub(crate) fn new(
         source: BatchExecutionError<E>,
-        values: Vec<Option<R>>,
+        outputs: Vec<BatchCallOutput<R>>,
     ) -> Self {
         Self {
             source: Box::new(source),
-            values,
+            outputs,
         }
     }
 
@@ -78,10 +80,14 @@ impl<R, E> BatchCallError<R, E> {
         self.source.outcome()
     }
 
-    /// Returns the indexed callable values collected before the error.
+    /// Returns successful callable outputs collected before the error.
+    ///
+    /// # Returns
+    ///
+    /// Outputs sorted by their original zero-based callable index.
     #[inline]
-    pub fn values(&self) -> &[Option<R>] {
-        &self.values
+    pub fn outputs(&self) -> &[BatchCallOutput<R>] {
+        &self.outputs
     }
 
     /// Consumes this error and returns the nested execution error.
@@ -90,16 +96,18 @@ impl<R, E> BatchCallError<R, E> {
         *self.source
     }
 
-    /// Consumes this error and returns the indexed callable values.
+    /// Consumes this error and returns sparse successful callable outputs.
     #[inline]
-    pub fn into_values(self) -> Vec<Option<R>> {
-        self.values
+    pub fn into_outputs(self) -> Vec<BatchCallOutput<R>> {
+        self.outputs
     }
 
     /// Consumes this error and returns both preserved parts.
     #[inline]
-    pub fn into_parts(self) -> (BatchExecutionError<E>, Vec<Option<R>>) {
-        (*self.source, self.values)
+    pub fn into_parts(
+        self,
+    ) -> (BatchExecutionError<E>, Vec<BatchCallOutput<R>>) {
+        (*self.source, self.outputs)
     }
 }
 

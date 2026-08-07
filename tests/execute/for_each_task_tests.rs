@@ -10,7 +10,6 @@
 //! and the internal per-item runnable wrapper.
 
 use qubit_batch::{
-    BatchExecutor,
     SequentialBatchExecutor,
     TaskFailurePolicy,
 };

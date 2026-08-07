@@ -8,6 +8,7 @@
 //! Batch execution abstractions, outcomes, and task-failure types.
 
 mod batch_call_error;
+mod batch_call_output;
 mod batch_call_result;
 mod batch_call_result_build_error;
 mod batch_execution_error;
@@ -23,12 +24,13 @@ mod callable_task;
 mod for_each_task;
 pub mod impls;
 mod parallel_batch_execution_context;
-mod parallel_batch_execution_context_error;
 mod parallel_batch_execution_coordinator;
+mod parallel_batch_task;
 mod task_execution_status;
 mod task_failure_policy;
 
 pub use batch_call_error::BatchCallError;
+pub use batch_call_output::BatchCallOutput;
 pub use batch_call_result::BatchCallResult;
 pub use batch_call_result_build_error::BatchCallResultBuildError;
 pub use batch_execution_error::BatchExecutionError;
@@ -53,7 +55,7 @@ pub use impls::{
     SequentialBatchExecutorBuilder,
 };
 pub use parallel_batch_execution_context::ParallelBatchExecutionContext;
-pub use parallel_batch_execution_context_error::ParallelBatchExecutionContextError;
 pub use parallel_batch_execution_coordinator::ParallelBatchExecutionCoordinator;
+pub use parallel_batch_task::ParallelBatchTask;
 pub(crate) use task_execution_status::TaskExecutionStatus;
 pub use task_failure_policy::TaskFailurePolicy;

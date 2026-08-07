@@ -8,13 +8,7 @@
 //! Behavioral coverage for [`ParallelBatchExecutionContext`].
 
 use std::{
-    sync::{
-        Arc,
-        atomic::{
-            AtomicBool,
-            Ordering,
-        },
-    },
+    sync::Arc,
     time::Duration,
 };
 
@@ -48,12 +42,11 @@ fn test_parallel_batch_execution_context_execute_task_notifies_running_progress(
                 TestTask::sleep_success(Duration::from_millis(2)),
             ],
             2,
-            |tasks, _count, context| {
-                for (index, task) in tasks.into_iter().enumerate() {
-                    context.record_task_observed();
-                    context.execute_task(index, task).expect(
-                        "executed task should be within declared count",
-                    );
+            |tasks, context| {
+                for task in tasks {
+                    if let Some(task) = context.accept_task(task) {
+                        context.execute_task(task);
+                    }
                 }
             },
         )
@@ -74,35 +67,28 @@ fn test_parallel_batch_execution_context_execute_task_notifies_running_progress(
 }
 
 #[test]
-fn test_parallel_batch_execution_context_exposes_task_index_errors() {
-    let seen_out_of_range = Arc::new(AtomicBool::new(false));
+fn test_parallel_batch_execution_context_rejects_tasks_after_declared_count() {
     let coordinator = ParallelBatchExecutionCoordinator::new(
         Arc::new(RecordingReporter::new()),
         Duration::ZERO,
     );
-    let seen = Arc::clone(&seen_out_of_range);
-
-    let _ = coordinator
-        .execute([TestTask::succeed()], 1, |tasks, _count, context| {
-            for (index, task) in tasks.into_iter().enumerate() {
-                context.record_task_observed();
-                context
-                    .execute_task(index, task)
-                    .expect("index should be in range");
-                if context
-                    .execute_task(index + 1, TestTask::succeed())
-                    .is_err()
-                {
-                    seen.store(true, Ordering::Relaxed);
+    let error = coordinator
+        .execute(
+            [TestTask::succeed(), TestTask::succeed()],
+            1,
+            |tasks, context| {
+                for task in tasks {
+                    if let Some(task) = context.accept_task(task) {
+                        context.execute_task(task);
+                    }
                 }
-            }
-        })
-        .expect("scheduler should still report progress with invalid index");
+            },
+        )
+        .expect_err(
+            "the second observed task should exceed the declared count",
+        );
 
-    assert!(
-        seen.load(Ordering::Relaxed),
-        "out-of-range task index should be reported"
-    );
+    assert!(error.is_count_exceeded());
 }
 
 #[test]
@@ -113,24 +99,17 @@ fn test_parallel_batch_execution_context_auto_reporter_failure_is_reported_as_pr
         Duration::ZERO,
     );
 
-    let error = coordinator.execute(
-        [TestTask::succeed()],
-        1,
-        |tasks, _count, context| {
-            for (index, task) in tasks.into_iter().enumerate() {
-                context.record_task_observed();
-                context
-                    .execute_task(index, task)
-                    .expect("task index 0 should be in range");
+    let error =
+        coordinator.execute([TestTask::succeed()], 1, |tasks, context| {
+            for task in tasks {
+                if let Some(task) = context.accept_task(task) {
+                    context.execute_task(task);
+                }
                 for _ in 0..100 {
-                    if context.reporting_failed() {
-                        break;
-                    }
                     std::thread::sleep(Duration::from_millis(1));
                 }
             }
-        },
-    );
+        });
 
     let error = error
         .expect_err("auto reporter failure should be mapped to progress error");

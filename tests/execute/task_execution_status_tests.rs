@@ -7,10 +7,7 @@
 // =============================================================================
 //! Regression coverage for task terminal status accounting.
 
-use qubit_batch::{
-    BatchExecutor,
-    SequentialBatchExecutor,
-};
+use qubit_batch::SequentialBatchExecutor;
 
 use crate::support::TestTask;
 

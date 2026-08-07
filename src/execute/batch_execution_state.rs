@@ -19,7 +19,10 @@ use std::{
 
 use qubit_atomic::AtomicCount;
 use qubit_function::Runnable;
-use qubit_progress::MetricHandle;
+use qubit_progress::{
+    MetricError,
+    MetricHandle,
+};
 
 use crate::{
     BatchOutcome,
@@ -30,10 +33,7 @@ use crate::{
     execute::panic_payload_to_error,
 };
 
-use super::{
-    ParallelBatchExecutionContextError,
-    TaskExecutionStatus,
-};
+use super::TaskExecutionStatus;
 
 /// Metric id used for task progress counters.
 pub(crate) const EXECUTION_PROGRESS_METRIC_ID: &str = "tasks";
@@ -90,25 +90,16 @@ impl<E> BatchExecutionState<E> {
     ///
     /// # Errors
     ///
-    /// [`ParallelBatchExecutionContextError::TaskIndexOutOfRange`] when `index`
-    /// is outside the declared range.
+    /// Returns a metric error when a progress lifecycle transition is rejected.
     #[inline]
     pub(crate) fn execute_task<T>(
         &self,
         index: usize,
         mut task: T,
-    ) -> Result<TaskExecutionStatus, ParallelBatchExecutionContextError>
+    ) -> Result<TaskExecutionStatus, MetricError>
     where
         T: Runnable<E>,
     {
-        if index >= self.task_count {
-            return Err(
-                ParallelBatchExecutionContextError::TaskIndexOutOfRange {
-                    index,
-                    task_count: self.task_count,
-                },
-            );
-        }
         self.metric.start(1)?;
         let status = match catch_unwind(AssertUnwindSafe(|| task.run())) {
             Ok(Ok(())) => {
@@ -144,6 +135,12 @@ impl<E> BatchExecutionState<E> {
     #[inline]
     pub(crate) fn record_task_observed(&self) -> usize {
         self.observed_count.inc()
+    }
+
+    /// Returns the declared task count used by the active execution.
+    #[inline]
+    pub(crate) const fn task_count(&self) -> usize {
+        self.task_count
     }
 
     /// Returns the number of source tasks observed by the scheduler.

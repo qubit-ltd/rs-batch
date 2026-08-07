@@ -15,14 +15,13 @@ use qubit_progress::{
 
 use super::{
     BatchExecutionState,
-    ParallelBatchExecutionContextError,
+    ParallelBatchTask,
 };
 
 /// Worker-facing context for one parallel batch execution.
 ///
-/// Runtime-specific executors receive this context from the coordinator and use
-/// it to observe source tasks, execute accepted tasks, and detect
-/// auto-reporting terminal failures.
+/// Runtime-specific executors receive this context from the coordinator and
+/// use it to accept and execute one-shot task tokens.
 pub struct ParallelBatchExecutionContext<E> {
     /// Shared task accounting and failure collection state.
     state: Arc<BatchExecutionState<E>>,
@@ -51,55 +50,51 @@ impl<E> ParallelBatchExecutionContext<E> {
         }
     }
 
-    /// Records one task observed from the source.
+    /// Accepts one source task and assigns it a unique in-range token.
+    ///
+    /// Tasks are rejected after automatic progress reporting fails or after the
+    /// declared task count has been exceeded. A count-exceeding observation is
+    /// still recorded so the coordinator can return the precise count error.
+    ///
+    /// # Parameters
+    ///
+    /// * `task` - Runnable task yielded by the scheduler's source.
     ///
     /// # Returns
     ///
-    /// The total number of observed tasks after this observation.
+    /// `Some(token)` when the task is accepted, or `None` when execution must
+    /// stop accepting work.
     #[inline]
-    pub fn record_task_observed(&self) -> usize {
-        self.state.record_task_observed()
+    pub fn accept_task<T>(&self, task: T) -> Option<ParallelBatchTask<T>> {
+        if self.status.is_failed() {
+            return None;
+        }
+        let observed_count = self.state.record_task_observed();
+        if observed_count > self.state.task_count() {
+            return None;
+        }
+        Some(ParallelBatchTask::new(observed_count - 1, task))
     }
 
-    /// Returns the number of source tasks observed by the scheduler.
-    #[inline]
-    pub(crate) fn observed_count(&self) -> usize {
-        self.state.observed_count()
-    }
-
-    /// Returns whether automatic progress reporting has failed.
-    ///
-    /// Schedulers should stop accepting and executing new work when this is
-    /// `true`.
-    #[inline]
-    pub fn reporting_failed(&self) -> bool {
-        self.status.is_failed()
-    }
-
-    /// Runs one accepted task and records its terminal task outcome.
+    /// Runs one accepted token and records its terminal task outcome.
     ///
     /// Task-returned errors and task panics are stored in the batch outcome;
     /// they are not returned as this method's error.
     ///
     /// # Parameters
     ///
-    /// * `index` - Zero-based task index within the declared batch.
-    /// * `task` - Accepted task to execute exactly once.
-    ///
-    /// # Returns
-    ///
-    /// `Ok(())` when the accepted task reaches one of the terminal states and
-    /// running progress was notified.
-    pub fn execute_task<T>(
-        &self,
-        index: usize,
-        task: T,
-    ) -> Result<(), ParallelBatchExecutionContextError>
+    /// * `task` - Token accepted by [`Self::accept_task`].
+    pub fn execute_task<T>(&self, task: ParallelBatchTask<T>)
     where
         T: Runnable<E>,
     {
-        self.state.execute_task(index, task)?;
+        if self.status.is_failed() {
+            return;
+        }
+        let (index, task) = task.into_parts();
+        self.state.execute_task(index, task).expect(
+            "accepted parallel batch task must have valid progress transitions",
+        );
         self.notifier.notify();
-        Ok(())
     }
 }

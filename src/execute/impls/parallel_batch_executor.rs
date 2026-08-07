@@ -18,7 +18,7 @@ use crate::execute::{
     ParallelBatchExecutionCoordinator,
     SequentialBatchExecutor,
 };
-use crate::utils::run_scoped_parallel;
+use crate::utils::run_scoped_parallel_tasks;
 use crate::{
     BatchExecutionError,
     BatchOutcome,
@@ -232,18 +232,12 @@ impl BatchExecutor for ParallelBatchExecutor {
 
         let worker_count = self.thread_count.min(count);
         self.coordinator
-            .execute(tasks, count, move |tasks, count, context| {
-                run_scoped_parallel(
+            .execute(tasks, count, move |tasks, context| {
+                run_scoped_parallel_tasks(
                     tasks,
-                    count,
                     worker_count,
-                    || context.record_task_observed(),
-                    || context.reporting_failed(),
-                    |index, task| {
-                        context.execute_task(index, task).expect(
-                            "producer must assign an in-range task index",
-                        );
-                    },
+                    |task| context.accept_task(task),
+                    |task| context.execute_task(task),
                 );
             })
     }

@@ -41,12 +41,12 @@ fn test_parallel_batch_execution_coordinator_records_task_outcomes() {
                 TestTask::panic("panic"),
             ],
             3,
-            |tasks, _count, context| {
-                for (index, task) in tasks.into_iter().enumerate() {
-                    context.record_task_observed();
-                    context.execute_task(index, task).expect(
-                        "executed task should be within declared count",
-                    );
+            |tasks, context| {
+                for task in tasks {
+                    let task = context
+                        .accept_task(task)
+                        .expect("task should be accepted");
+                    context.execute_task(task);
                 }
             },
         )
@@ -64,12 +64,11 @@ fn test_parallel_batch_execution_coordinator_reports_count_shortfall() {
         Duration::ZERO,
     );
     let error = coordinator
-        .execute([TestTask::succeed()], 2, |tasks, _count, context| {
-            for (index, task) in tasks.into_iter().enumerate() {
-                context.record_task_observed();
-                context
-                    .execute_task(index, task)
-                    .expect("declared count should include indexed task");
+        .execute([TestTask::succeed()], 2, |tasks, context| {
+            for task in tasks {
+                let task =
+                    context.accept_task(task).expect("task should be accepted");
+                context.execute_task(task);
             }
         })
         .expect_err("shortfall should be reported");
@@ -103,13 +102,10 @@ fn test_parallel_batch_execution_coordinator_reports_count_exceeded() {
                 TestTask::succeed(),
             ],
             2,
-            |tasks, _count, context| {
-                for (index, task) in tasks.into_iter().enumerate() {
-                    context.record_task_observed();
-                    if index < 2 {
-                        context
-                            .execute_task(index, task)
-                            .expect("declared tasks should execute");
+            |tasks, context| {
+                for task in tasks {
+                    if let Some(task) = context.accept_task(task) {
+                        context.execute_task(task);
                     }
                 }
             },
@@ -139,14 +135,14 @@ fn test_parallel_batch_execution_coordinator_reports_start_error_as_progress_rep
         Duration::ZERO,
     );
     let error = coordinator
-        .execute([TestTask::succeed()], 1, |tasks, _count, context| {
-            for (index, task) in tasks.into_iter().enumerate() {
-                context.record_task_observed();
-                context
-                    .execute_task(index, task)
-                    .expect("context execution should be attempted");
-            }
-        })
+        .execute(
+            [TestTask::succeed()],
+            1,
+            |_tasks,
+             _context: &qubit_batch::ParallelBatchExecutionContext<
+                &'static str,
+            >| {},
+        )
         .expect_err("start failures should return progress report errors");
 
     match error {
@@ -164,12 +160,12 @@ fn test_parallel_batch_execution_coordinator_propagates_scheduler_panic() {
         Duration::ZERO,
     );
     let payload = catch_unwind(AssertUnwindSafe(|| {
-        coordinator.execute([1, 2, 3], 3, |tasks, _count, context| {
+        coordinator.execute([1, 2, 3], 3, |tasks, context| {
             for task in tasks {
-                context.record_task_observed();
-                context
-                    .execute_task(task, TestTask::succeed())
-                    .expect("context execution should be attempted");
+                let task_token = context
+                    .accept_task(TestTask::succeed())
+                    .expect("task should be accepted");
+                context.execute_task(task_token);
                 if task == 2 {
                     panic!("scheduler failure");
                 }
@@ -188,12 +184,11 @@ fn test_parallel_batch_execution_coordinator_uses_context_observed_count() {
         Duration::ZERO,
     );
     let error = coordinator
-        .execute([TestTask::succeed()], 2, |tasks, _count, context| {
-            for (index, task) in tasks.into_iter().enumerate() {
-                context.record_task_observed();
-                context
-                    .execute_task(index, task)
-                    .expect("declared count should include indexed task");
+        .execute([TestTask::succeed()], 2, |tasks, context| {
+            for task in tasks {
+                let task =
+                    context.accept_task(task).expect("task should be accepted");
+                context.execute_task(task);
             }
         })
         .expect_err("context observations should determine count validation");

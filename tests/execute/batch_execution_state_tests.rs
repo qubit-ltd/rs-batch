@@ -9,7 +9,6 @@
 
 use qubit_batch::{
     BatchExecutionError,
-    BatchExecutor,
     SequentialBatchExecutor,
 };
 

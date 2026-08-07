@@ -12,7 +12,7 @@ use qubit_function::Runnable;
 /// Runnable wrapper used by [`crate::execute::BatchExecutor::for_each`].
 pub(crate) struct ForEachTask<Item, E, F>
 where
-    F: Fn(Item) -> Result<(), E> + Send + Sync,
+    F: Fn(Item) -> Result<(), E>,
 {
     /// Item consumed by the action exactly once.
     item: Option<Item>,
@@ -22,7 +22,7 @@ where
 
 impl<Item, E, F> ForEachTask<Item, E, F>
 where
-    F: Fn(Item) -> Result<(), E> + Send + Sync,
+    F: Fn(Item) -> Result<(), E>,
 {
     /// Creates a runnable wrapper for one `for_each` item.
     ///
@@ -45,7 +45,7 @@ where
 
 impl<Item, E, F> Runnable<E> for ForEachTask<Item, E, F>
 where
-    F: Fn(Item) -> Result<(), E> + Send + Sync,
+    F: Fn(Item) -> Result<(), E>,
 {
     /// Executes the shared action for this derived task item.
     ///
