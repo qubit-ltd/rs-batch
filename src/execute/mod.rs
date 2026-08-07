@@ -26,6 +26,7 @@ pub mod impls;
 mod parallel_batch_execution_context;
 mod parallel_batch_execution_coordinator;
 mod parallel_batch_task;
+pub mod spi;
 mod task_execution_status;
 mod task_failure_policy;
 

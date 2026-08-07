@@ -16,6 +16,11 @@ use qubit_batch::execute::{
     BatchOutcome as ExecuteBatchOutcome,
     SequentialBatchExecutorBuilder as ExecuteModuleSequentialBatchExecutorBuilder,
 };
+use qubit_batch::execute::spi::{
+    ParallelBatchExecutionContext as ExecuteSpiContext,
+    ParallelBatchExecutionCoordinator as ExecuteSpiCoordinator,
+    ParallelBatchTask as ExecuteSpiTask,
+};
 use qubit_batch::process::impls::{
     ChunkedBatchProcessorBuilder as ProcessImplChunkedBatchProcessorBuilder,
     SequentialBatchProcessor as ProcessSequentialBatchProcessor,
@@ -83,6 +88,9 @@ fn test_core_types_are_exported_from_crate_root_and_grouped_modules() {
     let _execute_module_sequential_executor_builder: Option<
         ExecuteModuleSequentialBatchExecutorBuilder,
     > = None;
+    let _execute_spi_context: Option<ExecuteSpiContext<&'static str>> = None;
+    let _execute_spi_coordinator: Option<ExecuteSpiCoordinator> = None;
+    let _execute_spi_task: Option<ExecuteSpiTask<()>> = None;
     let _root_sequential_processor_builder: Option<
         SequentialBatchProcessorBuilder<i32>,
     > = None;
