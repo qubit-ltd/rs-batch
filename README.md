@@ -5,7 +5,7 @@
 [![Crates.io](https://img.shields.io/crates/v/qubit-batch.svg?color=blue)](https://crates.io/crates/qubit-batch)
 [![Rust](https://img.shields.io/badge/rust-1.94+-blue.svg?logo=rust)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE)
-[![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](https://github.com/qubit-ltd/rs-batch/blob/main/README.zh_CN.md)
+[![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
 One-shot batch execution and processing utilities for the Qubit Rust libraries.
 
@@ -33,9 +33,11 @@ consumes the supplied iterator once and returns a structured result.
   explicit contract.
 - `BatchOutcome` is the executor result. It reports task counters, elapsed time,
   and indexed `BatchTaskFailure` entries.
-- `BatchExecutionError` is a batch contract error. It means the iterator count
-  did not match the explicitly declared count, and it carries the partial
-  `BatchOutcome`.
+- `BatchExecutionError` reports progress failures and iterator count-contract
+  violations, and carries the partial `BatchOutcome`.
+- `BatchCallError` is returned by `call` and `call_with_count` for those same
+  batch-level failures while preserving successful callable values collected
+  before execution stopped.
 - `SequentialBatchExecutor` runs tasks in iterator order on the caller thread
   and continues through task errors and captured panics by default. Configure
   `TaskFailurePolicy::StopOnFirstFailure` or `StopAfterFailures(...)` when
@@ -383,8 +385,11 @@ Important result semantics:
   declared count was not fully validated.
 - `result.is_success()` means all declared tasks completed without task errors
   or panics.
-- `Err(BatchExecutionError)` means the iterator produced fewer or more items
-  than declared and carries a partial `BatchOutcome`.
+- `Err(BatchExecutionError)` means progress reporting failed or the iterator
+  produced fewer or more items than declared; it carries a partial
+  `BatchOutcome`.
+- `Err(BatchCallError)` additionally preserves the indexed callable values
+  collected before the error.
 
 ## API Cheat Sheet
 
@@ -434,46 +439,35 @@ Important result semantics:
 
 ## Testing
 
-Run the fast local checks from the crate root:
-
 ```bash
+# Run tests with the default feature set
 cargo test
-cargo clippy --all-targets -- -D warnings
-```
 
-To match the repository CI environment, run:
+# Run tests with all declared features
+cargo test --all-features
 
-```bash
-./align-ci.sh
+# Project CI checks
 ./ci-check.sh
-./coverage.sh json
+
+# Check code coverage
+./coverage.sh
 ```
-
-`./align-ci.sh` aligns the local toolchain and CI-related configuration before
-`./ci-check.sh` runs the same checks used by the pipeline. Use `./coverage.sh`
-when changing behavior that should be reflected in coverage reports.
-
-## Contributing
-
-Issues and pull requests are welcome. Please keep changes focused, add or update
-tests when behavior changes, and update this README or rustdoc when public API
-or user-visible behavior changes.
-
-By contributing, you agree that your contribution is licensed under the same
-[Apache License, Version 2.0](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE) as this project.
 
 ## License
 
-Copyright (c) 2026. Haixing Hu.
+Copyright (c) 2025 - 2026. Haixing Hu. All rights reserved.
 
-This software is licensed under the [Apache License, Version 2.0](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE).
+Licensed under the Apache License, Version 2.0. See [LICENSE](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE) for the
+full license text.
+
+## Contributing
+
+Contributions are welcome. Please follow the Rust API guidelines, keep public
+API documentation and tests current, and run `./align-ci.sh` to format code and
+`./ci-check.sh` to satisfy CI requirements before submitting a pull request.
 
 ## Author
 
-**Haixing Hu** — Qubit Co. Ltd.
+**Haixing Hu** - *Qubit Co. Ltd.*
 
-| | |
-| --- | --- |
-| **Repository** | [github.com/qubit-ltd/rs-batch](https://github.com/qubit-ltd/rs-batch) |
-| **API documentation** | [docs.rs/qubit-batch](https://docs.rs/qubit-batch) |
-| **Crate** | [crates.io/crates/qubit-batch](https://crates.io/crates/qubit-batch) |
+Repository: [https://github.com/qubit-ltd/rs-batch](https://github.com/qubit-ltd/rs-batch)

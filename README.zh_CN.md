@@ -5,7 +5,7 @@
 [![Crates.io](https://img.shields.io/crates/v/qubit-batch.svg?color=blue)](https://crates.io/crates/qubit-batch)
 [![Rust](https://img.shields.io/badge/rust-1.94+-blue.svg?logo=rust)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE)
-[![English Documentation](https://img.shields.io/badge/docs-English-blue.svg)](https://github.com/qubit-ltd/rs-batch/blob/main/README.md)
+[![English Document](https://img.shields.io/badge/Document-English-blue.svg)](README.md)
 
 面向 Qubit Rust 库的一次性批量执行与批量处理工具 crate。
 
@@ -30,8 +30,10 @@
   这些默认 API 会从 `ExactSizeIterator` 自动取得声明数量；当数量本身是独立契约时，
   使用对应的 `*_with_count` API。
 - `BatchOutcome` 是执行结果，包含任务计数、耗时和带下标的 `BatchTaskFailure`。
-- `BatchExecutionError` 是批次契约错误，表示迭代器产出数量与显式声明数量不匹配，
-  并携带部分 `BatchOutcome`。
+- `BatchExecutionError` 报告进度上报失败和迭代器数量契约错误，并携带部分
+  `BatchOutcome`。
+- `BatchCallError` 由 `call` 和 `call_with_count` 在批次级错误时返回，同时保留错误
+  发生前已经成功返回的 callable 值。
 - `SequentialBatchExecutor` 在调用线程中按迭代器顺序执行任务，默认会继续处理
   任务错误和捕获到的 panic；需要提前停止时可配置
   `TaskFailurePolicy::StopOnFirstFailure` 或 `StopAfterFailures(...)`。
@@ -360,8 +362,9 @@ match error {
   与声明数量一致。如果显式配置的任务失败策略让顺序执行提前停止，请检查
   `result.termination()`；此时剩余任务源不会被消费，声明数量也尚未完全验证。
 - `result.is_success()` 表示所有声明任务都完成，并且没有任务错误或 panic。
-- `Err(BatchExecutionError)` 表示迭代器产出数量少于或多于声明数量，并携带部分
-  `BatchOutcome`。
+- `Err(BatchExecutionError)` 表示进度上报失败，或迭代器产出数量少于或多于声明数量，
+  并携带部分 `BatchOutcome`。
+- `Err(BatchCallError)` 还会保留错误发生前已经收集的、按下标排列的 callable 值。
 
 ## API 速览
 
@@ -403,45 +406,34 @@ match error {
 
 ## 测试
 
-在 crate 根目录快速执行本地检查：
-
 ```bash
+# 使用默认 feature 集运行测试
 cargo test
-cargo clippy --all-targets -- -D warnings
-```
 
-若要与仓库 CI 环境保持一致，请运行：
+# 使用项目声明的全部 features 运行测试
+cargo test --all-features
 
-```bash
-./align-ci.sh
+# 运行项目 CI 检查
 ./ci-check.sh
-./coverage.sh json
+
+# 检查代码覆盖率
+./coverage.sh
 ```
-
-`./align-ci.sh` 会先对齐本地工具链和 CI 相关配置；`./ci-check.sh` 复现流水线检查。
-修改运行期行为并需要关注覆盖率时，可配合使用 `./coverage.sh`。
-
-## 贡献
-
-欢迎通过 Issue 与 Pull Request 参与本仓库。建议单次变更聚焦一个主题；修改行为时
-补充或更新测试；影响公开 API 或用户可见行为时，同步更新本文档或 rustdoc。
-
-向本仓库贡献内容即表示您同意以 [Apache License, Version 2.0](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE)（与本项目相同）
-授权您的贡献。
 
 ## 许可证
 
-Copyright (c) 2026. Haixing Hu.
+Copyright (c) 2025 - 2026. Haixing Hu. All rights reserved.
 
-本软件依据 [Apache License, Version 2.0](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE) 授权；完整许可文本见仓库根目录的
-`LICENSE` 文件。
+本项目基于 Apache License 2.0 授权。完整许可证文本请参阅
+[LICENSE](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE)。
+
+## 贡献
+
+欢迎贡献。请遵循 Rust API 指南，及时更新公共 API 文档与测试，并在提交
+Pull Request 前运行 `./align-ci.sh` 格式化代码，运行 `./ci-check.sh` 对齐 CI 要求。
 
 ## 作者
 
-**Haixing Hu** — Qubit Co. Ltd.
+**Haixing Hu** - *Qubit Co. Ltd.*
 
-| | |
-| --- | --- |
-| **源码仓库** | [github.com/qubit-ltd/rs-batch](https://github.com/qubit-ltd/rs-batch) |
-| **API 文档** | [docs.rs/qubit-batch](https://docs.rs/qubit-batch) |
-| **Crate 发布** | [crates.io/crates/qubit-batch](https://crates.io/crates/qubit-batch) |
+仓库地址：[https://github.com/qubit-ltd/rs-batch](https://github.com/qubit-ltd/rs-batch)
