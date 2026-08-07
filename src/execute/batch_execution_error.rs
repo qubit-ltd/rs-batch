@@ -7,17 +7,14 @@
 // =============================================================================
 use thiserror::Error;
 
-use crate::{
-    BatchOutcome,
-    ProgressFailure,
-};
+use crate::{BatchOutcome, ProgressFailure};
 
-/// Batch-level error returned when batch progress or source-count validation
-/// fails.
+/// Batch-level error returned when progress, source-count validation, or
+/// parallel scheduling fails.
 ///
 /// Task failures are reported through [`BatchOutcome`], not through
 /// this enum. This error reports progress-reporter failures and declared
-/// task-count mismatches.
+/// task-count mismatches, and incomplete parallel schedules.
 ///
 /// ```rust
 /// use qubit_batch::{
@@ -179,9 +176,7 @@ impl<E> BatchExecutionError<E> {
             Self::ProgressReport { source, .. } => Some(source.as_ref()),
             Self::CountShortfall { report_error, .. }
             | Self::CountExceeded { report_error, .. }
-            | Self::IncompleteSchedule { report_error, .. } => {
-                report_error.as_deref()
-            }
+            | Self::IncompleteSchedule { report_error, .. } => report_error.as_deref(),
         }
     }
 }

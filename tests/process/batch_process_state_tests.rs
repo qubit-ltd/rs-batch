@@ -9,11 +9,7 @@
 
 use std::num::NonZeroUsize;
 
-use qubit_batch::{
-    BatchProcessor,
-    ChunkedBatchProcessor,
-    SequentialBatchProcessor,
-};
+use qubit_batch::{BatchProcessor, ChunkedBatchProcessor, SequentialBatchProcessor};
 
 use crate::support::TestChunkProcessor;
 

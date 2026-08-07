@@ -13,16 +13,9 @@ use qubit_function::Runnable;
 use qubit_progress::Reporter;
 
 use crate::TaskFailurePolicy;
-use crate::execute::{
-    BatchExecutor,
-    ParallelBatchExecutionCoordinator,
-    SequentialBatchExecutor,
-};
+use crate::execute::{BatchExecutor, ParallelBatchExecutionCoordinator, SequentialBatchExecutor};
 use crate::utils::run_scoped_parallel_tasks;
-use crate::{
-    BatchExecutionError,
-    BatchOutcome,
-};
+use crate::{BatchExecutionError, BatchOutcome};
 
 use super::ParallelBatchExecutorBuildError;
 use super::ParallelBatchExecutorBuilder;
@@ -114,9 +107,7 @@ impl ParallelBatchExecutor {
     /// Returns [`ParallelBatchExecutorBuildError::ZeroThreadCount`] when
     /// `thread_count` is zero.
     #[inline]
-    pub fn new(
-        thread_count: usize,
-    ) -> Result<Self, ParallelBatchExecutorBuildError> {
+    pub fn new(thread_count: usize) -> Result<Self, ParallelBatchExecutorBuildError> {
         Self::builder().thread_count(thread_count).build()
     }
 

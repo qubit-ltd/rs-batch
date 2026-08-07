@@ -7,34 +7,19 @@
 // =============================================================================
 //! Behavioral coverage for [`ParallelBatchExecutionContext`].
 
-use std::{
-    sync::Arc,
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
-use qubit_batch::{
-    BatchExecutionError,
-    ParallelBatchExecutionCoordinator,
-    ProgressFailure,
-};
+use qubit_batch::{BatchExecutionError, ParallelBatchExecutionCoordinator, ProgressFailure};
 use qubit_progress::Reporter;
 
-use crate::support::{
-    FailingReporter,
-    ProgressEvent,
-    RecordingReporter,
-    TestTask,
-};
+use crate::support::{FailingReporter, ProgressEvent, RecordingReporter, TestTask};
 
 #[test]
-fn test_parallel_batch_execution_context_execute_task_notifies_running_progress()
- {
+fn test_parallel_batch_execution_context_execute_task_notifies_running_progress() {
     let reporter = Arc::new(RecordingReporter::new());
     let reporter_for_coordinator: Arc<dyn Reporter> = reporter.clone();
-    let coordinator = ParallelBatchExecutionCoordinator::new(
-        reporter_for_coordinator,
-        Duration::ZERO,
-    );
+    let coordinator =
+        ParallelBatchExecutionCoordinator::new(reporter_for_coordinator, Duration::ZERO);
     let outcome = coordinator
         .execute(
             [
@@ -68,10 +53,8 @@ fn test_parallel_batch_execution_context_execute_task_notifies_running_progress(
 
 #[test]
 fn test_parallel_batch_execution_context_rejects_tasks_after_declared_count() {
-    let coordinator = ParallelBatchExecutionCoordinator::new(
-        Arc::new(RecordingReporter::new()),
-        Duration::ZERO,
-    );
+    let coordinator =
+        ParallelBatchExecutionCoordinator::new(Arc::new(RecordingReporter::new()), Duration::ZERO);
     let error = coordinator
         .execute(
             [TestTask::succeed(), TestTask::succeed()],
@@ -84,35 +67,30 @@ fn test_parallel_batch_execution_context_rejects_tasks_after_declared_count() {
                 }
             },
         )
-        .expect_err(
-            "the second observed task should exceed the declared count",
-        );
+        .expect_err("the second observed task should exceed the declared count");
 
     assert!(error.is_count_exceeded());
 }
 
 #[test]
-fn test_parallel_batch_execution_context_auto_reporter_failure_is_reported_as_progress_error()
- {
+fn test_parallel_batch_execution_context_auto_reporter_failure_is_reported_as_progress_error() {
     let coordinator = ParallelBatchExecutionCoordinator::new(
         Arc::new(FailingReporter::after_successes(1)),
         Duration::ZERO,
     );
 
-    let error =
-        coordinator.execute([TestTask::succeed()], 1, |tasks, context| {
-            for task in tasks {
-                if let Some(task) = context.accept_task(task) {
-                    context.execute_task(task);
-                }
-                for _ in 0..100 {
-                    std::thread::sleep(Duration::from_millis(1));
-                }
+    let error = coordinator.execute([TestTask::succeed()], 1, |tasks, context| {
+        for task in tasks {
+            if let Some(task) = context.accept_task(task) {
+                context.execute_task(task);
             }
-        });
+            for _ in 0..100 {
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        }
+    });
 
-    let error = error
-        .expect_err("auto reporter failure should be mapped to progress error");
+    let error = error.expect_err("auto reporter failure should be mapped to progress error");
     let BatchExecutionError::ProgressReport { source, .. } = error else {
         panic!("auto reporter failure should map to progress report error");
     };

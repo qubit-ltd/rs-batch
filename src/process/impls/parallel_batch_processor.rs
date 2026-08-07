@@ -5,35 +5,18 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    num::NonZeroUsize,
-    sync::Arc,
-    thread,
-    time::Duration,
-};
+use std::{num::NonZeroUsize, sync::Arc, thread, time::Duration};
 
-use qubit_function::{
-    ArcConsumer,
-    Consumer,
-};
+use qubit_function::{ArcConsumer, Consumer};
 use qubit_progress::{
-    AutoReporterError,
-    AutoReporterStatus,
-    EmissionError,
-    Metric,
-    Progress,
-    ProgressNotifier,
+    AutoReporterError, AutoReporterStatus, EmissionError, Metric, Progress, ProgressNotifier,
     reporter::Reporter,
 };
 
 use crate::ProgressFailure;
 use crate::process::{
-    BatchProcessError,
-    BatchProcessResult,
-    BatchProcessState,
-    BatchProcessor,
-    PROCESS_PROGRESS_METRIC_ID,
-    PROCESS_PROGRESS_METRIC_NAME,
+    BatchProcessError, BatchProcessResult, BatchProcessState, BatchProcessor,
+    PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME,
 };
 use crate::utils::run_scoped_parallel;
 
@@ -253,53 +236,37 @@ where
     where
         I: IntoIterator<Item = Item>,
     {
-        let mut progress =
-            match Progress::builder_arc(Arc::clone(&self.reporter))
-                .interval(self.report_interval)
-                .metric(
-                    Metric::new(
-                        PROCESS_PROGRESS_METRIC_ID,
-                        PROCESS_PROGRESS_METRIC_NAME,
-                    )
+        let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
+            .interval(self.report_interval)
+            .metric(
+                Metric::new(PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME)
                     .total(count as u64),
-                )
-                .start()
-            {
-                Ok(progress) => progress,
-                Err(source) => {
-                    return Err(BatchProcessError::ProgressReport {
-                        source: Box::new(ProgressFailure::from(source)),
-                        result: BatchProcessResult::builder(count)
-                            .elapsed(Duration::ZERO)
-                            .build()
-                            .expect("empty batch process result must be valid"),
-                    });
-                }
-            };
+            )
+            .start()
+        {
+            Ok(progress) => progress,
+            Err(source) => {
+                return Err(BatchProcessError::ProgressReport {
+                    source: Box::new(ProgressFailure::from(source)),
+                    result: BatchProcessResult::builder(count)
+                        .elapsed(Duration::ZERO)
+                        .build()
+                        .expect("empty batch process result must be valid"),
+                });
+            }
+        };
         let metric = progress
             .metric(PROCESS_PROGRESS_METRIC_ID)
             .expect("configured process metric must exist");
         let state = Arc::new(BatchProcessState::new(count, metric));
 
         let running_result: Result<(), ProgressFailure> = if count > 0 {
-            if count <= self.sequential_threshold
-                || self.thread_count.get() <= 1
-            {
-                self.process_sequential(
-                    items,
-                    count,
-                    state.as_ref(),
-                    &mut progress,
-                )
-                .map_err(ProgressFailure::from)
+            if count <= self.sequential_threshold || self.thread_count.get() <= 1 {
+                self.process_sequential(items, count, state.as_ref(), &mut progress)
+                    .map_err(ProgressFailure::from)
             } else {
-                self.process_parallel_non_empty(
-                    items,
-                    count,
-                    Arc::clone(&state),
-                    &mut progress,
-                )
-                .map_err(ProgressFailure::from)
+                self.process_parallel_non_empty(items, count, Arc::clone(&state), &mut progress)
+                    .map_err(ProgressFailure::from)
             }
         } else if items.into_iter().next().is_some() {
             state.record_item_observed();
@@ -430,8 +397,7 @@ where
     {
         thread::scope(|scope| {
             let running_progress = progress.spawn_auto_reporter(scope);
-            let running_point_handle: ProgressNotifier =
-                running_progress.notifier();
+            let running_point_handle: ProgressNotifier = running_progress.notifier();
             let running_status: AutoReporterStatus = running_progress.status();
 
             let worker_count = self.thread_count.get().min(count);
@@ -445,13 +411,13 @@ where
                 move || observer_state.record_item_observed(),
                 move || running_status.is_failed(),
                 move |_index, item| {
-                    worker_state.record_item_started().expect(
-                        "batch progress state transition must be valid",
-                    );
+                    worker_state
+                        .record_item_started()
+                        .expect("batch progress state transition must be valid");
                     consumer.accept(&item);
-                    worker_state.record_item_processed().expect(
-                        "batch progress state transition must be valid",
-                    );
+                    worker_state
+                        .record_item_processed()
+                        .expect("batch progress state transition must be valid");
                     running_point_handle.notify();
                 },
             );

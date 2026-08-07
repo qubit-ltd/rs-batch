@@ -7,10 +7,7 @@
 // =============================================================================
 use std::fmt;
 
-use crate::{
-    BatchExecutionError,
-    BatchOutcome,
-};
+use crate::{BatchExecutionError, BatchOutcome};
 
 use super::BatchCallOutput;
 
@@ -58,10 +55,7 @@ impl<R, E> BatchCallError<R, E> {
     ///
     /// A callable error preserving both execution metadata and sparse outputs.
     #[inline]
-    pub(crate) fn new(
-        source: BatchExecutionError<E>,
-        outputs: Vec<BatchCallOutput<R>>,
-    ) -> Self {
+    pub(crate) fn new(source: BatchExecutionError<E>, outputs: Vec<BatchCallOutput<R>>) -> Self {
         Self {
             source: Box::new(source),
             outputs,
@@ -104,9 +98,7 @@ impl<R, E> BatchCallError<R, E> {
 
     /// Consumes this error and returns both preserved parts.
     #[inline]
-    pub fn into_parts(
-        self,
-    ) -> (BatchExecutionError<E>, Vec<BatchCallOutput<R>>) {
+    pub fn into_parts(self) -> (BatchExecutionError<E>, Vec<BatchCallOutput<R>>) {
         (*self.source, self.outputs)
     }
 }

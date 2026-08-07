@@ -8,31 +8,20 @@
 //! Tests for [`ParallelBatchExecutionCoordinator`](qubit_batch::ParallelBatchExecutionCoordinator).
 
 use std::{
-    panic::{
-        AssertUnwindSafe,
-        catch_unwind,
-    },
+    panic::{AssertUnwindSafe, catch_unwind},
     sync::Arc,
     time::Duration,
 };
 
-use qubit_batch::{
-    BatchExecutionError,
-    ParallelBatchExecutionCoordinator,
-};
+use qubit_batch::{BatchExecutionError, ParallelBatchExecutionCoordinator};
 use qubit_progress::reporter::NoopReporter;
 
-use crate::support::{
-    FailingReporter,
-    TestTask,
-};
+use crate::support::{FailingReporter, TestTask};
 
 #[test]
 fn test_parallel_batch_execution_coordinator_records_task_outcomes() {
-    let coordinator = ParallelBatchExecutionCoordinator::new(
-        Arc::new(NoopReporter),
-        Duration::ZERO,
-    );
+    let coordinator =
+        ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let outcome = coordinator
         .execute(
             [
@@ -43,9 +32,7 @@ fn test_parallel_batch_execution_coordinator_records_task_outcomes() {
             3,
             |tasks, context| {
                 for task in tasks {
-                    let task = context
-                        .accept_task(task)
-                        .expect("task should be accepted");
+                    let task = context.accept_task(task).expect("task should be accepted");
                     context.execute_task(task);
                 }
             },
@@ -59,15 +46,12 @@ fn test_parallel_batch_execution_coordinator_records_task_outcomes() {
 
 #[test]
 fn test_parallel_batch_execution_coordinator_reports_count_shortfall() {
-    let coordinator = ParallelBatchExecutionCoordinator::new(
-        Arc::new(NoopReporter),
-        Duration::ZERO,
-    );
+    let coordinator =
+        ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let error = coordinator
         .execute([TestTask::succeed()], 2, |tasks, context| {
             for task in tasks {
-                let task =
-                    context.accept_task(task).expect("task should be accepted");
+                let task = context.accept_task(task).expect("task should be accepted");
                 context.execute_task(task);
             }
         })
@@ -90,10 +74,8 @@ fn test_parallel_batch_execution_coordinator_reports_count_shortfall() {
 
 #[test]
 fn test_parallel_batch_execution_coordinator_reports_count_exceeded() {
-    let coordinator = ParallelBatchExecutionCoordinator::new(
-        Arc::new(NoopReporter),
-        Duration::ZERO,
-    );
+    let coordinator =
+        ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let error = coordinator
         .execute(
             [
@@ -128,8 +110,7 @@ fn test_parallel_batch_execution_coordinator_reports_count_exceeded() {
 }
 
 #[test]
-fn test_parallel_batch_execution_coordinator_reports_start_error_as_progress_report()
- {
+fn test_parallel_batch_execution_coordinator_reports_start_error_as_progress_report() {
     let coordinator = ParallelBatchExecutionCoordinator::new(
         Arc::new(FailingReporter::after_successes(0)),
         Duration::ZERO,
@@ -138,10 +119,7 @@ fn test_parallel_batch_execution_coordinator_reports_start_error_as_progress_rep
         .execute(
             [TestTask::succeed()],
             1,
-            |_tasks,
-             _context: &qubit_batch::ParallelBatchExecutionContext<
-                &'static str,
-            >| {},
+            |_tasks, _context: &qubit_batch::ParallelBatchExecutionContext<&'static str>| {},
         )
         .expect_err("start failures should return progress report errors");
 
@@ -155,10 +133,8 @@ fn test_parallel_batch_execution_coordinator_reports_start_error_as_progress_rep
 
 #[test]
 fn test_parallel_batch_execution_coordinator_propagates_scheduler_panic() {
-    let coordinator = ParallelBatchExecutionCoordinator::new(
-        Arc::new(NoopReporter),
-        Duration::ZERO,
-    );
+    let coordinator =
+        ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let payload = catch_unwind(AssertUnwindSafe(|| {
         coordinator.execute([1, 2, 3], 3, |tasks, context| {
             for task in tasks {
@@ -179,15 +155,12 @@ fn test_parallel_batch_execution_coordinator_propagates_scheduler_panic() {
 
 #[test]
 fn test_parallel_batch_execution_coordinator_uses_context_observed_count() {
-    let coordinator = ParallelBatchExecutionCoordinator::new(
-        Arc::new(NoopReporter),
-        Duration::ZERO,
-    );
+    let coordinator =
+        ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let error = coordinator
         .execute([TestTask::succeed()], 2, |tasks, context| {
             for task in tasks {
-                let task =
-                    context.accept_task(task).expect("task should be accepted");
+                let task = context.accept_task(task).expect("task should be accepted");
                 context.execute_task(task);
             }
         })
@@ -198,22 +171,15 @@ fn test_parallel_batch_execution_coordinator_uses_context_observed_count() {
 
 #[test]
 fn test_parallel_batch_execution_coordinator_rejects_dropped_accepted_tasks() {
-    let coordinator = ParallelBatchExecutionCoordinator::new(
-        Arc::new(NoopReporter),
-        Duration::ZERO,
-    );
+    let coordinator =
+        ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let error = coordinator
         .execute(
             [TestTask::succeed()],
             1,
-            |tasks,
-             context: &qubit_batch::ParallelBatchExecutionContext<
-                 &'static str,
-             >| {
+            |tasks, context: &qubit_batch::ParallelBatchExecutionContext<&'static str>| {
                 for task in tasks {
-                    let _dropped = context
-                        .accept_task(task)
-                        .expect("task should be accepted");
+                    let _dropped = context.accept_task(task).expect("task should be accepted");
                 }
             },
         )

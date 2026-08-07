@@ -30,8 +30,8 @@
   这些默认 API 会从 `ExactSizeIterator` 自动取得声明数量；当数量本身是独立契约时，
   使用对应的 `*_with_count` API。
 - `BatchOutcome` 是执行结果，包含任务计数、耗时和带下标的 `BatchTaskFailure`。
-- `BatchExecutionError` 报告进度上报失败和迭代器数量契约错误，并携带部分
-  `BatchOutcome`。
+- `BatchExecutionError` 报告进度上报失败、迭代器数量契约错误，以及自定义并行
+  runtime 未完成已接受任务的调度错误；所有变体都携带部分 `BatchOutcome`。
 - `BatchCallError` 由 `call` 和 `call_with_count` 在批次级错误时返回，同时保留错误
   发生前已经成功返回的稀疏 `BatchCallOutput`，每条输出都包含原始 callable 下标。
 - `SequentialBatchExecutor` 在调用线程中按迭代器顺序执行任务，默认会继续处理
@@ -48,7 +48,11 @@
   `item_count == chunk_len` 且 `completed_count == chunk_len`；当底层操作报告
   的成功数或影响行数更少时，`processed_count` 可以小于 chunk 长度。
 
-基于 Rayon 的批量执行器位于配套的 `qubit-rayon-batch` crate。
+基于 Rayon 的批量执行器位于配套的 `qubit-rayon-batch` crate。自定义 runtime
+可以通过 `execute::spi` 实现 `BatchExecutor`：调度前先调用
+`ParallelBatchExecutionContext::accept_task`，并且必须对每个已接受的
+`ParallelBatchTask` 恰好调用一次 `execute_task`。丢弃已接受任务会返回
+`BatchExecutionError::IncompleteSchedule`。
 
 ## 安装
 
@@ -363,8 +367,8 @@ match error {
   与声明数量一致。如果显式配置的任务失败策略让顺序执行提前停止，请检查
   `result.termination()`；此时剩余任务源不会被消费，声明数量也尚未完全验证。
 - `result.is_success()` 表示所有声明任务都完成，并且没有任务错误或 panic。
-- `Err(BatchExecutionError)` 表示进度上报失败，或迭代器产出数量少于或多于声明数量，
-  并携带部分 `BatchOutcome`。
+- `Err(BatchExecutionError)` 表示进度上报失败、迭代器产出数量少于或多于声明数量，
+  或自定义并行调度器未完成已接受的任务，并携带部分 `BatchOutcome`。
 - `Err(BatchCallError)` 还会保留错误发生前已经收集的、按原始下标排序的稀疏
   `BatchCallOutput`。
 
@@ -414,7 +418,7 @@ match error {
 # 使用默认 feature 集运行测试
 cargo test
 
-# 使用项目声明的全部 features 运行测试
+# 使用项目声明的全部 feature 运行测试
 cargo test --all-features
 
 # 运行项目 CI 检查
@@ -434,7 +438,7 @@ Copyright (c) 2025 - 2026. Haixing Hu. All rights reserved.
 ## 贡献
 
 欢迎贡献。请遵循 Rust API 指南，及时更新公共 API 文档与测试，并在提交
-Pull Request 前运行 `./align-ci.sh` 格式化代码，运行 `./ci-check.sh` 对齐 CI 要求。
+Pull Request 前运行 `./align-ci.sh`格式化代码，运行`./ci-check.sh`对齐CI要求。
 
 ## 作者
 

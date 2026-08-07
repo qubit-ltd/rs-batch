@@ -7,15 +7,9 @@
 // =============================================================================
 //! Behavioral coverage for scoped parallel utility behavior.
 
-use std::sync::{
-    Arc,
-    Mutex,
-};
+use std::sync::{Arc, Mutex};
 
-use qubit_batch::{
-    BatchProcessor,
-    ParallelBatchProcessor,
-};
+use qubit_batch::{BatchProcessor, ParallelBatchProcessor};
 
 #[test]
 fn test_scoped_parallel_runner_preserves_item_processing() {
