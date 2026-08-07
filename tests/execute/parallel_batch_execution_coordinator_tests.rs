@@ -195,3 +195,43 @@ fn test_parallel_batch_execution_coordinator_uses_context_observed_count() {
 
     assert!(error.is_count_shortfall());
 }
+
+#[test]
+fn test_parallel_batch_execution_coordinator_rejects_dropped_accepted_tasks() {
+    let coordinator = ParallelBatchExecutionCoordinator::new(
+        Arc::new(NoopReporter),
+        Duration::ZERO,
+    );
+    let error = coordinator
+        .execute(
+            [TestTask::succeed()],
+            1,
+            |tasks,
+             context: &qubit_batch::ParallelBatchExecutionContext<
+                 &'static str,
+             >| {
+                for task in tasks {
+                    let _dropped = context
+                        .accept_task(task)
+                        .expect("task should be accepted");
+                }
+            },
+        )
+        .expect_err("accepted tasks must be executed before returning");
+
+    match error {
+        BatchExecutionError::IncompleteSchedule {
+            expected,
+            accepted,
+            completed,
+            outcome,
+            ..
+        } => {
+            assert_eq!(expected, 1);
+            assert_eq!(accepted, 1);
+            assert_eq!(completed, 0);
+            assert_eq!(outcome.completed_count(), 0);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}

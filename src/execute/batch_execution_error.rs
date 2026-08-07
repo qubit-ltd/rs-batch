@@ -89,6 +89,24 @@ pub enum BatchExecutionError<E> {
         /// primary count error.
         report_error: Option<Box<ProgressFailure>>,
     },
+
+    /// The scheduler accepted tasks but did not execute all of them.
+    #[error(
+        "parallel batch schedule incomplete: expected {expected}, accepted {accepted}, completed {completed}"
+    )]
+    IncompleteSchedule {
+        /// Declared task count.
+        expected: usize,
+        /// Number of tasks accepted by the scheduler.
+        accepted: usize,
+        /// Number of accepted tasks that reached a terminal outcome.
+        completed: usize,
+        /// Outcome accumulated before the incomplete schedule was reported.
+        outcome: BatchOutcome<E>,
+        /// Additional progress-reporting error observed while reporting this
+        /// primary scheduling error.
+        report_error: Option<Box<ProgressFailure>>,
+    },
 }
 
 impl<E> BatchExecutionError<E> {
@@ -102,7 +120,8 @@ impl<E> BatchExecutionError<E> {
         match self {
             Self::ProgressReport { outcome, .. }
             | Self::CountShortfall { outcome, .. }
-            | Self::CountExceeded { outcome, .. } => outcome,
+            | Self::CountExceeded { outcome, .. }
+            | Self::IncompleteSchedule { outcome, .. } => outcome,
         }
     }
 
@@ -116,7 +135,8 @@ impl<E> BatchExecutionError<E> {
         match self {
             Self::ProgressReport { outcome, .. }
             | Self::CountShortfall { outcome, .. }
-            | Self::CountExceeded { outcome, .. } => outcome,
+            | Self::CountExceeded { outcome, .. }
+            | Self::IncompleteSchedule { outcome, .. } => outcome,
         }
     }
 
@@ -140,6 +160,12 @@ impl<E> BatchExecutionError<E> {
         matches!(self, Self::CountExceeded { .. })
     }
 
+    /// Returns whether this error represents an incomplete parallel schedule.
+    #[inline]
+    pub const fn is_incomplete_schedule(&self) -> bool {
+        matches!(self, Self::IncompleteSchedule { .. })
+    }
+
     /// Returns the progress-reporting error associated with this error.
     ///
     /// # Returns
@@ -152,7 +178,8 @@ impl<E> BatchExecutionError<E> {
         match self {
             Self::ProgressReport { source, .. } => Some(source.as_ref()),
             Self::CountShortfall { report_error, .. }
-            | Self::CountExceeded { report_error, .. } => {
+            | Self::CountExceeded { report_error, .. }
+            | Self::IncompleteSchedule { report_error, .. } => {
                 report_error.as_deref()
             }
         }

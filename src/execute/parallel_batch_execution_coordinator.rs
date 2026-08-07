@@ -125,13 +125,17 @@ impl ParallelBatchExecutionCoordinator {
             );
             schedule(tasks, &context);
             let observed_count = state.observed_count();
-            running_progress.stop().map(|()| observed_count)
+            let accepted_count = state.accepted_count();
+            let completed_count = state.completed_count();
+            running_progress
+                .stop()
+                .map(|()| (observed_count, accepted_count, completed_count))
         });
         let state = Arc::into_inner(state).expect(
             "parallel batch execution state should have a single owner",
         );
-        let observed_count = match stop_result {
-            Ok(count) => count,
+        let (observed_count, accepted_count, completed_count) = match stop_result {
+            Ok(counts) => counts,
             Err(source) => {
                 return Err(BatchExecutionError::ProgressReport {
                     source: Box::new(ProgressFailure::from(source)),
@@ -140,7 +144,14 @@ impl ParallelBatchExecutionCoordinator {
             }
         };
 
-        Self::finish(progress, state, count, observed_count)
+        Self::finish(
+            progress,
+            state,
+            count,
+            observed_count,
+            accepted_count,
+            completed_count,
+        )
     }
 
     /// Returns a zero-completion outcome for immediate setup failures.
@@ -158,6 +169,8 @@ impl ParallelBatchExecutionCoordinator {
         state: BatchExecutionState<E>,
         count: usize,
         observed_count: usize,
+        accepted_count: usize,
+        completed_count: usize,
     ) -> Result<BatchOutcome<E>, BatchExecutionError<E>> {
         if observed_count < count {
             let (elapsed, report_error) = Self::fail_progress(progress);
@@ -173,6 +186,16 @@ impl ParallelBatchExecutionCoordinator {
             return Err(BatchExecutionError::CountExceeded {
                 expected: count,
                 observed_at_least: observed_count,
+                outcome: state.into_outcome(elapsed),
+                report_error,
+            });
+        }
+        if accepted_count == count && completed_count < accepted_count {
+            let (elapsed, report_error) = Self::fail_progress(progress);
+            return Err(BatchExecutionError::IncompleteSchedule {
+                expected: count,
+                accepted: accepted_count,
+                completed: completed_count,
                 outcome: state.into_outcome(elapsed),
                 report_error,
             });

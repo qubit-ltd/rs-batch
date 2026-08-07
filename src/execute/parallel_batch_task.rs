@@ -15,6 +15,7 @@
 /// # Type Parameters
 ///
 /// * `T` - Task payload that implements `Runnable<E>` for the target execution.
+#[must_use = "accepted parallel batch tasks must be executed"]
 pub struct ParallelBatchTask<T> {
     /// Zero-based index assigned by the execution context.
     pub(crate) index: usize,
