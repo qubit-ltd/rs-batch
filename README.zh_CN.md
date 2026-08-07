@@ -33,9 +33,10 @@
 - `BatchExecutionError` 报告进度上报失败和迭代器数量契约错误，并携带部分
   `BatchOutcome`。
 - `BatchCallError` 由 `call` 和 `call_with_count` 在批次级错误时返回，同时保留错误
-  发生前已经成功返回的 callable 值。
+  发生前已经成功返回的稀疏 `BatchCallOutput`，每条输出都包含原始 callable 下标。
 - `SequentialBatchExecutor` 在调用线程中按迭代器顺序执行任务，默认会继续处理
-  任务错误和捕获到的 panic；需要提前停止时可配置
+  任务错误和捕获到的 panic；它的具体方法也接受非 `Send` 的任务、callable、值和错误。
+  需要提前停止时可配置
   `TaskFailurePolicy::StopOnFirstFailure` 或 `StopAfterFailures(...)`。
 - `ParallelBatchExecutor` 使用固定宽度的 scoped 标准线程执行任务。
 - `BatchProcessor` 直接处理数据项，不要求先把数据项包装为任务。
@@ -364,7 +365,8 @@ match error {
 - `result.is_success()` 表示所有声明任务都完成，并且没有任务错误或 panic。
 - `Err(BatchExecutionError)` 表示进度上报失败，或迭代器产出数量少于或多于声明数量，
   并携带部分 `BatchOutcome`。
-- `Err(BatchCallError)` 还会保留错误发生前已经收集的、按下标排列的 callable 值。
+- `Err(BatchCallError)` 还会保留错误发生前已经收集的、按原始下标排序的稀疏
+  `BatchCallOutput`。
 
 ## API 速览
 
@@ -381,6 +383,8 @@ match error {
 - `BatchOutcome::failures()` 返回按从 0 开始的任务下标排序的失败记录。
 - `BatchCallResult::values()` 只为成功 callable 保存 `Some(value)`；失败或 panic
   的 callable 位置为 `None`。
+- `BatchCallError::outputs()` 只返回批次级错误发生前成功完成的 callable 输出，
+  每条输出都带有原始下标。
 - `BatchProcessResult::processed_count()` 是代理 processor 报告的成功数量。对于
   受影响行数等目标侧计数，它可能与 `completed_count()` 不同。
 - `ChunkedBatchProcessError<E>` 在数量不匹配和代理失败时携带部分聚合结果。

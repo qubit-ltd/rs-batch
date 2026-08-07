@@ -112,6 +112,65 @@ pub(crate) fn run_scoped_parallel<I, T, O, S, F>(
     });
 }
 
+/// Runs accepted work items on fixed-width scoped worker threads.
+///
+/// The acceptance callback owns admission control, including cancellation and
+/// task-count validation. Only accepted work is placed on the bounded channel.
+///
+/// # Parameters
+///
+/// * `items` - Source of runtime-specific work items.
+/// * `worker_count` - Number of scoped worker threads to spawn.
+/// * `accept_item` - Converts an item into an accepted work token, or returns
+///   `None` to stop consuming the source.
+/// * `run_item` - Executes one accepted work token on a worker.
+pub(crate) fn run_scoped_parallel_tasks<I, T, W, A, F>(
+    items: I,
+    worker_count: usize,
+    accept_item: A,
+    run_item: F,
+) where
+    I: IntoIterator<Item = T>,
+    T: Send,
+    W: Send,
+    A: Fn(T) -> Option<W>,
+    F: Fn(W) + Sync,
+{
+    assert!(
+        worker_count > 0,
+        "scoped parallel worker count must be positive"
+    );
+    thread::scope(|scope| {
+        let (work_sender, work_receiver) = mpsc::sync_channel(worker_count);
+        let work_receiver = Arc::new(Mutex::new(work_receiver));
+        let mut worker_handles = Vec::with_capacity(worker_count);
+        for _ in 0..worker_count {
+            let worker_receiver = Arc::clone(&work_receiver);
+            let worker_run_item = &run_item;
+            worker_handles.push(scope.spawn(move || {
+                run_scoped_task_worker(worker_receiver, worker_run_item);
+            }));
+        }
+        drop(work_receiver);
+
+        for item in items {
+            let Some(work) = accept_item(item) else {
+                break;
+            };
+            if work_sender.send(work).is_err() {
+                break;
+            }
+        }
+        drop(work_sender);
+
+        for handle in worker_handles {
+            if let Err(payload) = handle.join() {
+                resume_unwind(payload);
+            }
+        }
+    });
+}
+
 /// Runs one scoped worker until the work channel closes.
 ///
 /// # Parameters
@@ -140,5 +199,24 @@ fn run_scoped_worker<T, S, F>(
         }
         let ScopedWorkItem { index, item } = work_item;
         run_item(index, item);
+    }
+}
+
+/// Runs accepted work until the token channel closes.
+fn run_scoped_task_worker<W, F>(
+    work_receiver: Arc<Mutex<mpsc::Receiver<W>>>,
+    run_item: &F,
+) where
+    F: Fn(W),
+{
+    loop {
+        let received = work_receiver
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .recv();
+        let Ok(work) = received else {
+            break;
+        };
+        run_item(work);
     }
 }

@@ -9,4 +9,7 @@
 
 mod scoped_parallel;
 
-pub(crate) use scoped_parallel::run_scoped_parallel;
+pub(crate) use scoped_parallel::{
+    run_scoped_parallel,
+    run_scoped_parallel_tasks,
+};

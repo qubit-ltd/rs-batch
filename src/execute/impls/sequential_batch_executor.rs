@@ -10,7 +10,11 @@ use std::{
     time::Duration,
 };
 
-use qubit_function::Runnable;
+use crossbeam_queue::SegQueue;
+use qubit_function::{
+    Callable,
+    Runnable,
+};
 use qubit_progress::{
     Metric,
     Progress,
@@ -25,11 +29,19 @@ use crate::{
     ProgressFailure,
     TaskFailurePolicy,
     execute::{
+        BatchCallError,
+        BatchCallResult,
         BatchExecutionState,
         BatchExecutor,
         EXECUTION_PROGRESS_METRIC_ID,
         EXECUTION_PROGRESS_METRIC_NAME,
         TaskExecutionStatus,
+        batch_executor::{
+            collect_call_outputs,
+            collect_call_values,
+        },
+        callable_task::CallableTask,
+        for_each_task::ForEachTask,
     },
 };
 
@@ -133,7 +145,7 @@ impl Default for SequentialBatchExecutor {
     }
 }
 
-impl BatchExecutor for SequentialBatchExecutor {
+impl SequentialBatchExecutor {
     /// Executes the batch sequentially on the caller thread.
     ///
     /// # Parameters
@@ -155,15 +167,14 @@ impl BatchExecutor for SequentialBatchExecutor {
     ///
     /// Panics from tasks are captured in the result. Panics from synchronous
     /// progress reporter callbacks are propagated to the caller.
-    fn execute_with_count<T, E, I>(
+    fn execute_inner<T, E, I>(
         &self,
         tasks: I,
         count: usize,
     ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = T>,
-        T: Runnable<E> + Send,
-        E: Send,
+        T: Runnable<E>,
     {
         let mut progress =
             match Progress::builder_arc(Arc::clone(&self.reporter))
@@ -293,5 +304,219 @@ impl BatchExecutor for SequentialBatchExecutor {
             };
             Ok(state.into_outcome(elapsed))
         }
+    }
+
+    /// Executes tasks sequentially using the exact count reported by `tasks`.
+    ///
+    /// This concrete API accepts non-`Send` tasks because execution remains on
+    /// the caller thread.
+    ///
+    /// # Parameters
+    ///
+    /// * `tasks` - Exact-size task source.
+    ///
+    /// # Returns
+    ///
+    /// The validated batch outcome, or a count/progress error.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BatchExecutionError`] when progress reporting fails or the
+    /// source violates its exact-size contract.
+    pub fn execute<T, E, I>(
+        &self,
+        tasks: I,
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    where
+        I: IntoIterator<Item = T>,
+        I::IntoIter: ExactSizeIterator,
+        T: Runnable<E>,
+    {
+        let tasks = tasks.into_iter();
+        let count = tasks.len();
+        self.execute_inner(tasks, count)
+    }
+
+    /// Executes tasks sequentially with an explicit declared count.
+    ///
+    /// Unlike [`BatchExecutor::execute_with_count`], this concrete method does
+    /// not require task or error types to be `Send`.
+    ///
+    /// # Parameters
+    ///
+    /// * `tasks` - Task source consumed on the caller thread.
+    /// * `count` - Declared number of tasks expected from `tasks`.
+    ///
+    /// # Returns
+    ///
+    /// The batch outcome, or a count/progress error.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BatchExecutionError`] when progress reporting fails or the
+    /// source count differs from `count`.
+    pub fn execute_with_count<T, E, I>(
+        &self,
+        tasks: I,
+        count: usize,
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    where
+        I: IntoIterator<Item = T>,
+        T: Runnable<E>,
+    {
+        self.execute_inner(tasks, count)
+    }
+
+    /// Executes callable tasks sequentially using their exact iterator count.
+    ///
+    /// # Parameters
+    ///
+    /// * `tasks` - Exact-size callable source.
+    ///
+    /// # Returns
+    ///
+    /// A callable result containing indexed success values.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BatchCallError`] when execution reports progress or count
+    /// failures.
+    pub fn call<C, R, E, I>(
+        &self,
+        tasks: I,
+    ) -> Result<BatchCallResult<R, E>, BatchCallError<R, E>>
+    where
+        I: IntoIterator<Item = C>,
+        I::IntoIter: ExactSizeIterator,
+        C: Callable<R, E>,
+    {
+        let tasks = tasks.into_iter();
+        let count = tasks.len();
+        self.call_with_count(tasks, count)
+    }
+
+    /// Executes callable tasks sequentially with an explicit declared count.
+    ///
+    /// The concrete sequential API accepts non-`Send` callables, values, and
+    /// errors because no worker thread is created.
+    ///
+    /// # Parameters
+    ///
+    /// * `tasks` - Callable source consumed on the caller thread.
+    /// * `count` - Declared number of callables expected from `tasks`.
+    ///
+    /// # Returns
+    ///
+    /// A callable result with success values indexed by callable position.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BatchCallError`] when execution reports progress or count
+    /// failures.
+    pub fn call_with_count<C, R, E, I>(
+        &self,
+        tasks: I,
+        count: usize,
+    ) -> Result<BatchCallResult<R, E>, BatchCallError<R, E>>
+    where
+        I: IntoIterator<Item = C>,
+        C: Callable<R, E>,
+    {
+        let outputs = Arc::new(SegQueue::new());
+        let runnable_tasks = tasks.into_iter().enumerate().map({
+            let outputs = Arc::clone(&outputs);
+            move |(index, callable)| {
+                CallableTask::new(callable, index, Arc::clone(&outputs))
+            }
+        });
+        let execution = self.execute_with_count(runnable_tasks, count);
+        let outputs = collect_call_outputs(outputs);
+        match execution {
+            Ok(outcome) => Ok(BatchCallResult::try_new(
+                outcome,
+                collect_call_values(outputs, count),
+            )
+            .expect("call output collection must return one value slot per declared task")),
+            Err(source) => Err(BatchCallError::new(source, outputs)),
+        }
+    }
+
+    /// Applies a fallible action sequentially using the exact item count.
+    ///
+    /// # Parameters
+    ///
+    /// * `items` - Exact-size item source.
+    /// * `action` - Fallible action applied to each item.
+    ///
+    /// # Returns
+    ///
+    /// The resulting batch outcome.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BatchExecutionError`] when execution reports progress or
+    /// count failures.
+    pub fn for_each<Item, E, I, F>(
+        &self,
+        items: I,
+        action: F,
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    where
+        I: IntoIterator<Item = Item>,
+        I::IntoIter: ExactSizeIterator,
+        F: Fn(Item) -> Result<(), E>,
+    {
+        let items = items.into_iter();
+        let count = items.len();
+        self.for_each_with_count(items, count, action)
+    }
+
+    /// Applies a fallible action sequentially with an explicit item count.
+    ///
+    /// # Parameters
+    ///
+    /// * `items` - Item source consumed on the caller thread.
+    /// * `count` - Declared number of items expected from `items`.
+    /// * `action` - Fallible action applied to each item.
+    ///
+    /// # Returns
+    ///
+    /// The resulting batch outcome.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BatchExecutionError`] when execution reports progress or the
+    /// source count differs from `count`.
+    pub fn for_each_with_count<Item, E, I, F>(
+        &self,
+        items: I,
+        count: usize,
+        action: F,
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    where
+        I: IntoIterator<Item = Item>,
+        F: Fn(Item) -> Result<(), E>,
+    {
+        let action = Arc::new(action);
+        let tasks = items
+            .into_iter()
+            .map(move |item| ForEachTask::new(item, Arc::clone(&action)));
+        self.execute_with_count(tasks, count)
+    }
+}
+
+impl BatchExecutor for SequentialBatchExecutor {
+    /// Executes the batch sequentially on the caller thread.
+    fn execute_with_count<T, E, I>(
+        &self,
+        tasks: I,
+        count: usize,
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    where
+        I: IntoIterator<Item = T>,
+        T: Runnable<E> + Send,
+        E: Send,
+    {
+        SequentialBatchExecutor::execute_with_count(self, tasks, count)
     }
 }

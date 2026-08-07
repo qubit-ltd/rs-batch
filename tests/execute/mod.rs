@@ -6,6 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 mod batch_call_error_tests;
+mod batch_call_output_tests;
 mod batch_call_result_build_error_tests;
 mod batch_call_result_tests;
 mod batch_execution_error_tests;
@@ -20,8 +21,8 @@ mod batch_termination_tests;
 mod callable_task_tests;
 mod for_each_task_tests;
 mod impls;
-mod parallel_batch_execution_context_error_tests;
 mod parallel_batch_execution_context_tests;
 mod parallel_batch_execution_coordinator_tests;
+mod parallel_batch_task_tests;
 mod task_execution_status_tests;
 mod task_failure_policy_tests;

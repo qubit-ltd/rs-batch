@@ -62,6 +62,7 @@ pub use progress_failure::ProgressFailure;
 
 pub use execute::{
     BatchCallError,
+    BatchCallOutput,
     BatchCallResult,
     BatchCallResultBuildError,
     BatchExecutionError,
@@ -73,11 +74,11 @@ pub use execute::{
     BatchTaskFailure,
     BatchTermination,
     ParallelBatchExecutionContext,
-    ParallelBatchExecutionContextError,
     ParallelBatchExecutionCoordinator,
     ParallelBatchExecutor,
     ParallelBatchExecutorBuildError,
     ParallelBatchExecutorBuilder,
+    ParallelBatchTask,
     SequentialBatchExecutor,
     SequentialBatchExecutorBuilder,
     TaskFailurePolicy,
