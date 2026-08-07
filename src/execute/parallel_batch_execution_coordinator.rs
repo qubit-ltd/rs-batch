@@ -4,14 +4,26 @@
 //    SPDX-License-Identifier: Apache-2.0
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{panic::resume_unwind, sync::Arc, thread, time::Duration};
+use std::{
+    sync::Arc,
+    thread,
+    time::Duration,
+};
 
-use qubit_progress::{Metric, Progress, Reporter};
+use qubit_progress::{
+    Metric,
+    Progress,
+    Reporter,
+};
 
 use super::{
-    BatchExecutionError, BatchExecutionState, BatchOutcome, BatchOutcomeBuilder,
+    BatchExecutionError,
+    BatchExecutionState,
+    BatchOutcome,
+    BatchOutcomeBuilder,
     EXECUTION_PROGRESS_METRIC_ID,
-    EXECUTION_PROGRESS_METRIC_NAME, ParallelBatchExecutionContext,
+    EXECUTION_PROGRESS_METRIC_NAME,
+    ParallelBatchExecutionContext,
 };
 use crate::ProgressFailure;
 
@@ -19,6 +31,7 @@ use crate::ProgressFailure;
 ///
 /// The coordinator owns progress setup and finalization, state construction,
 /// scheduler execution, and count/termination validation.
+#[derive(Clone)]
 pub struct ParallelBatchExecutionCoordinator {
     /// Progress reporter used by this execution.
     reporter: Arc<dyn Reporter>,
@@ -74,22 +87,26 @@ impl ParallelBatchExecutionCoordinator {
         E: Send,
         S: FnOnce(I, usize, &ParallelBatchExecutionContext<E>) -> usize,
     {
-        let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
-            .interval(self.report_interval)
-            .metric(
-                Metric::new(EXECUTION_PROGRESS_METRIC_ID, EXECUTION_PROGRESS_METRIC_NAME)
+        let mut progress =
+            match Progress::builder_arc(Arc::clone(&self.reporter))
+                .interval(self.report_interval)
+                .metric(
+                    Metric::new(
+                        EXECUTION_PROGRESS_METRIC_ID,
+                        EXECUTION_PROGRESS_METRIC_NAME,
+                    )
                     .total(count as u64),
-            )
-            .start()
-        {
-            Ok(progress) => progress,
-            Err(source) => {
-                return Err(BatchExecutionError::ProgressReport {
-                    source: Box::new(ProgressFailure::from(source)),
-                    outcome: Self::empty_outcome(count),
-                });
-            }
-        };
+                )
+                .start()
+            {
+                Ok(progress) => progress,
+                Err(source) => {
+                    return Err(BatchExecutionError::ProgressReport {
+                        source: Box::new(ProgressFailure::from(source)),
+                        outcome: Self::empty_outcome(count),
+                    });
+                }
+            };
 
         let metric = progress
             .metric(EXECUTION_PROGRESS_METRIC_ID)
@@ -106,13 +123,10 @@ impl ParallelBatchExecutionCoordinator {
             let observed_count = schedule(tasks, count, &context);
             running_progress.stop().map(|()| observed_count)
         });
+        let state = Arc::into_inner(state).expect(
+            "parallel batch execution state should have a single owner",
+        );
         let observed_count = match stop_result {
-            Ok(observed_count) => observed_count,
-            Err(payload) => resume_unwind(payload),
-        };
-        let state = Arc::into_inner(state)
-            .expect("parallel batch execution state should have a single owner");
-        let observed_count = match observed_count {
             Ok(count) => count,
             Err(source) => {
                 return Err(BatchExecutionError::ProgressReport {
@@ -136,13 +150,13 @@ impl ParallelBatchExecutionCoordinator {
 
     /// Finalizes completion, reports terminal progress, and maps count errors.
     fn finish<E>(
-        mut progress: Progress<'_>,
+        progress: Progress<'_>,
         state: BatchExecutionState<E>,
         count: usize,
         observed_count: usize,
     ) -> Result<BatchOutcome<E>, BatchExecutionError<E>> {
         if observed_count < count {
-            let (elapsed, report_error) = Self::fail_progress(&mut progress);
+            let (elapsed, report_error) = Self::fail_progress(progress);
             return Err(BatchExecutionError::CountShortfall {
                 expected: count,
                 actual: observed_count,
@@ -151,7 +165,7 @@ impl ParallelBatchExecutionCoordinator {
             });
         }
         if observed_count > count {
-            let (elapsed, report_error) = Self::fail_progress(&mut progress);
+            let (elapsed, report_error) = Self::fail_progress(progress);
             return Err(BatchExecutionError::CountExceeded {
                 expected: count,
                 observed_at_least: observed_count,
@@ -172,18 +186,26 @@ impl ParallelBatchExecutionCoordinator {
 
         match terminal {
             Ok(elapsed) => Ok(state.into_outcome(elapsed)),
-            Err((elapsed, source)) => Err(BatchExecutionError::ProgressReport {
-                source: Box::new(source),
-                outcome: state.into_outcome(elapsed),
-            }),
+            Err((elapsed, source)) => {
+                Err(BatchExecutionError::ProgressReport {
+                    source: Box::new(source),
+                    outcome: state.into_outcome(elapsed),
+                })
+            }
         }
     }
 
-    /// Reports a failed terminal phase and returns elapsed with secondary error.
-    fn fail_progress(progress: &mut Progress<'_>) -> (Duration, Option<Box<ProgressFailure>>) {
+    /// Reports a failed terminal phase and returns elapsed with secondary
+    /// error.
+    fn fail_progress(
+        progress: Progress<'_>,
+    ) -> (Duration, Option<Box<ProgressFailure>>) {
         match progress.fail() {
             Ok(elapsed) => (elapsed, None),
-            Err(source) => (source.elapsed(), Some(Box::new(ProgressFailure::from(source)))),
+            Err(source) => (
+                source.elapsed(),
+                Some(Box::new(ProgressFailure::from(source))),
+            ),
         }
     }
 }

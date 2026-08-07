@@ -5,18 +5,33 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::{
-    panic::{AssertUnwindSafe, catch_unwind},
-    sync::{Mutex, MutexGuard},
+    panic::{
+        AssertUnwindSafe,
+        catch_unwind,
+    },
+    sync::{
+        Mutex,
+        MutexGuard,
+    },
     time::Duration,
 };
 
 use qubit_atomic::AtomicCount;
 use qubit_function::Runnable;
-use qubit_progress::{MetricError, MetricHandle};
+use qubit_progress::MetricHandle;
 
 use crate::{
-    BatchOutcome, BatchOutcomeBuilder, BatchTaskError, BatchTaskFailure,
-    ParallelBatchExecutionContextError, execute::panic_payload_to_error,
+    BatchOutcome,
+    BatchOutcomeBuilder,
+    BatchTaskError,
+    BatchTaskFailure,
+    BatchTermination,
+    execute::panic_payload_to_error,
+};
+
+use super::{
+    ParallelBatchExecutionContextError,
+    TaskExecutionStatus,
 };
 
 /// Metric id used for task progress counters.
@@ -86,23 +101,34 @@ impl<E> BatchExecutionState<E> {
         T: Runnable<E>,
     {
         if index >= self.task_count {
-            return Err(ParallelBatchExecutionContextError::TaskIndexOutOfRange {
-                index,
-                task_count: self.task_count,
-            });
+            return Err(
+                ParallelBatchExecutionContextError::TaskIndexOutOfRange {
+                    index,
+                    task_count: self.task_count,
+                },
+            );
         }
-        self.record_task_started()?;
+        self.metric.start(1)?;
         let status = match catch_unwind(AssertUnwindSafe(|| task.run())) {
             Ok(Ok(())) => {
-                self.record_task_succeeded()?;
+                self.metric.succeed(1)?;
                 TaskExecutionStatus::Succeeded
             }
             Ok(Err(error)) => {
-                self.record_task_failed(index, error)?;
+                self.metric.fail(1)?;
+                Self::lock_failures(&self.failures).push(
+                    BatchTaskFailure::new(index, BatchTaskError::Failed(error)),
+                );
                 TaskExecutionStatus::Failed
             }
             Err(payload) => {
-                self.record_task_panicked(index, panic_payload_to_error(payload.as_ref()))?;
+                self.metric.fail(1)?;
+                Self::lock_failures(&self.failures).push(
+                    BatchTaskFailure::new(
+                        index,
+                        panic_payload_to_error(payload.as_ref()),
+                    ),
+                );
                 TaskExecutionStatus::Failed
             }
         };
@@ -117,80 +143,6 @@ impl<E> BatchExecutionState<E> {
     #[inline]
     pub(crate) fn record_task_observed(&self) -> usize {
         self.observed_count.inc()
-    }
-
-    /// Records that one task has started.
-    ///
-    /// # Panics
-    ///
-    /// Panics if no active task was recorded for this completion.
-    #[deprecated(
-        since = "0.10.0",
-        note = "use execute_task to keep execution state consistent"
-    )]
-    #[inline]
-    pub(crate) fn record_task_started(&self) -> Result<(), MetricError> {
-        self.metric.start(1)
-    }
-
-    /// Records one successful task completion.
-    ///
-    /// # Panics
-    ///
-    /// Panics if no active task was recorded for this completion.
-    #[deprecated(
-        since = "0.10.0",
-        note = "use execute_task to keep execution state consistent"
-    )]
-    #[inline]
-    pub(crate) fn record_task_succeeded(&self) -> Result<(), MetricError> {
-        self.metric.succeed(1)
-    }
-
-    /// Records one task error.
-    ///
-    /// # Parameters
-    ///
-    /// * `index` - Zero-based task index.
-    /// * `error` - Task error returned by the task.
-    ///
-    /// # Panics
-    ///
-    /// Panics if no active task was recorded for this completion.
-    #[deprecated(
-        since = "0.10.0",
-        note = "use execute_task to keep execution state consistent"
-    )]
-    #[inline]
-    pub(crate) fn record_task_failed(&self, index: usize, error: E) -> Result<(), MetricError> {
-        self.metric.fail(1)?;
-        Self::lock_failures(&self.failures).push(BatchTaskFailure::new(index, BatchTaskError::Failed(error)));
-        Ok(())
-    }
-
-    /// Records one task panic.
-    ///
-    /// # Parameters
-    ///
-    /// * `index` - Zero-based task index.
-    /// * `error` - Captured task panic.
-    ///
-    /// # Panics
-    ///
-    /// Panics if no active task was recorded for this completion.
-    #[deprecated(
-        since = "0.10.0",
-        note = "use execute_task to keep execution state consistent"
-    )]
-    #[inline]
-    pub(crate) fn record_task_panicked(
-        &self,
-        index: usize,
-        error: BatchTaskError<E>,
-    ) -> Result<(), MetricError> {
-        self.metric.fail(1)?;
-        Self::lock_failures(&self.failures).push(BatchTaskFailure::new(index, error));
-        Ok(())
     }
 
     /// Returns the number of task errors and captured task panics.
@@ -247,24 +199,6 @@ impl<E> BatchExecutionState<E> {
             .expect("batch execution state should collect consistent counters")
     }
 
-    /// Consumes this state and validates the resulting batch outcome.
-    ///
-    /// # Parameters
-    ///
-    /// * `elapsed` - Monotonic elapsed duration.
-    ///
-    /// # Returns
-    ///
-    /// A validated final or partial outcome, or a build error if low-level
-    /// recording calls created inconsistent counters.
-    #[inline]
-    pub(crate) fn try_into_outcome(
-        self,
-        elapsed: Duration,
-    ) -> Result<BatchOutcome<E>, crate::BatchOutcomeBuildError> {
-        self.try_into_outcome_with_termination(elapsed, BatchTermination::Finished)
-    }
-
     /// Consumes this state, applies `termination`, and validates the outcome.
     ///
     /// # Parameters
@@ -319,13 +253,4 @@ impl<E> BatchExecutionState<E> {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
-}
-
-/// Terminal outcome status for one executable task.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum TaskExecutionStatus {
-    /// Task reached success.
-    Succeeded,
-    /// Task failed or panicked.
-    Failed,
 }

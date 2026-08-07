@@ -14,10 +14,15 @@ use qubit_progress::Reporter;
 
 use crate::TaskFailurePolicy;
 use crate::execute::{
-    BatchExecutor, ParallelBatchExecutionCoordinator, SequentialBatchExecutor,
+    BatchExecutor,
+    ParallelBatchExecutionCoordinator,
+    SequentialBatchExecutor,
 };
 use crate::utils::run_scoped_parallel;
-use crate::{BatchExecutionError, BatchOutcome};
+use crate::{
+    BatchExecutionError,
+    BatchOutcome,
+};
 
 use super::ParallelBatchExecutorBuildError;
 use super::ParallelBatchExecutorBuilder;
@@ -109,7 +114,9 @@ impl ParallelBatchExecutor {
     /// Returns [`ParallelBatchExecutorBuildError::ZeroThreadCount`] when
     /// `thread_count` is zero.
     #[inline]
-    pub fn new(thread_count: usize) -> Result<Self, ParallelBatchExecutorBuildError> {
+    pub fn new(
+        thread_count: usize,
+    ) -> Result<Self, ParallelBatchExecutorBuildError> {
         Self::builder().thread_count(thread_count).build()
     }
 
@@ -150,7 +157,7 @@ impl ParallelBatchExecutor {
     /// A shared reference to the configured progress reporter.
     #[inline]
     pub fn reporter(&self) -> &Arc<dyn Reporter> {
-        &self.coordinator.reporter()
+        self.coordinator.reporter()
     }
 
     /// Creates a sequential executor with matching progress configuration.
@@ -160,8 +167,8 @@ impl ParallelBatchExecutor {
     /// A sequential executor used for small batches.
     fn sequential_executor(&self) -> SequentialBatchExecutor {
         SequentialBatchExecutor::builder()
-            .report_interval(self.report_interval)
-            .reporter_arc(Arc::clone(&self.reporter))
+            .report_interval(self.report_interval())
+            .reporter_arc(Arc::clone(self.reporter()))
             .task_failure_policy(TaskFailurePolicy::Continue)
             .build()
     }
@@ -208,7 +215,7 @@ impl BatchExecutor for ParallelBatchExecutor {
     ///
     /// Panics from tasks are captured in the result. Panics from synchronous
     /// progress callbacks are propagated to the caller; panics from the
-    /// scoped running reporter are returned as [`ProgressFailure`].
+    /// scoped running reporter are returned as [`crate::ProgressFailure`].
     fn execute_with_count<T, E, I>(
         &self,
         tasks: I,
@@ -224,10 +231,8 @@ impl BatchExecutor for ParallelBatchExecutor {
         }
 
         let worker_count = self.thread_count.min(count);
-        self.coordinator.execute(
-            tasks,
-            count,
-            move |tasks, count, context| {
+        self.coordinator
+            .execute(tasks, count, move |tasks, count, context| {
                 run_scoped_parallel(
                     tasks,
                     count,
@@ -235,12 +240,11 @@ impl BatchExecutor for ParallelBatchExecutor {
                     || context.record_task_observed(),
                     || context.reporting_failed(),
                     |index, task| {
-                        context
-                            .execute_task(index, task)
-                            .expect("producer must assign an in-range task index");
+                        context.execute_task(index, task).expect(
+                            "producer must assign an in-range task index",
+                        );
                     },
                 )
-            },
-        )
+            })
     }
 }
