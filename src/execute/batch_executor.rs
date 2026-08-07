@@ -34,6 +34,16 @@ use super::{
 /// [`BatchOutcome`] containing task-level successes, failures, panics, and
 /// elapsed time.
 ///
+/// # Implementor contract
+///
+/// An implementation must execute every task it accepts before returning and
+/// must not retain or execute task values after the method returns. It must
+/// stop accepting tasks once `count` has been exceeded and report the observed
+/// count through [`BatchExecutionError::CountExceeded`]. The default
+/// [`Self::call`] and [`Self::call_with_count`] adapters rely on these
+/// synchronous ownership and count guarantees when collecting callable
+/// outputs.
+///
 /// ```rust
 /// use qubit_batch::{
 ///     BatchExecutor,
@@ -74,6 +84,7 @@ pub trait BatchExecutor: Send + Sync {
     /// Panics from individual tasks are captured in [`BatchOutcome`]. Reporter
     /// callbacks invoked synchronously may panic; automatic reporter failures
     /// are returned as [`BatchExecutionError::ProgressReport`].
+    /// Implementations must not return while an accepted task can still run.
     fn execute<T, E, I>(
         &self,
         tasks: I,
@@ -116,6 +127,7 @@ pub trait BatchExecutor: Send + Sync {
     /// Panics from individual tasks are captured in [`BatchOutcome`]. Reporter
     /// callbacks invoked synchronously may panic; automatic reporter failures
     /// are returned as [`BatchExecutionError::ProgressReport`].
+    /// Implementations must not return while an accepted task can still run.
     fn execute_with_count<T, E, I>(
         &self,
         tasks: I,
@@ -149,6 +161,9 @@ pub trait BatchExecutor: Send + Sync {
     /// Panics from individual callables are captured in the execution result.
     /// Reporter callbacks invoked synchronously may panic; automatic reporter
     /// failures are returned as [`BatchExecutionError::ProgressReport`].
+    /// Implementations must not return while an accepted callable can still
+    /// run; the adapter collects outputs immediately after this method
+    /// returns.
     fn call<C, R, E, I>(
         &self,
         tasks: I,
@@ -189,6 +204,9 @@ pub trait BatchExecutor: Send + Sync {
     /// Panics from individual callables are captured in the execution result.
     /// Reporter callbacks invoked synchronously may panic; automatic reporter
     /// failures are returned as [`BatchExecutionError::ProgressReport`].
+    /// Implementations must not return while an accepted callable can still
+    /// run; the adapter collects outputs immediately after this method
+    /// returns.
     fn call_with_count<C, R, E, I>(
         &self,
         tasks: I,
