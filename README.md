@@ -33,8 +33,9 @@ consumes the supplied iterator once and returns a structured result.
   explicit contract.
 - `BatchOutcome` is the executor result. It reports task counters, elapsed time,
   and indexed `BatchTaskFailure` entries.
-- `BatchExecutionError` reports progress failures and iterator count-contract
-  violations, and carries the partial `BatchOutcome`.
+- `BatchExecutionError` reports progress failures, iterator count-contract
+  violations, and incomplete schedules from custom parallel runtimes; every
+  variant carries the partial `BatchOutcome`.
 - `BatchCallError` is returned by `call` and `call_with_count` for those same
   batch-level failures while preserving sparse `BatchCallOutput` entries for
   successful callables collected before execution stopped.
@@ -57,7 +58,11 @@ consumes the supplied iterator once and returns a structured result.
   `completed_count == chunk_len`; `processed_count` may be lower when the
   underlying operation reports fewer successful or affected rows.
 
-Rayon-backed execution lives in the companion `qubit-rayon-batch` crate.
+Rayon-backed execution lives in the companion `qubit-rayon-batch` crate. A
+custom runtime can implement `BatchExecutor` through `execute::spi`: call
+`ParallelBatchExecutionContext::accept_task` before dispatching work and pass
+every accepted `ParallelBatchTask` to `execute_task` exactly once. Dropping an
+accepted task is reported as `BatchExecutionError::IncompleteSchedule`.
 
 ## Installation
 
@@ -387,9 +392,9 @@ Important result semantics:
   declared count was not fully validated.
 - `result.is_success()` means all declared tasks completed without task errors
   or panics.
-- `Err(BatchExecutionError)` means progress reporting failed or the iterator
-  produced fewer or more items than declared; it carries a partial
-  `BatchOutcome`.
+- `Err(BatchExecutionError)` means progress reporting failed, the iterator
+  produced fewer or more items than declared, or a custom parallel scheduler
+  failed to complete an accepted task; it carries a partial `BatchOutcome`.
 - `Err(BatchCallError)` additionally preserves sparse `BatchCallOutput` entries
   collected before the error; each entry exposes its original callable index.
 

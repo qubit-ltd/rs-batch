@@ -5,26 +5,13 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    sync::Arc,
-    thread,
-    time::Duration,
-};
+use std::{sync::Arc, thread, time::Duration};
 
-use qubit_progress::{
-    Metric,
-    Progress,
-    Reporter,
-};
+use qubit_progress::{Metric, Progress, Reporter};
 
 use super::{
-    BatchExecutionError,
-    BatchExecutionState,
-    BatchOutcome,
-    BatchOutcomeBuilder,
-    EXECUTION_PROGRESS_METRIC_ID,
-    EXECUTION_PROGRESS_METRIC_NAME,
-    ParallelBatchExecutionContext,
+    BatchExecutionError, BatchExecutionState, BatchOutcome, BatchOutcomeBuilder,
+    EXECUTION_PROGRESS_METRIC_ID, EXECUTION_PROGRESS_METRIC_NAME, ParallelBatchExecutionContext,
 };
 use crate::ProgressFailure;
 
@@ -78,7 +65,28 @@ impl ParallelBatchExecutionCoordinator {
     /// * `count` - Declared task count expected from `tasks`.
     /// * `schedule` - Runtime-specific scheduler that consumes tasks and uses
     ///   [`ParallelBatchExecutionContext::accept_task`] before dispatching each
-    ///   accepted token.
+    ///   accepted token. Every accepted token must be passed to
+    ///   [`ParallelBatchExecutionContext::execute_task`] exactly once before
+    ///   the scheduler returns.
+    ///
+    /// # Returns
+    ///
+    /// A validated [`BatchOutcome`] when progress reporting, task accounting,
+    /// and scheduler completion all succeed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BatchExecutionError::ProgressReport`] when progress setup,
+    /// running reporting, or terminal reporting fails; a count-mismatch error
+    /// when the scheduler observes a different number of tasks than `count`; or
+    /// [`BatchExecutionError::IncompleteSchedule`] when accepted task tokens
+    /// are not all completed.
+    ///
+    /// # Panics
+    ///
+    /// Propagates panics from synchronous reporter callbacks and from the
+    /// runtime-specific `schedule` closure. The coordinator does not catch
+    /// scheduler panics.
     pub fn execute<I, E, S>(
         &self,
         tasks: I,
@@ -90,26 +98,22 @@ impl ParallelBatchExecutionCoordinator {
         E: Send,
         S: FnOnce(I, &ParallelBatchExecutionContext<E>),
     {
-        let mut progress =
-            match Progress::builder_arc(Arc::clone(&self.reporter))
-                .interval(self.report_interval)
-                .metric(
-                    Metric::new(
-                        EXECUTION_PROGRESS_METRIC_ID,
-                        EXECUTION_PROGRESS_METRIC_NAME,
-                    )
+        let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
+            .interval(self.report_interval)
+            .metric(
+                Metric::new(EXECUTION_PROGRESS_METRIC_ID, EXECUTION_PROGRESS_METRIC_NAME)
                     .total(count as u64),
-                )
-                .start()
-            {
-                Ok(progress) => progress,
-                Err(source) => {
-                    return Err(BatchExecutionError::ProgressReport {
-                        source: Box::new(ProgressFailure::from(source)),
-                        outcome: Self::empty_outcome(count),
-                    });
-                }
-            };
+            )
+            .start()
+        {
+            Ok(progress) => progress,
+            Err(source) => {
+                return Err(BatchExecutionError::ProgressReport {
+                    source: Box::new(ProgressFailure::from(source)),
+                    outcome: Self::empty_outcome(count),
+                });
+            }
+        };
 
         let metric = progress
             .metric(EXECUTION_PROGRESS_METRIC_ID)
@@ -131,9 +135,8 @@ impl ParallelBatchExecutionCoordinator {
                 .stop()
                 .map(|()| (observed_count, accepted_count, completed_count))
         });
-        let state = Arc::into_inner(state).expect(
-            "parallel batch execution state should have a single owner",
-        );
+        let state = Arc::into_inner(state)
+            .expect("parallel batch execution state should have a single owner");
         let (observed_count, accepted_count, completed_count) = match stop_result {
             Ok(counts) => counts,
             Err(source) => {
@@ -202,31 +205,27 @@ impl ParallelBatchExecutionCoordinator {
         }
 
         let terminal = if state.failure_count() > 0 {
-            progress.fail().map_err(|source| {
-                (source.elapsed(), ProgressFailure::from(source))
-            })
+            progress
+                .fail()
+                .map_err(|source| (source.elapsed(), ProgressFailure::from(source)))
         } else {
-            progress.finish().map_err(|source| {
-                (source.elapsed(), ProgressFailure::from_finish_error(source))
-            })
+            progress
+                .finish()
+                .map_err(|source| (source.elapsed(), ProgressFailure::from_finish_error(source)))
         };
 
         match terminal {
             Ok(elapsed) => Ok(state.into_outcome(elapsed)),
-            Err((elapsed, source)) => {
-                Err(BatchExecutionError::ProgressReport {
-                    source: Box::new(source),
-                    outcome: state.into_outcome(elapsed),
-                })
-            }
+            Err((elapsed, source)) => Err(BatchExecutionError::ProgressReport {
+                source: Box::new(source),
+                outcome: state.into_outcome(elapsed),
+            }),
         }
     }
 
     /// Reports a failed terminal phase and returns elapsed with secondary
     /// error.
-    fn fail_progress(
-        progress: Progress<'_>,
-    ) -> (Duration, Option<Box<ProgressFailure>>) {
+    fn fail_progress(progress: Progress<'_>) -> (Duration, Option<Box<ProgressFailure>>) {
         match progress.fail() {
             Ok(elapsed) => (elapsed, None),
             Err(source) => (

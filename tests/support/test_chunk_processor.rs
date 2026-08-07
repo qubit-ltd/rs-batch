@@ -9,16 +9,10 @@
 
 use std::{
     collections::VecDeque,
-    sync::{
-        Arc,
-        Mutex,
-    },
+    sync::{Arc, Mutex},
 };
 
-use qubit_batch::{
-    BatchProcessResult,
-    BatchProcessor,
-};
+use qubit_batch::{BatchProcessResult, BatchProcessor};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TestChunkOutcome {

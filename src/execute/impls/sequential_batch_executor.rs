@@ -5,41 +5,19 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    sync::Arc,
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 use crossbeam_queue::SegQueue;
-use qubit_function::{
-    Callable,
-    Runnable,
-};
-use qubit_progress::{
-    Metric,
-    Progress,
-    Reporter,
-};
+use qubit_function::{Callable, Runnable};
+use qubit_progress::{Metric, Progress, Reporter};
 
 use crate::{
-    BatchExecutionError,
-    BatchOutcome,
-    BatchOutcomeBuilder,
-    BatchTermination,
-    ProgressFailure,
+    BatchExecutionError, BatchOutcome, BatchOutcomeBuilder, BatchTermination, ProgressFailure,
     TaskFailurePolicy,
     execute::{
-        BatchCallError,
-        BatchCallResult,
-        BatchExecutionState,
-        BatchExecutor,
-        EXECUTION_PROGRESS_METRIC_ID,
-        EXECUTION_PROGRESS_METRIC_NAME,
-        TaskExecutionStatus,
-        batch_executor::{
-            collect_call_outputs,
-            collect_call_values,
-        },
+        BatchCallError, BatchCallResult, BatchExecutionState, BatchExecutor,
+        EXECUTION_PROGRESS_METRIC_ID, EXECUTION_PROGRESS_METRIC_NAME, TaskExecutionStatus,
+        batch_executor::{collect_call_outputs, collect_call_values},
         callable_task::CallableTask,
         for_each_task::ForEachTask,
     },
@@ -176,29 +154,25 @@ impl SequentialBatchExecutor {
         I: IntoIterator<Item = T>,
         T: Runnable<E>,
     {
-        let mut progress =
-            match Progress::builder_arc(Arc::clone(&self.reporter))
-                .interval(self.report_interval)
-                .metric(
-                    Metric::new(
-                        EXECUTION_PROGRESS_METRIC_ID,
-                        EXECUTION_PROGRESS_METRIC_NAME,
-                    )
+        let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
+            .interval(self.report_interval)
+            .metric(
+                Metric::new(EXECUTION_PROGRESS_METRIC_ID, EXECUTION_PROGRESS_METRIC_NAME)
                     .total(count as u64),
-                )
-                .start()
-            {
-                Ok(progress) => progress,
-                Err(source) => {
-                    return Err(BatchExecutionError::ProgressReport {
-                        source: Box::new(ProgressFailure::from(source)),
-                        outcome: BatchOutcomeBuilder::builder(count)
-                            .elapsed(Duration::ZERO)
-                            .build()
-                            .expect("empty batch outcome must be valid"),
-                    });
-                }
-            };
+            )
+            .start()
+        {
+            Ok(progress) => progress,
+            Err(source) => {
+                return Err(BatchExecutionError::ProgressReport {
+                    source: Box::new(ProgressFailure::from(source)),
+                    outcome: BatchOutcomeBuilder::builder(count)
+                        .elapsed(Duration::ZERO)
+                        .build()
+                        .expect("empty batch outcome must be valid"),
+                });
+            }
+        };
         let metric = progress
             .metric(EXECUTION_PROGRESS_METRIC_ID)
             .expect("configured execution metric must exist");
@@ -323,10 +297,7 @@ impl SequentialBatchExecutor {
     ///
     /// Returns [`BatchExecutionError`] when progress reporting fails or the
     /// source violates its exact-size contract.
-    pub fn execute<T, E, I>(
-        &self,
-        tasks: I,
-    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    pub fn execute<T, E, I>(&self, tasks: I) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = T>,
         I::IntoIter: ExactSizeIterator,
@@ -381,10 +352,7 @@ impl SequentialBatchExecutor {
     ///
     /// Returns [`BatchCallError`] when execution reports progress or count
     /// failures.
-    pub fn call<C, R, E, I>(
-        &self,
-        tasks: I,
-    ) -> Result<BatchCallResult<R, E>, BatchCallError<R, E>>
+    pub fn call<C, R, E, I>(&self, tasks: I) -> Result<BatchCallResult<R, E>, BatchCallError<R, E>>
     where
         I: IntoIterator<Item = C>,
         I::IntoIter: ExactSizeIterator,
@@ -425,9 +393,7 @@ impl SequentialBatchExecutor {
         let outputs = Arc::new(SegQueue::new());
         let runnable_tasks = tasks.into_iter().enumerate().map({
             let outputs = Arc::clone(&outputs);
-            move |(index, callable)| {
-                CallableTask::new(callable, index, Arc::clone(&outputs))
-            }
+            move |(index, callable)| CallableTask::new(callable, index, Arc::clone(&outputs))
         });
         let execution = self.execute_with_count(runnable_tasks, count);
         let outputs = collect_call_outputs(outputs);

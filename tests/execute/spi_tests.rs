@@ -8,9 +8,7 @@
 //! Tests for the runtime executor SPI exports.
 
 use qubit_batch::execute::spi::{
-    ParallelBatchExecutionContext,
-    ParallelBatchExecutionCoordinator,
-    ParallelBatchTask,
+    ParallelBatchExecutionContext, ParallelBatchExecutionCoordinator, ParallelBatchTask,
 };
 
 #[test]

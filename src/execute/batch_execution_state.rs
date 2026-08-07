@@ -6,30 +6,17 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::{
-    panic::{
-        AssertUnwindSafe,
-        catch_unwind,
-    },
-    sync::{
-        Mutex,
-        MutexGuard,
-    },
+    panic::{AssertUnwindSafe, catch_unwind},
+    sync::{Mutex, MutexGuard},
     time::Duration,
 };
 
 use qubit_atomic::AtomicCount;
 use qubit_function::Runnable;
-use qubit_progress::{
-    MetricError,
-    MetricHandle,
-};
+use qubit_progress::{MetricError, MetricHandle};
 
 use crate::{
-    BatchOutcome,
-    BatchOutcomeBuilder,
-    BatchTaskError,
-    BatchTaskFailure,
-    BatchTermination,
+    BatchOutcome, BatchOutcomeBuilder, BatchTaskError, BatchTaskFailure, BatchTermination,
     execute::panic_payload_to_error,
 };
 
@@ -111,19 +98,16 @@ impl<E> BatchExecutionState<E> {
             }
             Ok(Err(error)) => {
                 self.metric.fail(1)?;
-                Self::lock_failures(&self.failures).push(
-                    BatchTaskFailure::new(index, BatchTaskError::Failed(error)),
-                );
+                Self::lock_failures(&self.failures)
+                    .push(BatchTaskFailure::new(index, BatchTaskError::Failed(error)));
                 TaskExecutionStatus::Failed
             }
             Err(payload) => {
                 self.metric.fail(1)?;
-                Self::lock_failures(&self.failures).push(
-                    BatchTaskFailure::new(
-                        index,
-                        panic_payload_to_error(payload.as_ref()),
-                    ),
-                );
+                Self::lock_failures(&self.failures).push(BatchTaskFailure::new(
+                    index,
+                    panic_payload_to_error(payload.as_ref()),
+                ));
                 TaskExecutionStatus::Failed
             }
         };

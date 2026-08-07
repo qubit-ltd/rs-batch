@@ -37,8 +37,7 @@ pub use batch_call_result_build_error::BatchCallResultBuildError;
 pub use batch_execution_error::BatchExecutionError;
 pub(crate) use batch_execution_state::BatchExecutionState;
 pub(crate) use batch_execution_state::{
-    EXECUTION_PROGRESS_METRIC_ID,
-    EXECUTION_PROGRESS_METRIC_NAME,
+    EXECUTION_PROGRESS_METRIC_ID, EXECUTION_PROGRESS_METRIC_NAME,
 };
 pub use batch_executor::BatchExecutor;
 pub use batch_outcome::BatchOutcome;
@@ -49,11 +48,8 @@ pub(crate) use batch_task_error::panic_payload_to_error;
 pub use batch_task_failure::BatchTaskFailure;
 pub use batch_termination::BatchTermination;
 pub use impls::{
-    ParallelBatchExecutor,
-    ParallelBatchExecutorBuildError,
-    ParallelBatchExecutorBuilder,
-    SequentialBatchExecutor,
-    SequentialBatchExecutorBuilder,
+    ParallelBatchExecutor, ParallelBatchExecutorBuildError, ParallelBatchExecutorBuilder,
+    SequentialBatchExecutor, SequentialBatchExecutorBuilder,
 };
 pub use parallel_batch_execution_context::ParallelBatchExecutionContext;
 pub use parallel_batch_execution_coordinator::ParallelBatchExecutionCoordinator;

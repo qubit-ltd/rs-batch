@@ -8,21 +8,12 @@
 use std::sync::Arc;
 
 use crossbeam_queue::SegQueue;
-use qubit_function::{
-    Callable,
-    Runnable,
-};
+use qubit_function::{Callable, Runnable};
 
-use crate::{
-    BatchExecutionError,
-    BatchOutcome,
-};
+use crate::{BatchExecutionError, BatchOutcome};
 
 use super::{
-    BatchCallError,
-    BatchCallOutput,
-    BatchCallResult,
-    callable_task::CallableTask,
+    BatchCallError, BatchCallOutput, BatchCallResult, callable_task::CallableTask,
     for_each_task::ForEachTask,
 };
 
@@ -85,10 +76,7 @@ pub trait BatchExecutor: Send + Sync {
     /// callbacks invoked synchronously may panic; automatic reporter failures
     /// are returned as [`BatchExecutionError::ProgressReport`].
     /// Implementations must not return while an accepted task can still run.
-    fn execute<T, E, I>(
-        &self,
-        tasks: I,
-    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    fn execute<T, E, I>(&self, tasks: I) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = T>,
         I::IntoIter: ExactSizeIterator,
@@ -119,8 +107,9 @@ pub trait BatchExecutor: Send + Sync {
     /// # Errors
     ///
     /// Returns [`BatchExecutionError::ProgressReport`] when progress reporting
-    /// fails, or a count-mismatch variant when a fully consumed source task
-    /// count does not match `count`.
+    /// fails, a count-mismatch variant when a fully consumed source task count
+    /// does not match `count`, or [`BatchExecutionError::IncompleteSchedule`]
+    /// when a parallel scheduler accepts a task without completing it.
     ///
     /// # Panics
     ///
@@ -152,9 +141,10 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns [`BatchCallError`] when progress reporting fails or when the
-    /// iterator violates its exact length contract. The error preserves values
-    /// returned by callables that completed before execution stopped.
+    /// Returns [`BatchCallError`] when progress reporting fails, the iterator
+    /// violates its exact length contract, or a parallel scheduler leaves an
+    /// accepted callable incomplete. The error preserves values returned by
+    /// callables that completed before execution stopped.
     ///
     /// # Panics
     ///
@@ -164,10 +154,7 @@ pub trait BatchExecutor: Send + Sync {
     /// Implementations must not return while an accepted callable can still
     /// run; the adapter collects outputs immediately after this method
     /// returns.
-    fn call<C, R, E, I>(
-        &self,
-        tasks: I,
-    ) -> Result<BatchCallResult<R, E>, BatchCallError<R, E>>
+    fn call<C, R, E, I>(&self, tasks: I) -> Result<BatchCallResult<R, E>, BatchCallError<R, E>>
     where
         I: IntoIterator<Item = C>,
         I::IntoIter: ExactSizeIterator,
@@ -224,9 +211,7 @@ pub trait BatchExecutor: Send + Sync {
         // still executed later by `CallableTask::run`.
         let runnable_tasks = tasks.into_iter().enumerate().map({
             let outputs = Arc::clone(&outputs);
-            move |(index, callable)| {
-                CallableTask::new(callable, index, Arc::clone(&outputs))
-            }
+            move |(index, callable)| CallableTask::new(callable, index, Arc::clone(&outputs))
         });
         let execution = self.execute_with_count(runnable_tasks, count);
         let outputs = collect_call_outputs(outputs);
@@ -235,7 +220,7 @@ pub trait BatchExecutor: Send + Sync {
                 outcome,
                 collect_call_values(outputs, count),
             )
-                .expect("call output collection must return one value slot per declared task")),
+            .expect("call output collection must return one value slot per declared task")),
             Err(source) => Err(BatchCallError::new(source, outputs)),
         }
     }
@@ -329,9 +314,7 @@ pub(crate) fn collect_call_outputs<R>(
 ) -> Vec<BatchCallOutput<R>> {
     let outputs = match Arc::try_unwrap(outputs) {
         Ok(outputs) => outputs,
-        Err(_) => panic!(
-            "callable output queue should have a single owner after execution"
-        ),
+        Err(_) => panic!("callable output queue should have a single owner after execution"),
     };
     let mut collected = Vec::new();
     while let Some((index, value)) = outputs.pop() {

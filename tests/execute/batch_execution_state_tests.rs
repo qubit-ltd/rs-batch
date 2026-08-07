@@ -7,10 +7,7 @@
 // =============================================================================
 //! Behavioral coverage for sequential execution outcome accounting.
 
-use qubit_batch::{
-    BatchExecutionError,
-    SequentialBatchExecutor,
-};
+use qubit_batch::{BatchExecutionError, SequentialBatchExecutor};
 
 use crate::support::TestTask;
 

@@ -48,7 +48,7 @@
 //! emit periodic running events while workers are active, while zero interval
 //! reports on worker completion signals and does not spin in a tight loop.
 
-#![doc = include_str!("../README.md")]
+#![cfg_attr(doctest, doc = include_str!("../README.md"))]
 #![deny(missing_docs)]
 #![deny(unsafe_op_in_unsafe_fn)]
 
@@ -61,40 +61,16 @@ mod progress_failure;
 pub use progress_failure::ProgressFailure;
 
 pub use execute::{
-    BatchCallError,
-    BatchCallOutput,
-    BatchCallResult,
-    BatchCallResultBuildError,
-    BatchExecutionError,
-    BatchExecutor,
-    BatchOutcome,
-    BatchOutcomeBuildError,
-    BatchOutcomeBuilder,
-    BatchTaskError,
-    BatchTaskFailure,
-    BatchTermination,
-    ParallelBatchExecutionContext,
-    ParallelBatchExecutionCoordinator,
-    ParallelBatchExecutor,
-    ParallelBatchExecutorBuildError,
-    ParallelBatchExecutorBuilder,
-    ParallelBatchTask,
-    SequentialBatchExecutor,
-    SequentialBatchExecutorBuilder,
-    TaskFailurePolicy,
+    BatchCallError, BatchCallOutput, BatchCallResult, BatchCallResultBuildError,
+    BatchExecutionError, BatchExecutor, BatchOutcome, BatchOutcomeBuildError, BatchOutcomeBuilder,
+    BatchTaskError, BatchTaskFailure, BatchTermination, ParallelBatchExecutionContext,
+    ParallelBatchExecutionCoordinator, ParallelBatchExecutor, ParallelBatchExecutorBuildError,
+    ParallelBatchExecutorBuilder, ParallelBatchTask, SequentialBatchExecutor,
+    SequentialBatchExecutorBuilder, TaskFailurePolicy,
 };
 pub use process::{
-    BatchProcessError,
-    BatchProcessResult,
-    BatchProcessResultBuildError,
-    BatchProcessResultBuilder,
-    BatchProcessor,
-    ChunkedBatchProcessError,
-    ChunkedBatchProcessor,
-    ChunkedBatchProcessorBuilder,
-    ParallelBatchProcessor,
-    ParallelBatchProcessorBuildError,
-    ParallelBatchProcessorBuilder,
-    SequentialBatchProcessor,
-    SequentialBatchProcessorBuilder,
+    BatchProcessError, BatchProcessResult, BatchProcessResultBuildError, BatchProcessResultBuilder,
+    BatchProcessor, ChunkedBatchProcessError, ChunkedBatchProcessor, ChunkedBatchProcessorBuilder,
+    ParallelBatchProcessor, ParallelBatchProcessorBuildError, ParallelBatchProcessorBuilder,
+    SequentialBatchProcessor, SequentialBatchProcessorBuilder,
 };

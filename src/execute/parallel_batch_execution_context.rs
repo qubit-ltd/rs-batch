@@ -8,15 +8,9 @@
 use std::sync::Arc;
 
 use qubit_function::Runnable;
-use qubit_progress::{
-    AutoReporterStatus,
-    ProgressNotifier,
-};
+use qubit_progress::{AutoReporterStatus, ProgressNotifier};
 
-use super::{
-    BatchExecutionState,
-    ParallelBatchTask,
-};
+use super::{BatchExecutionState, ParallelBatchTask};
 
 /// Worker-facing context for one parallel batch execution.
 ///
@@ -85,6 +79,11 @@ impl<E> ParallelBatchExecutionContext<E> {
     /// # Parameters
     ///
     /// * `task` - Token accepted by [`Self::accept_task`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if the token does not represent a valid accepted task or if the
+    /// task accounting state violates its internal transition invariants.
     pub fn execute_task<T>(&self, task: ParallelBatchTask<T>)
     where
         T: Runnable<E>,
@@ -93,9 +92,9 @@ impl<E> ParallelBatchExecutionContext<E> {
             return;
         }
         let (index, task) = task.into_parts();
-        self.state.execute_task(index, task).expect(
-            "accepted parallel batch task must have valid progress transitions",
-        );
+        self.state
+            .execute_task(index, task)
+            .expect("accepted parallel batch task must have valid progress transitions");
         self.notifier.notify();
     }
 }

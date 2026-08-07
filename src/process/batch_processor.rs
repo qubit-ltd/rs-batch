@@ -76,10 +76,7 @@ pub trait BatchProcessor<Item> {
     ///
     /// Returns [`Self::Error`] if the processor rejects the batch or if the
     /// iterator violates its exact length contract while being consumed.
-    fn process<I>(
-        &mut self,
-        items: I,
-    ) -> Result<BatchProcessResult, Self::Error>
+    fn process<I>(&mut self, items: I) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
         I::IntoIter: ExactSizeIterator,
