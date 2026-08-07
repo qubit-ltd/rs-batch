@@ -24,5 +24,6 @@ mod impls;
 mod parallel_batch_execution_context_tests;
 mod parallel_batch_execution_coordinator_tests;
 mod parallel_batch_task_tests;
+mod spi_tests;
 mod task_execution_status_tests;
 mod task_failure_policy_tests;

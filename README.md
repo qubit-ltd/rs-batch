@@ -4,7 +4,7 @@
 [![Coverage](https://img.shields.io/endpoint?url=https://qubit-ltd.github.io/rs-batch/coverage-badge.json)](https://qubit-ltd.github.io/rs-batch/coverage/)
 [![Crates.io](https://img.shields.io/crates/v/qubit-batch.svg?color=blue)](https://crates.io/crates/qubit-batch)
 [![Rust](https://img.shields.io/badge/rust-1.94+-blue.svg?logo=rust)](https://www.rust-lang.org)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
 One-shot batch execution and processing utilities for the Qubit Rust libraries.
@@ -461,7 +461,7 @@ cargo test --all-features
 
 Copyright (c) 2025 - 2026. Haixing Hu. All rights reserved.
 
-Licensed under the Apache License, Version 2.0. See [LICENSE](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE) for the
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the
 full license text.
 
 ## Contributing

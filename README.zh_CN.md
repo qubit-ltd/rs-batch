@@ -4,7 +4,7 @@
 [![Coverage](https://img.shields.io/endpoint?url=https://qubit-ltd.github.io/rs-batch/coverage-badge.json)](https://qubit-ltd.github.io/rs-batch/coverage/)
 [![Crates.io](https://img.shields.io/crates/v/qubit-batch.svg?color=blue)](https://crates.io/crates/qubit-batch)
 [![Rust](https://img.shields.io/badge/rust-1.94+-blue.svg?logo=rust)](https://www.rust-lang.org)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![English Document](https://img.shields.io/badge/Document-English-blue.svg)](README.md)
 
 面向 Qubit Rust 库的一次性批量执行与批量处理工具 crate。
@@ -429,7 +429,7 @@ cargo test --all-features
 Copyright (c) 2025 - 2026. Haixing Hu. All rights reserved.
 
 本项目基于 Apache License 2.0 授权。完整许可证文本请参阅
-[LICENSE](https://github.com/qubit-ltd/rs-batch/blob/main/LICENSE)。
+[LICENSE](LICENSE)。
 
 ## 贡献
 

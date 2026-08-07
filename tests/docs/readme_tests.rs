@@ -45,6 +45,20 @@ fn test_readme_mentions_current_executor_types() {
 }
 
 #[test]
+/// Ensures license and repository links use the package-local documentation paths.
+fn test_readmes_use_local_license_and_repository_links() {
+    for readme in [README_EN, README_ZH] {
+        assert!(readme.contains("license-Apache%202.0-blue.svg)](LICENSE)"));
+        assert!(readme.contains("[LICENSE](LICENSE)"));
+        assert!(readme.contains(
+            "Repository: [https://github.com/qubit-ltd/rs-batch](https://github.com/qubit-ltd/rs-batch)",
+        ) || readme.contains(
+            "仓库地址：[https://github.com/qubit-ltd/rs-batch](https://github.com/qubit-ltd/rs-batch)",
+        ));
+    }
+}
+
+#[test]
 /// Ensures parallel implementations use the shared scoped progress guard.
 fn test_parallel_progress_reporting_uses_scoped_progress_guard() {
     assert!(
