@@ -9,16 +9,10 @@
 
 use std::hint::black_box;
 
-use criterion::{
-    BenchmarkId,
-    Criterion,
-    criterion_group,
-    criterion_main,
-};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use qubit_batch::{
-    BatchExecutor,
-    ParallelBatchExecutor,
-    SequentialBatchExecutor,
+    BatchExecutor, BatchProcessor, ParallelBatchExecutor, ParallelBatchProcessor,
+    SequentialBatchExecutor, SequentialBatchProcessor,
 };
 use qubit_function::Runnable;
 
@@ -67,6 +61,11 @@ impl Runnable<()> for CpuTask {
     }
 }
 
+/// Callable that measures indexed output collection without application work.
+fn constant_callable() -> Result<u64, ()> {
+    Ok(1)
+}
+
 /// Benchmarks executor overhead for no-op tasks near the dispatch threshold.
 ///
 /// # Parameters
@@ -89,10 +88,7 @@ fn benchmark_no_op_execution(criterion: &mut Criterion) {
                 bencher.iter(|| {
                     let _ = black_box(
                         sequential
-                            .execute_with_count(
-                                (0..task_count).map(|_| NoOpTask),
-                                task_count,
-                            )
+                            .execute_with_count((0..task_count).map(|_| NoOpTask), task_count)
                             .expect("no-op batch should succeed"),
                     );
                 });
@@ -105,10 +101,7 @@ fn benchmark_no_op_execution(criterion: &mut Criterion) {
                 bencher.iter(|| {
                     let _ = black_box(
                         parallel
-                            .execute_with_count(
-                                (0..task_count).map(|_| NoOpTask),
-                                task_count,
-                            )
+                            .execute_with_count((0..task_count).map(|_| NoOpTask), task_count)
                             .expect("no-op batch should succeed"),
                     );
                 });
@@ -141,8 +134,7 @@ fn benchmark_cpu_execution(criterion: &mut Criterion) {
                     let _ = black_box(
                         sequential
                             .execute_with_count(
-                                (0..task_count)
-                                    .map(|seed| CpuTask { seed: seed as u64 }),
+                                (0..task_count).map(|seed| CpuTask { seed: seed as u64 }),
                                 task_count,
                             )
                             .expect("CPU batch should succeed"),
@@ -158,8 +150,7 @@ fn benchmark_cpu_execution(criterion: &mut Criterion) {
                     let _ = black_box(
                         parallel
                             .execute_with_count(
-                                (0..task_count)
-                                    .map(|seed| CpuTask { seed: seed as u64 }),
+                                (0..task_count).map(|seed| CpuTask { seed: seed as u64 }),
                                 task_count,
                             )
                             .expect("CPU batch should succeed"),
@@ -171,5 +162,97 @@ fn benchmark_cpu_execution(criterion: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, benchmark_no_op_execution, benchmark_cpu_execution,);
+/// Benchmarks callable output collection for sequential and parallel executors.
+///
+/// # Parameters
+///
+/// * `criterion` - Criterion registry receiving benchmark cases.
+fn benchmark_callable_execution(criterion: &mut Criterion) {
+    let sequential = SequentialBatchExecutor::new();
+    let parallel = ParallelBatchExecutor::builder()
+        .thread_count(4)
+        .sequential_threshold(0)
+        .build()
+        .expect("benchmark executor configuration should be valid");
+    let mut group = criterion.benchmark_group("batch_executor_callable");
+
+    for task_count in BATCH_SIZES {
+        group.bench_with_input(
+            BenchmarkId::new("sequential", task_count),
+            &task_count,
+            |bencher, &task_count| {
+                bencher.iter(|| {
+                    let result = sequential
+                        .call((0..task_count).map(|_| constant_callable))
+                        .expect("callable batch should succeed");
+                    let _ = black_box(result);
+                });
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("scoped_parallel", task_count),
+            &task_count,
+            |bencher, &task_count| {
+                bencher.iter(|| {
+                    let result = parallel
+                        .call((0..task_count).map(|_| constant_callable))
+                        .expect("callable batch should succeed");
+                    let _ = black_box(result);
+                });
+            },
+        );
+    }
+    group.finish();
+}
+
+/// Benchmarks direct item processing for sequential and parallel processors.
+///
+/// # Parameters
+///
+/// * `criterion` - Criterion registry receiving benchmark cases.
+fn benchmark_item_processing(criterion: &mut Criterion) {
+    let mut sequential = SequentialBatchProcessor::new(|_: &u64| {});
+    let mut parallel = ParallelBatchProcessor::builder(|_: &u64| {})
+        .thread_count(4)
+        .sequential_threshold(0)
+        .build()
+        .expect("benchmark processor configuration should be valid");
+    let mut group = criterion.benchmark_group("batch_processor");
+
+    for task_count in BATCH_SIZES {
+        group.bench_with_input(
+            BenchmarkId::new("sequential", task_count),
+            &task_count,
+            |bencher, &task_count| {
+                bencher.iter(|| {
+                    let result = sequential
+                        .process_with_count((0..task_count).map(|value| value as u64), task_count)
+                        .expect("sequential batch should succeed");
+                    let _ = black_box(result);
+                });
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("scoped_parallel", task_count),
+            &task_count,
+            |bencher, &task_count| {
+                bencher.iter(|| {
+                    let result = parallel
+                        .process_with_count((0..task_count).map(|value| value as u64), task_count)
+                        .expect("parallel batch should succeed");
+                    let _ = black_box(result);
+                });
+            },
+        );
+    }
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    benchmark_no_op_execution,
+    benchmark_cpu_execution,
+    benchmark_callable_execution,
+    benchmark_item_processing,
+);
 criterion_main!(benches);
