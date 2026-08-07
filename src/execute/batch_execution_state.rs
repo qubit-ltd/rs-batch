@@ -47,6 +47,8 @@ pub(crate) struct BatchExecutionState<E> {
     task_count: usize,
     /// Number of tasks observed from the source.
     observed_count: AtomicCount,
+    /// Number of source tasks accepted for execution.
+    accepted_count: AtomicCount,
     /// Progress-owned lifecycle state for task counts.
     metric: MetricHandle,
     /// Detailed failures collected during execution.
@@ -69,6 +71,7 @@ impl<E> BatchExecutionState<E> {
         Self {
             task_count,
             observed_count: AtomicCount::zero(),
+            accepted_count: AtomicCount::zero(),
             metric,
             failures: Mutex::new(Vec::new()),
         }
@@ -137,6 +140,12 @@ impl<E> BatchExecutionState<E> {
         self.observed_count.inc()
     }
 
+    /// Records one source task accepted for execution.
+    #[inline]
+    pub(crate) fn record_task_accepted(&self) -> usize {
+        self.accepted_count.inc()
+    }
+
     /// Returns the declared task count used by the active execution.
     #[inline]
     pub(crate) const fn task_count(&self) -> usize {
@@ -147,6 +156,18 @@ impl<E> BatchExecutionState<E> {
     #[inline]
     pub(crate) fn observed_count(&self) -> usize {
         self.observed_count.get()
+    }
+
+    /// Returns the number of source tasks accepted for execution.
+    #[inline]
+    pub(crate) fn accepted_count(&self) -> usize {
+        self.accepted_count.get()
+    }
+
+    /// Returns the number of tasks that reached a terminal metric state.
+    #[inline]
+    pub(crate) fn completed_count(&self) -> usize {
+        self.metric.snapshot().completed() as usize
     }
 
     /// Returns the number of task errors and captured task panics.
