@@ -7,7 +7,10 @@
 // =============================================================================
 //! Tests for [`ChunkedBatchProcessorBuilder`](qubit_batch::ChunkedBatchProcessorBuilder).
 
-use std::{num::NonZeroUsize, time::Duration};
+use std::{
+    num::NonZeroUsize,
+    time::Duration,
+};
 
 use qubit_batch::ChunkedBatchProcessor;
 

@@ -7,30 +7,44 @@
 //! Tests for [`ParallelBatchExecutionCoordinator`](qubit_batch::ParallelBatchExecutionCoordinator).
 
 use std::{
-    panic::{AssertUnwindSafe, catch_unwind},
+    panic::{
+        AssertUnwindSafe,
+        catch_unwind,
+    },
     sync::Arc,
     time::Duration,
 };
 
 use qubit_batch::{
-    BatchExecutionError, ParallelBatchExecutionCoordinator,
+    BatchExecutionError,
+    ParallelBatchExecutionCoordinator,
 };
 use qubit_progress::reporter::NoopReporter;
 
-use crate::support::{FailingReporter, TestTask};
+use crate::support::{
+    FailingReporter,
+    TestTask,
+};
 
 #[test]
 fn test_parallel_batch_execution_coordinator_records_task_outcomes() {
-    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
+    let coordinator = ParallelBatchExecutionCoordinator::new(
+        Arc::new(NoopReporter),
+        Duration::ZERO,
+    );
     let outcome = coordinator
         .execute(
-            [TestTask::succeed(), TestTask::fail("failed"), TestTask::panic("panic")],
+            [
+                TestTask::succeed(),
+                TestTask::fail("failed"),
+                TestTask::panic("panic"),
+            ],
             3,
             |tasks, _count, context| {
                 for (index, task) in tasks.into_iter().enumerate() {
-                    context
-                        .execute_task(index, task)
-                        .expect("executed task should be within declared count");
+                    context.execute_task(index, task).expect(
+                        "executed task should be within declared count",
+                    );
                 }
                 3
             },
@@ -44,7 +58,10 @@ fn test_parallel_batch_execution_coordinator_records_task_outcomes() {
 
 #[test]
 fn test_parallel_batch_execution_coordinator_reports_count_shortfall() {
-    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
+    let coordinator = ParallelBatchExecutionCoordinator::new(
+        Arc::new(NoopReporter),
+        Duration::ZERO,
+    );
     let error = coordinator
         .execute([TestTask::succeed()], 2, |tasks, _count, context| {
             for (index, task) in tasks.into_iter().enumerate() {
@@ -73,20 +90,25 @@ fn test_parallel_batch_execution_coordinator_reports_count_shortfall() {
 
 #[test]
 fn test_parallel_batch_execution_coordinator_reports_count_exceeded() {
-    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
+    let coordinator = ParallelBatchExecutionCoordinator::new(
+        Arc::new(NoopReporter),
+        Duration::ZERO,
+    );
     let error = coordinator
         .execute(
-            [TestTask::succeed(), TestTask::succeed(), TestTask::succeed()],
+            [
+                TestTask::succeed(),
+                TestTask::succeed(),
+                TestTask::succeed(),
+            ],
             2,
             |tasks, _count, context| {
-                let mut observed = 0usize;
-                for (index, task) in tasks.into_iter().enumerate() {
+                for (index, task) in tasks.into_iter().take(2).enumerate() {
                     context
                         .execute_task(index, task)
                         .expect("declared tasks should execute");
-                    observed = index + 1;
                 }
-                observed
+                3
             },
         )
         .expect_err("overflow should be reported");
@@ -107,7 +129,8 @@ fn test_parallel_batch_execution_coordinator_reports_count_exceeded() {
 }
 
 #[test]
-fn test_parallel_batch_execution_coordinator_reports_start_error_as_progress_report() {
+fn test_parallel_batch_execution_coordinator_reports_start_error_as_progress_report()
+ {
     let coordinator = ParallelBatchExecutionCoordinator::new(
         Arc::new(FailingReporter::after_successes(0)),
         Duration::ZERO,
@@ -133,20 +156,22 @@ fn test_parallel_batch_execution_coordinator_reports_start_error_as_progress_rep
 
 #[test]
 fn test_parallel_batch_execution_coordinator_propagates_scheduler_panic() {
-    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
+    let coordinator = ParallelBatchExecutionCoordinator::new(
+        Arc::new(NoopReporter),
+        Duration::ZERO,
+    );
     let payload = catch_unwind(AssertUnwindSafe(|| {
-        coordinator
-            .execute([1, 2, 3], 3, |tasks, _count, context| {
-                for task in tasks {
-                    context
-                        .execute_task(task, TestTask::succeed())
-                        .expect("context execution should be attempted");
-                    if task == 2 {
-                        panic!("scheduler failure");
-                    }
+        coordinator.execute([1, 2, 3], 3, |tasks, _count, context| {
+            for task in tasks {
+                context
+                    .execute_task(task, TestTask::succeed())
+                    .expect("context execution should be attempted");
+                if task == 2 {
+                    panic!("scheduler failure");
                 }
-                0
-            })
+            }
+            0
+        })
     }))
     .expect_err("scheduler panic should be propagated");
 

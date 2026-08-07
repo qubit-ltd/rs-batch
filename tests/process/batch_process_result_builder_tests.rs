@@ -9,7 +9,10 @@
 
 use std::time::Duration;
 
-use qubit_batch::{BatchProcessResultBuildError, BatchProcessResultBuilder};
+use qubit_batch::{
+    BatchProcessResultBuildError,
+    BatchProcessResultBuilder,
+};
 
 #[test]
 fn test_batch_process_result_builder_builds_valid_result() {
@@ -58,7 +61,11 @@ fn test_batch_process_result_builder_rejects_invalid_counters() {
             .completed_count(2)
             .processed_count(2)
             .build(),
-        Err(BatchProcessResultBuildError::MissingChunkForCompletedItems { completed_count: 2 })
+        Err(
+            BatchProcessResultBuildError::MissingChunkForCompletedItems {
+                completed_count: 2
+            }
+        )
     ));
     assert!(matches!(
         BatchProcessResultBuilder::builder(3)
