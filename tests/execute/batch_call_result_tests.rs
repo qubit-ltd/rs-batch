@@ -1,11 +1,4 @@
-// =============================================================================
-//    Copyright (c) 2025 - 2026 Haixing Hu.
-//
-//    SPDX-License-Identifier: Apache-2.0
-//
-//    Licensed under the Apache License, Version 2.0.
-// =============================================================================
-
+use qubit_batch::BatchCallOutput;
 use qubit_batch::BatchCallResult;
 use qubit_batch::BatchCallResultBuildError;
 use qubit_batch::BatchOutcomeBuilder;
@@ -24,32 +17,37 @@ fn test_batch_call_result_accessors_and_parts() {
         )])
         .build()
         .expect("outcome should be valid");
-    let result =
-        BatchCallResult::try_new(outcome.clone(), vec![Some(10), None])
-            .expect("value slots should match the declared task count");
+    let result = BatchCallResult::try_new(
+        outcome.clone(),
+        vec![BatchCallOutput::new(0, 10)],
+    )
+    .expect("sparse outputs should match the outcome");
 
     assert_eq!(result.outcome(), &outcome);
-    assert_eq!(result.values(), &[Some(10), None]);
-    assert_eq!(result.clone().into_values(), vec![Some(10), None]);
+    assert_eq!(result.outputs()[0].value(), &10);
+    assert_eq!(result.clone().into_outputs()[0].value(), &10);
     assert_eq!(result.clone().into_outcome(), outcome);
-    let (outcome_part, values_part) = result.into_parts();
+    let (outcome_part, outputs_part) = result.into_parts();
     assert_eq!(outcome_part.completed_count(), 2);
-    assert_eq!(values_part, vec![Some(10), None]);
+    assert_eq!(outputs_part[0].index(), 0);
 }
 
 #[test]
-fn test_batch_call_result_rejects_mismatched_value_count() {
-    let outcome = BatchOutcomeBuilder::<&'static str>::builder(1)
+fn test_batch_call_result_rejects_output_for_uncompleted_task() {
+    let outcome = BatchOutcomeBuilder::<&'static str>::builder(3)
         .completed_count(1)
         .succeeded_count(1)
         .build()
         .expect("outcome should be valid");
 
     assert_eq!(
-        BatchCallResult::<usize, &'static str>::try_new(outcome, Vec::new()),
-        Err(BatchCallResultBuildError::ValueCountMismatch {
-            task_count: 1,
-            value_count: 0,
+        BatchCallResult::<usize, &'static str>::try_new(
+            outcome,
+            vec![BatchCallOutput::new(2, 10)],
+        ),
+        Err(BatchCallResultBuildError::OutputIndexNotCompleted {
+            index: 2,
+            completed_count: 1,
         })
     );
 }
@@ -68,13 +66,16 @@ fn test_batch_call_result_rejects_value_at_failed_callable_index() {
         .expect("outcome should be valid");
 
     assert_eq!(
-        BatchCallResult::try_new(outcome, vec![Some(10), Some(20)]),
-        Err(BatchCallResultBuildError::FailureValuePresent { index: 1 })
+        BatchCallResult::try_new(
+            outcome,
+            vec![BatchCallOutput::new(0, 10), BatchCallOutput::new(1, 20)],
+        ),
+        Err(BatchCallResultBuildError::FailureOutputPresent { index: 1 })
     );
 }
 
 #[test]
-fn test_batch_call_result_rejects_mismatched_success_value_count() {
+fn test_batch_call_result_rejects_mismatched_success_output_count() {
     let outcome = BatchOutcomeBuilder::<&'static str>::builder(2)
         .completed_count(2)
         .succeeded_count(2)
@@ -82,10 +83,13 @@ fn test_batch_call_result_rejects_mismatched_success_value_count() {
         .expect("outcome should be valid");
 
     assert_eq!(
-        BatchCallResult::try_new(outcome, vec![Some(10), None]),
-        Err(BatchCallResultBuildError::SucceededValueCountMismatch {
+        BatchCallResult::try_new(
+            outcome,
+            vec![BatchCallOutput::new(0, 10)],
+        ),
+        Err(BatchCallResultBuildError::SucceededOutputCountMismatch {
             succeeded_count: 2,
-            value_count: 1,
+            output_count: 1,
         })
     );
 }
