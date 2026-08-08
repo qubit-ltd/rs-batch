@@ -26,11 +26,12 @@ use crate::support::panic_payload_message;
 struct OverconsumingExecutor;
 
 impl BatchExecutor for OverconsumingExecutor {
+    type SchedulerError = std::convert::Infallible;
     fn execute_with_count<T, E, I>(
         &self,
         tasks: I,
         count: usize,
-    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E, Self::SchedulerError>>
     where
         I: IntoIterator<Item = T>,
         T: Runnable<E> + Send,
@@ -62,8 +63,8 @@ fn test_sequential_batch_executor_calls_callables_and_collects_values() {
         .expect("call batch should succeed");
 
     assert_eq!(result.outcome().completed_count(), 3);
-    assert_eq!(result.values(), &[Some(10), Some(20), Some(30)]);
-    assert_eq!(result.into_values(), vec![Some(10), Some(20), Some(30)]);
+    assert_eq!(result.outputs().iter().map(|o| *o.value()).collect::<Vec<_>>(), vec![10, 20, 30]);
+    assert_eq!(result.into_outputs().len(), 3);
 
     let tasks = vec![TestCallable::returning(40)];
     let result = executor
@@ -77,7 +78,8 @@ fn test_sequential_batch_executor_calls_callables_and_collects_values() {
         .expect("call batch should succeed");
     let (outcome, values) = result.into_parts();
     assert_eq!(outcome.completed_count(), 1);
-    assert_eq!(values, vec![Some(50)]);
+    assert_eq!(values[0].index(), 0);
+    assert_eq!(values[0].value(), &50);
 }
 
 #[test]
@@ -89,7 +91,7 @@ fn test_batch_executor_call_derives_count_from_exact_iterator() {
         .expect("array length should be exact");
 
     assert_eq!(result.outcome().completed_count(), 2);
-    assert_eq!(result.values(), &[Some(10), Some(20)]);
+    assert_eq!(result.outputs().iter().map(|o| *o.value()).collect::<Vec<_>>(), vec![10, 20]);
 }
 
 #[test]
@@ -108,7 +110,7 @@ fn test_sequential_batch_executor_call_preserves_failure_indexes() {
         .call_with_count(tasks, 4)
         .expect("callable failures should stay in the batch result");
 
-    assert_eq!(result.values(), &[Some(10), None, None, Some(40)]);
+    assert_eq!(result.outputs().iter().map(|o| (o.index(), *o.value())).collect::<Vec<_>>(), vec![(0, 10), (3, 40)]);
     assert_eq!(result.outcome().failed_count(), 1);
     assert_eq!(result.outcome().panicked_count(), 1);
     assert_eq!(result.outcome().failures()[0].index(), 1);
@@ -129,9 +131,10 @@ fn test_sequential_batch_executor_call_collects_many_values_by_index() {
         .expect("large callable batch should succeed");
 
     assert_eq!(result.outcome().completed_count(), COUNT);
-    assert_eq!(result.values().len(), COUNT);
-    for (index, value) in result.values().iter().enumerate() {
-        assert_eq!(*value, Some(index as i32));
+    assert_eq!(result.outputs().len(), COUNT);
+    for (index, output) in result.outputs().iter().enumerate() {
+        assert_eq!(output.index(), index);
+        assert_eq!(*output.value(), index as i32);
     }
 }
 
@@ -153,7 +156,7 @@ fn test_parallel_batch_executor_call_collects_values_by_index() {
         .call_with_count(tasks, 4)
         .expect("callable failures should stay in the batch result");
 
-    assert_eq!(result.values(), &[Some(10), None, None, Some(40)]);
+    assert_eq!(result.outputs().iter().map(|o| (o.index(), *o.value())).collect::<Vec<_>>(), vec![(0, 10), (3, 40)]);
     assert_eq!(result.outcome().completed_count(), 4);
     assert_eq!(result.outcome().failed_count(), 1);
     assert_eq!(result.outcome().panicked_count(), 1);
