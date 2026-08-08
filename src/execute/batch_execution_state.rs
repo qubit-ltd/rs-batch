@@ -9,6 +9,9 @@ use std::panic::AssertUnwindSafe;
 use std::panic::catch_unwind;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use qubit_atomic::AtomicCount;
@@ -22,6 +25,7 @@ use crate::BatchOutcomeBuilder;
 use crate::BatchTaskError;
 use crate::BatchTaskFailure;
 use crate::BatchTermination;
+use crate::TaskFailurePolicy;
 use crate::execute::panic_payload_to_error;
 
 /// Metric id used for task progress counters.
@@ -42,6 +46,12 @@ pub(crate) struct BatchExecutionState<E> {
     metric: MetricHandle,
     /// Detailed failures collected during execution.
     failures: Mutex<Vec<BatchTaskFailure<E>>>,
+    /// Policy controlling whether new tasks are accepted after failures.
+    task_failure_policy: TaskFailurePolicy,
+    /// Number of task failures observed by parallel workers.
+    failure_count_atomic: AtomicUsize,
+    /// Whether source consumption should stop due to task failure.
+    stop_accepting: AtomicBool,
 }
 
 impl<E> BatchExecutionState<E> {
@@ -56,13 +66,20 @@ impl<E> BatchExecutionState<E> {
     ///
     /// Empty execution state.
     #[inline]
-    pub(crate) const fn new(task_count: usize, metric: MetricHandle) -> Self {
+    pub(crate) const fn new(
+        task_count: usize,
+        metric: MetricHandle,
+        task_failure_policy: TaskFailurePolicy,
+    ) -> Self {
         Self {
             task_count,
             observed_count: AtomicCount::zero(),
             accepted_count: AtomicCount::zero(),
             metric,
             failures: Mutex::new(Vec::new()),
+            task_failure_policy,
+            failure_count_atomic: AtomicUsize::new(0),
+            stop_accepting: AtomicBool::new(false),
         }
     }
 
@@ -116,6 +133,12 @@ impl<E> BatchExecutionState<E> {
                 TaskExecutionStatus::Failed
             }
         };
+        if status == TaskExecutionStatus::Failed {
+            let failures = self.failure_count_atomic.fetch_add(1, Ordering::AcqRel) + 1;
+            if self.task_failure_policy.should_stop(failures) {
+                self.stop_accepting.store(true, Ordering::Release);
+            }
+        }
         Ok(status)
     }
 
@@ -167,6 +190,12 @@ impl<E> BatchExecutionState<E> {
     #[inline]
     pub(crate) fn failure_count(&self) -> usize {
         Self::lock_failures(&self.failures).len()
+    }
+
+    /// Returns whether the failure policy has stopped accepting new tasks.
+    #[inline]
+    pub(crate) fn should_stop_accepting(&self) -> bool {
+        self.stop_accepting.load(Ordering::Acquire)
     }
 
     /// Consumes this state and builds a batch outcome.
