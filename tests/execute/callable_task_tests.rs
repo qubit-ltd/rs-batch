@@ -9,16 +9,19 @@
 //! [`BatchExecutor::call`](qubit_batch::BatchExecutor::call) and the internal
 //! callable runnable wrapper.
 
-use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::panic::AssertUnwindSafe;
+use std::panic::catch_unwind;
 
+use qubit_batch::BatchExecutionError;
+use qubit_batch::BatchExecutor;
+use qubit_batch::BatchOutcome;
+use qubit_batch::BatchOutcomeBuilder;
+use qubit_batch::ParallelBatchExecutor;
+use qubit_batch::SequentialBatchExecutor;
 use qubit_function::Runnable;
 
-use qubit_batch::{
-    BatchExecutionError, BatchExecutor, BatchOutcome, BatchOutcomeBuilder, ParallelBatchExecutor,
-    SequentialBatchExecutor,
-};
-
-use crate::support::{TestCallable, panic_payload_message};
+use crate::support::TestCallable;
+use crate::support::panic_payload_message;
 
 struct OverconsumingExecutor;
 
@@ -247,7 +250,8 @@ fn test_batch_executor_call_huge_count_shortfall_is_sparse() {
 }
 
 #[test]
-fn test_batch_executor_call_panics_when_callable_wrapper_reports_out_of_range_index() {
+fn test_batch_executor_call_panics_when_callable_wrapper_reports_out_of_range_index()
+ {
     let executor = OverconsumingExecutor;
 
     let payload = catch_unwind(AssertUnwindSafe(|| {

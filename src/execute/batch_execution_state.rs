@@ -5,22 +5,24 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    panic::{AssertUnwindSafe, catch_unwind},
-    sync::{Mutex, MutexGuard},
-    time::Duration,
-};
+use std::panic::AssertUnwindSafe;
+use std::panic::catch_unwind;
+use std::sync::Mutex;
+use std::sync::MutexGuard;
+use std::time::Duration;
 
 use qubit_atomic::AtomicCount;
 use qubit_function::Runnable;
-use qubit_progress::{MetricError, MetricHandle};
-
-use crate::{
-    BatchOutcome, BatchOutcomeBuilder, BatchTaskError, BatchTaskFailure, BatchTermination,
-    execute::panic_payload_to_error,
-};
+use qubit_progress::MetricError;
+use qubit_progress::MetricHandle;
 
 use super::TaskExecutionStatus;
+use crate::BatchOutcome;
+use crate::BatchOutcomeBuilder;
+use crate::BatchTaskError;
+use crate::BatchTaskFailure;
+use crate::BatchTermination;
+use crate::execute::panic_payload_to_error;
 
 /// Metric id used for task progress counters.
 pub(crate) const EXECUTION_PROGRESS_METRIC_ID: &str = "tasks";
@@ -98,16 +100,19 @@ impl<E> BatchExecutionState<E> {
             }
             Ok(Err(error)) => {
                 self.metric.fail(1)?;
-                Self::lock_failures(&self.failures)
-                    .push(BatchTaskFailure::new(index, BatchTaskError::Failed(error)));
+                Self::lock_failures(&self.failures).push(
+                    BatchTaskFailure::new(index, BatchTaskError::Failed(error)),
+                );
                 TaskExecutionStatus::Failed
             }
             Err(payload) => {
                 self.metric.fail(1)?;
-                Self::lock_failures(&self.failures).push(BatchTaskFailure::new(
-                    index,
-                    panic_payload_to_error(payload.as_ref()),
-                ));
+                Self::lock_failures(&self.failures).push(
+                    BatchTaskFailure::new(
+                        index,
+                        panic_payload_to_error(payload.as_ref()),
+                    ),
+                );
                 TaskExecutionStatus::Failed
             }
         };

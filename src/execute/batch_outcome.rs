@@ -5,9 +5,12 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{fmt, time::Duration};
+use std::fmt;
+use std::time::Duration;
 
-use crate::{BatchOutcomeBuilder, BatchTaskFailure, BatchTermination};
+use crate::BatchOutcomeBuilder;
+use crate::BatchTaskFailure;
+use crate::BatchTermination;
 
 /// Final or partial outcome produced by one batch execution.
 ///

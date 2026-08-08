@@ -7,7 +7,8 @@
 // =============================================================================
 //! Behavioral coverage for callable errors and their sparse preserved outputs.
 
-use std::{error::Error, fmt};
+use std::error::Error;
+use std::fmt;
 
 use qubit_batch::SequentialBatchExecutor;
 

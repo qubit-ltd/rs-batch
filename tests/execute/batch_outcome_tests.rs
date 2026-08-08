@@ -7,12 +7,15 @@
 // =============================================================================
 //! Tests for batch outcomes and execution state.
 
-use std::{error::Error, fmt, time::Duration};
+use std::error::Error;
+use std::fmt;
+use std::time::Duration;
 
-use qubit_batch::{
-    BatchExecutionError, BatchOutcomeBuildError, BatchOutcomeBuilder, BatchTaskError,
-    BatchTaskFailure,
-};
+use qubit_batch::BatchExecutionError;
+use qubit_batch::BatchOutcomeBuildError;
+use qubit_batch::BatchOutcomeBuilder;
+use qubit_batch::BatchTaskError;
+use qubit_batch::BatchTaskFailure;
 
 #[test]
 fn test_batch_outcome_builder_builds_valid_outcome() {
@@ -182,7 +185,8 @@ fn test_batch_task_error_helpers_display_and_source() {
     assert_eq!(panicked.to_string(), "task panicked: panic");
     assert!(panicked.source().is_none());
 
-    let panicked_without_message = BatchTaskError::<TestError>::panicked_without_message();
+    let panicked_without_message =
+        BatchTaskError::<TestError>::panicked_without_message();
     assert_eq!(panicked_without_message.panic_message(), None);
     assert_eq!(panicked_without_message.to_string(), "task panicked");
 }

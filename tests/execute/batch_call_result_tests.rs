@@ -6,10 +6,11 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use qubit_batch::{
-    BatchCallResult, BatchCallResultBuildError, BatchOutcomeBuilder, BatchTaskError,
-    BatchTaskFailure,
-};
+use qubit_batch::BatchCallResult;
+use qubit_batch::BatchCallResultBuildError;
+use qubit_batch::BatchOutcomeBuilder;
+use qubit_batch::BatchTaskError;
+use qubit_batch::BatchTaskFailure;
 
 #[test]
 fn test_batch_call_result_accessors_and_parts() {
@@ -23,8 +24,9 @@ fn test_batch_call_result_accessors_and_parts() {
         )])
         .build()
         .expect("outcome should be valid");
-    let result = BatchCallResult::try_new(outcome.clone(), vec![Some(10), None])
-        .expect("value slots should match the declared task count");
+    let result =
+        BatchCallResult::try_new(outcome.clone(), vec![Some(10), None])
+            .expect("value slots should match the declared task count");
 
     assert_eq!(result.outcome(), &outcome);
     assert_eq!(result.values(), &[Some(10), None]);
