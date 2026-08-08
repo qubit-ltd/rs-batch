@@ -23,6 +23,6 @@ fn test_batch_call_result_build_error_displays_value_mapping_context() {
     );
     assert_eq!(
         index_error.to_string(),
-        "failed or panicked callable at index 3 must not contain a success output"
+        "failed or panicked callable at index 3 must not contain a value"
     );
 }
