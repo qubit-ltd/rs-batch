@@ -11,19 +11,18 @@ use qubit_batch::BatchCallResultBuildError;
 
 #[test]
 fn test_batch_call_result_build_error_displays_value_mapping_context() {
-    let count_error = BatchCallResultBuildError::SucceededValueCountMismatch {
+    let count_error = BatchCallResultBuildError::SucceededOutputCountMismatch {
         succeeded_count: 2,
-        value_count: 1,
+        output_count: 1,
     };
-    let index_error =
-        BatchCallResultBuildError::FailureValuePresent { index: 3 };
+    let index_error = BatchCallResultBuildError::FailureOutputPresent { index: 3 };
 
     assert_eq!(
         count_error.to_string(),
-        "successful callable value count must equal succeeded task count: succeeded_count 2, value_count 1"
+        "successful callable output count must equal succeeded task count: succeeded_count 2, output_count 1"
     );
     assert_eq!(
         index_error.to_string(),
-        "failed or panicked callable at index 3 must not contain a value"
+        "failed or panicked callable at index 3 must not contain a success output"
     );
 }

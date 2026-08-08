@@ -137,11 +137,12 @@ fn test_sequential_batch_executor_calls_non_send_local_callables() {
         .expect("local callables should execute sequentially");
 
     assert_eq!(
-        result.into_values(),
-        vec![
-            Some(Rc::new(String::from("local"))),
-            Some(Rc::new(String::from("local")))
-        ]
+        result
+            .into_outputs()
+            .into_iter()
+            .map(|output| output.into_value())
+            .collect::<Vec<_>>(),
+        vec![Rc::new(String::from("local")), Rc::new(String::from("local"))]
     );
 }
 
