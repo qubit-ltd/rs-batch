@@ -188,7 +188,7 @@ impl SequentialBatchExecutor {
         let metric = progress
             .metric(EXECUTION_PROGRESS_METRIC_ID)
             .expect("configured execution metric must exist");
-        let state = BatchExecutionState::new(count, metric);
+        let state = BatchExecutionState::new(count, metric, self.task_failure_policy);
         let mut actual_count = 0;
         let mut stopped_by_task_failure_policy = false;
         let mut failure_count = 0usize;

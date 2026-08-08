@@ -20,6 +20,7 @@ use super::BatchOutcomeBuilder;
 use super::EXECUTION_PROGRESS_METRIC_ID;
 use super::EXECUTION_PROGRESS_METRIC_NAME;
 use super::ParallelBatchExecutionContext;
+use super::TaskFailurePolicy;
 use crate::ProgressFailure;
 
 /// Shared coordinator for runtime-specific parallel execution paths.
@@ -98,6 +99,7 @@ impl ParallelBatchExecutionCoordinator {
         &self,
         tasks: I,
         count: usize,
+        task_failure_policy: TaskFailurePolicy,
         schedule: Schedule,
     ) -> Result<BatchOutcome<E>, BatchExecutionError<E, S>>
     where
@@ -130,7 +132,11 @@ impl ParallelBatchExecutionCoordinator {
         let metric = progress
             .metric(EXECUTION_PROGRESS_METRIC_ID)
             .expect("configured execution metric must exist");
-        let state = Arc::new(BatchExecutionState::new(count, metric));
+        let state = Arc::new(BatchExecutionState::new(
+            count,
+            metric,
+            task_failure_policy,
+        ));
 
         let stop_result = thread::scope(|scope| {
             let running_progress = progress.spawn_auto_reporter(scope);
@@ -202,6 +208,25 @@ impl ParallelBatchExecutionCoordinator {
     where
         S: std::error::Error + Send + Sync + 'static,
     {
+        if state.should_stop_accepting() && completed_count >= accepted_count {
+            let elapsed = match progress.fail() {
+                Ok(elapsed) => elapsed,
+                Err(source) => {
+                    let elapsed = source.elapsed();
+                    return Err(BatchExecutionError::ProgressReport {
+                        source: Box::new(ProgressFailure::from(source)),
+                        outcome: state.into_outcome_with_termination(
+                            elapsed,
+                            crate::BatchTermination::StoppedByTaskFailurePolicy,
+                        ),
+                    });
+                }
+            };
+            return Ok(state.into_outcome_with_termination(
+                elapsed,
+                crate::BatchTermination::StoppedByTaskFailurePolicy,
+            ));
+        }
         if observed_count < count {
             let (elapsed, report_error) = Self::fail_progress(progress);
             return Err(BatchExecutionError::CountShortfall {

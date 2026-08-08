@@ -11,6 +11,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use qubit_batch::BatchExecutionError;
+use qubit_batch::TaskFailurePolicy;
 use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
 use qubit_batch::ProgressFailure;
 use qubit_progress::Reporter;
@@ -36,6 +37,7 @@ fn test_parallel_batch_execution_context_execute_task_notifies_running_progress(
                 TestTask::sleep_success(Duration::from_millis(2)),
             ],
             2,
+            TaskFailurePolicy::Continue,
             |tasks, context| {
                 for task in tasks {
                     if let Some(task) = context.accept_task(task) {
@@ -71,6 +73,7 @@ fn test_parallel_batch_execution_context_rejects_tasks_after_declared_count() {
         .execute(
             [TestTask::succeed(), TestTask::succeed()],
             1,
+            TaskFailurePolicy::Continue,
             |tasks, context| {
                 for task in tasks {
                     if let Some(task) = context.accept_task(task) {
@@ -96,7 +99,7 @@ fn test_parallel_batch_execution_context_auto_reporter_failure_is_reported_as_pr
     );
 
     let error =
-        coordinator.execute([TestTask::succeed()], 1, |tasks, context| {
+        coordinator.execute([TestTask::succeed()], 1, TaskFailurePolicy::Continue, |tasks, context| {
             for task in tasks {
                 if let Some(task) = context.accept_task(task) {
                     context.execute_task(task);

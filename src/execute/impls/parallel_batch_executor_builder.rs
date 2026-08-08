@@ -14,6 +14,7 @@ use qubit_progress::reporter::Reporter;
 use super::ParallelBatchExecutor;
 use super::ParallelBatchExecutorBuildError;
 use crate::execute::ParallelBatchExecutionCoordinator;
+use crate::TaskFailurePolicy;
 
 /// Builder for [`ParallelBatchExecutor`].
 ///
@@ -41,6 +42,8 @@ pub struct ParallelBatchExecutorBuilder {
     report_interval: Duration,
     /// Reporter receiving batch lifecycle callbacks.
     reporter: Arc<dyn Reporter>,
+    /// Policy applied after task failures in parallel workers.
+    task_failure_policy: TaskFailurePolicy,
 }
 
 impl ParallelBatchExecutorBuilder {
@@ -139,6 +142,17 @@ impl ParallelBatchExecutorBuilder {
         self
     }
 
+    /// Sets the policy that controls parallel source acceptance after task
+    /// errors or captured panics.
+    #[inline]
+    pub const fn task_failure_policy(
+        mut self,
+        task_failure_policy: TaskFailurePolicy,
+    ) -> Self {
+        self.task_failure_policy = task_failure_policy;
+        self
+    }
+
     /// Builds a validated [`ParallelBatchExecutor`].
     ///
     /// # Returns
@@ -163,6 +177,7 @@ impl ParallelBatchExecutorBuilder {
             thread_count: self.thread_count,
             sequential_threshold: self.sequential_threshold,
             coordinator,
+            task_failure_policy: self.task_failure_policy,
         })
     }
 }
@@ -183,6 +198,7 @@ impl Default for ParallelBatchExecutorBuilder {
                 ParallelBatchExecutor::DEFAULT_SEQUENTIAL_THRESHOLD,
             report_interval: ParallelBatchExecutor::DEFAULT_REPORT_INTERVAL,
             reporter: Arc::new(NoopReporter),
+            task_failure_policy: TaskFailurePolicy::Continue,
         }
     }
 }

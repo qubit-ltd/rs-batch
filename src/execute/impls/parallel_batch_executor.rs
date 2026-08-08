@@ -64,6 +64,8 @@ pub struct ParallelBatchExecutor {
     pub(crate) sequential_threshold: usize,
     /// Shared coordinator used for parallel execution flow.
     pub(crate) coordinator: ParallelBatchExecutionCoordinator,
+    /// Policy applied after task failures in parallel workers.
+    pub(crate) task_failure_policy: TaskFailurePolicy,
 }
 
 impl ParallelBatchExecutor {
@@ -136,6 +138,12 @@ impl ParallelBatchExecutor {
         self.sequential_threshold
     }
 
+    /// Returns the configured task-failure policy.
+    #[inline]
+    pub const fn task_failure_policy(&self) -> TaskFailurePolicy {
+        self.task_failure_policy
+    }
+
     /// Returns the configured progress-report interval.
     ///
     /// # Returns
@@ -165,7 +173,7 @@ impl ParallelBatchExecutor {
         SequentialBatchExecutor::builder()
             .report_interval(self.report_interval())
             .reporter_arc(Arc::clone(self.reporter()))
-            .task_failure_policy(TaskFailurePolicy::Continue)
+            .task_failure_policy(self.task_failure_policy)
             .build()
     }
 }
@@ -229,7 +237,7 @@ impl BatchExecutor for ParallelBatchExecutor {
 
         let worker_count = self.thread_count.min(count);
         self.coordinator
-            .execute(tasks, count, move |tasks, context| {
+            .execute(tasks, count, self.task_failure_policy, move |tasks, context| {
                 run_scoped_parallel_tasks(
                     tasks,
                     worker_count,

@@ -13,6 +13,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use qubit_batch::BatchExecutionError;
+use qubit_batch::TaskFailurePolicy;
 use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
 use qubit_batch::execute::spi::ParallelBatchExecutionContext;
 use qubit_progress::reporter::NoopReporter;
@@ -34,6 +35,7 @@ fn test_parallel_batch_execution_coordinator_records_task_outcomes() {
                 TestTask::panic("panic"),
             ],
             3,
+            TaskFailurePolicy::Continue,
             |tasks, context| {
                 for task in tasks {
                     let task = context
@@ -58,7 +60,7 @@ fn test_parallel_batch_execution_coordinator_reports_count_shortfall() {
         Duration::ZERO,
     );
     let error = coordinator
-        .execute([TestTask::succeed()], 2, |tasks, context| {
+        .execute([TestTask::succeed()], 2, TaskFailurePolicy::Continue, |tasks, context| {
             for task in tasks {
                 let task =
                     context.accept_task(task).expect("task should be accepted");
@@ -97,6 +99,7 @@ fn test_parallel_batch_execution_coordinator_reports_count_exceeded() {
                 TestTask::succeed(),
             ],
             2,
+            TaskFailurePolicy::Continue,
             |tasks, context| {
                 for task in tasks {
                     if let Some(task) = context.accept_task(task) {
@@ -134,6 +137,7 @@ fn test_parallel_batch_execution_coordinator_reports_start_error_as_progress_rep
         .execute(
             [TestTask::succeed()],
             1,
+            TaskFailurePolicy::Continue,
             |_tasks,
              _context: &ParallelBatchExecutionContext<
                 &'static str,
@@ -156,7 +160,7 @@ fn test_parallel_batch_execution_coordinator_propagates_scheduler_panic() {
         Duration::ZERO,
     );
     let payload = catch_unwind(AssertUnwindSafe(|| {
-        coordinator.execute([1, 2, 3], 3, |tasks, context| {
+        coordinator.execute([1, 2, 3], 3, TaskFailurePolicy::Continue, |tasks, context| {
             for task in tasks {
                 let task_token = context
                     .accept_task(TestTask::succeed())
@@ -181,7 +185,7 @@ fn test_parallel_batch_execution_coordinator_uses_context_observed_count() {
         Duration::ZERO,
     );
     let error = coordinator
-        .execute([TestTask::succeed()], 2, |tasks, context| {
+        .execute([TestTask::succeed()], 2, TaskFailurePolicy::Continue, |tasks, context| {
             for task in tasks {
                 let task =
                     context.accept_task(task).expect("task should be accepted");
@@ -204,6 +208,7 @@ fn test_parallel_batch_execution_coordinator_rejects_dropped_accepted_tasks() {
         .execute(
             [TestTask::succeed()],
             1,
+            TaskFailurePolicy::Continue,
             |tasks,
              context: &ParallelBatchExecutionContext<
                 &'static str,
