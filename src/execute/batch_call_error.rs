@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+use std::convert::Infallible;
 use std::fmt;
 
 use super::BatchCallOutput;
@@ -23,14 +24,18 @@ use crate::BatchOutcome;
 /// * `R` - Callable success value type.
 /// * `E` - Callable error type stored in the nested execution outcome.
 #[must_use = "call errors preserve partial callable values"]
-pub struct BatchCallError<R, E> {
-    source: Box<BatchExecutionError<E>>,
+pub struct BatchCallError<R, E, S = Infallible>
+where
+    S: std::error::Error + Send + Sync + 'static,
+{
+    source: Box<BatchExecutionError<E, S>>,
     outputs: Vec<BatchCallOutput<R>>,
 }
 
-impl<R, E> fmt::Debug for BatchCallError<R, E>
+impl<R, E, S> fmt::Debug for BatchCallError<R, E, S>
 where
     E: fmt::Debug,
+    S: std::error::Error + Send + Sync + 'static,
 {
     /// Formats the nested error and the number of preserved outputs.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -42,7 +47,10 @@ where
     }
 }
 
-impl<R, E> BatchCallError<R, E> {
+impl<R, E, S> BatchCallError<R, E, S>
+where
+    S: std::error::Error + Send + Sync + 'static,
+{
     /// Creates a callable error from a batch execution error and sparse
     /// outputs.
     ///
@@ -56,7 +64,7 @@ impl<R, E> BatchCallError<R, E> {
     /// A callable error preserving both execution metadata and sparse outputs.
     #[inline]
     pub(crate) fn new(
-        source: BatchExecutionError<E>,
+        source: BatchExecutionError<E, S>,
         outputs: Vec<BatchCallOutput<R>>,
     ) -> Self {
         Self {
@@ -67,7 +75,7 @@ impl<R, E> BatchCallError<R, E> {
 
     /// Returns the nested batch execution error.
     #[inline]
-    pub fn source(&self) -> &BatchExecutionError<E> {
+    pub fn source(&self) -> &BatchExecutionError<E, S> {
         self.source.as_ref()
     }
 
@@ -89,7 +97,7 @@ impl<R, E> BatchCallError<R, E> {
 
     /// Consumes this error and returns the nested execution error.
     #[inline]
-    pub fn into_source(self) -> BatchExecutionError<E> {
+    pub fn into_source(self) -> BatchExecutionError<E, S> {
         *self.source
     }
 
@@ -103,21 +111,25 @@ impl<R, E> BatchCallError<R, E> {
     #[inline]
     pub fn into_parts(
         self,
-    ) -> (BatchExecutionError<E>, Vec<BatchCallOutput<R>>) {
+    ) -> (BatchExecutionError<E, S>, Vec<BatchCallOutput<R>>) {
         (*self.source, self.outputs)
     }
 }
 
-impl<R, E> fmt::Display for BatchCallError<R, E> {
+impl<R, E, S> fmt::Display for BatchCallError<R, E, S>
+where
+    S: std::error::Error + Send + Sync + 'static,
+{
     /// Formats the nested batch execution error.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.source.fmt(formatter)
     }
 }
 
-impl<R, E> std::error::Error for BatchCallError<R, E>
+impl<R, E, S> std::error::Error for BatchCallError<R, E, S>
 where
     E: std::error::Error + 'static,
+    S: std::error::Error + Send + Sync + 'static,
 {
     /// Returns the nested batch execution error as the source.
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {

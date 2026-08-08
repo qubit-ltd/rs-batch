@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use qubit_batch::BatchExecutionError;
-use qubit_batch::ParallelBatchExecutionCoordinator;
+use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
 use qubit_batch::ProgressFailure;
 use qubit_progress::Reporter;
 
@@ -42,6 +42,7 @@ fn test_parallel_batch_execution_context_execute_task_notifies_running_progress(
                         context.execute_task(task);
                     }
                 }
+                Ok::<(), std::convert::Infallible>(())
             },
         )
         .expect("coordinator should complete");
@@ -76,6 +77,7 @@ fn test_parallel_batch_execution_context_rejects_tasks_after_declared_count() {
                         context.execute_task(task);
                     }
                 }
+                Ok::<(), std::convert::Infallible>(())
             },
         )
         .expect_err(
@@ -103,6 +105,7 @@ fn test_parallel_batch_execution_context_auto_reporter_failure_is_reported_as_pr
                     std::thread::sleep(Duration::from_millis(1));
                 }
             }
+            Ok::<(), std::convert::Infallible>(())
         });
 
     let error = error

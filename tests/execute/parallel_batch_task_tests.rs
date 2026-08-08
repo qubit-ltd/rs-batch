@@ -9,8 +9,8 @@
 
 use std::sync::Arc;
 
-use qubit_batch::ParallelBatchExecutionCoordinator;
-use qubit_batch::ParallelBatchTask;
+use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
+use qubit_batch::execute::spi::ParallelBatchTask;
 use qubit_progress::reporter::NoopReporter;
 
 use crate::support::TestTask;
@@ -30,6 +30,7 @@ fn test_parallel_batch_task_is_created_and_consumed_by_context() {
                     context.execute_task(token);
                 }
             }
+            Ok::<(), std::convert::Infallible>(())
         })
         .expect("accepted task token should execute successfully");
 
