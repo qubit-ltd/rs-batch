@@ -5,10 +5,13 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
+use std::time::Duration;
 
-use qubit_function::{BoxConsumer, Consumer};
-use qubit_progress::reporter::{NoopReporter, Reporter};
+use qubit_function::BoxConsumer;
+use qubit_function::Consumer;
+use qubit_progress::reporter::NoopReporter;
+use qubit_progress::reporter::Reporter;
 
 use super::SequentialBatchProcessor;
 
@@ -54,7 +57,8 @@ impl<Item> SequentialBatchProcessorBuilder<Item> {
     {
         Self {
             consumer: BoxConsumer::new(consumer),
-            report_interval: SequentialBatchProcessor::<Item>::DEFAULT_REPORT_INTERVAL,
+            report_interval:
+                SequentialBatchProcessor::<Item>::DEFAULT_REPORT_INTERVAL,
             reporter: Arc::new(NoopReporter),
         }
     }

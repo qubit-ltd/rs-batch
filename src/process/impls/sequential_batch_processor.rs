@@ -5,18 +5,23 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
+use std::time::Duration;
 
-use qubit_function::{BoxConsumer, Consumer};
-use qubit_progress::{Metric, Progress, Reporter};
-
-use crate::ProgressFailure;
-use crate::process::{
-    BatchProcessError, BatchProcessResult, BatchProcessState, BatchProcessor,
-    PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME,
-};
+use qubit_function::BoxConsumer;
+use qubit_function::Consumer;
+use qubit_progress::Metric;
+use qubit_progress::Progress;
+use qubit_progress::Reporter;
 
 use super::SequentialBatchProcessorBuilder;
+use crate::ProgressFailure;
+use crate::process::BatchProcessError;
+use crate::process::BatchProcessResult;
+use crate::process::BatchProcessState;
+use crate::process::BatchProcessor;
+use crate::process::PROCESS_PROGRESS_METRIC_ID;
+use crate::process::PROCESS_PROGRESS_METRIC_NAME;
 
 /// Processes batch items sequentially by invoking a [`Consumer`] per item.
 ///
@@ -56,7 +61,7 @@ pub struct SequentialBatchProcessor<Item> {
 
 impl<Item> SequentialBatchProcessor<Item> {
     /// Default interval between progress callbacks.
-    pub const DEFAULT_REPORT_INTERVAL: Duration = Duration::from_secs(5);
+    pub const DEFAULT_REPORT_INTERVAL: Duration = crate::constants::DEFAULT_REPORT_INTERVAL;
 
     /// Creates a sequential consumer-backed batch processor.
     ///
@@ -168,25 +173,29 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
     where
         I: IntoIterator<Item = Item>,
     {
-        let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
-            .interval(self.report_interval)
-            .metric(
-                Metric::new(PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME)
+        let mut progress =
+            match Progress::builder_arc(Arc::clone(&self.reporter))
+                .interval(self.report_interval)
+                .metric(
+                    Metric::new(
+                        PROCESS_PROGRESS_METRIC_ID,
+                        PROCESS_PROGRESS_METRIC_NAME,
+                    )
                     .total(count as u64),
-            )
-            .start()
-        {
-            Ok(progress) => progress,
-            Err(source) => {
-                return Err(BatchProcessError::ProgressReport {
-                    source: Box::new(ProgressFailure::from(source)),
-                    result: BatchProcessResult::builder(count)
-                        .elapsed(Duration::ZERO)
-                        .build()
-                        .expect("empty batch process result must be valid"),
-                });
-            }
-        };
+                )
+                .start()
+            {
+                Ok(progress) => progress,
+                Err(source) => {
+                    return Err(BatchProcessError::ProgressReport {
+                        source: Box::new(ProgressFailure::from(source)),
+                        result: BatchProcessResult::builder(count)
+                            .elapsed(Duration::ZERO)
+                            .build()
+                            .expect("empty batch process result must be valid"),
+                    });
+                }
+            };
         let metric = progress
             .metric(PROCESS_PROGRESS_METRIC_ID)
             .expect("configured process metric must exist");
