@@ -19,9 +19,9 @@ const PARALLEL_BATCH_EXECUTOR_BUILDER: &str =
 const PARALLEL_BATCH_PROCESSOR: &str =
     include_str!("../../src/process/impls/parallel_batch_processor.rs");
 
-#[test]
 /// Ensures README dependency snippets use the same major.minor line as
 /// `[package] version`.
+#[test]
 fn test_readme_dependency_version_matches_cargo_toml() {
     let cargo_version = extract_package_version(CARGO_TOML)
         .expect("Failed to extract version from Cargo.toml");
@@ -35,8 +35,8 @@ fn test_readme_dependency_version_matches_cargo_toml() {
     assert_eq!(readme_zh_version, expected.as_str());
 }
 
-#[test]
 /// Ensures both README files document the current executor types.
+#[test]
 fn test_readme_mentions_current_executor_types() {
     assert!(README_EN.contains("SequentialBatchExecutor"));
     assert!(README_EN.contains("ParallelBatchExecutor"));
@@ -44,9 +44,9 @@ fn test_readme_mentions_current_executor_types() {
     assert!(README_ZH.contains("ParallelBatchExecutor"));
 }
 
-#[test]
 /// Ensures license and repository links use the package-local documentation
 /// paths.
+#[test]
 fn test_readmes_use_local_license_and_repository_links() {
     for readme in [README_EN, README_ZH] {
         assert!(readme.contains("license-Apache%202.0-blue.svg)](LICENSE)"));
@@ -59,8 +59,8 @@ fn test_readmes_use_local_license_and_repository_links() {
     }
 }
 
-#[test]
 /// Ensures parallel implementations use the shared scoped progress guard.
+#[test]
 fn test_parallel_progress_reporting_uses_scoped_progress_guard() {
     assert!(
         PARALLEL_BATCH_EXECUTION_COORDINATOR.contains("spawn_auto_reporter")

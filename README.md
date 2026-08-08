@@ -62,7 +62,11 @@ Rayon-backed execution lives in the companion `qubit-rayon-batch` crate. A
 custom runtime can implement `BatchExecutor` through `execute::spi`: call
 `ParallelBatchExecutionContext::accept_task` before dispatching work and pass
 every accepted `ParallelBatchTask` to `execute_task` exactly once. Dropping an
-accepted task is reported as `BatchExecutionError::IncompleteSchedule`.
+accepted task is reported as `BatchExecutionError::IncompleteSchedule`. The
+scheduler closure returns its runtime-specific submission error directly;
+`BatchExecutionError::ScheduleFailed` preserves it. Parallel executors also
+support `TaskFailurePolicy`: they stop accepting new source items after the
+configured failure threshold and wait for already accepted tasks to finish.
 
 ## Installation
 
@@ -176,7 +180,8 @@ let result = SequentialBatchExecutor::new()
     .expect("array length should be exact");
 
 assert!(result.outcome().is_success());
-assert_eq!(result.values(), &[Some(3), Some(5)]);
+assert_eq!(result.outputs()[0].value(), &3);
+assert_eq!(result.outputs()[1].value(), &5);
 ```
 
 ### Process items directly
@@ -414,8 +419,8 @@ Important result semantics:
   force scoped workers for every non-empty item batch.
 - `BatchOutcome::failures()` returns failure records sorted by zero-based task
   index.
-- `BatchCallResult::values()` stores `Some(value)` only for successful
-  callables; failed and panicked callables have `None`.
+- `BatchCallResult::outputs()` stores only successful callable outputs with
+  their original indexes, avoiding dense allocation for early-stop batches.
 - `BatchCallError::outputs()` returns only successful callable outputs collected
   before the batch-level error, sorted by original index.
 - `BatchProcessResult::processed_count()` is the delegate-reported success
