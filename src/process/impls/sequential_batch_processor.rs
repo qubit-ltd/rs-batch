@@ -61,7 +61,8 @@ pub struct SequentialBatchProcessor<Item> {
 
 impl<Item> SequentialBatchProcessor<Item> {
     /// Default interval between progress callbacks.
-    pub const DEFAULT_REPORT_INTERVAL: Duration = crate::constants::DEFAULT_REPORT_INTERVAL;
+    pub const DEFAULT_REPORT_INTERVAL: Duration =
+        crate::constants::DEFAULT_REPORT_INTERVAL;
 
     /// Creates a sequential consumer-backed batch processor.
     ///

@@ -13,6 +13,28 @@ use super::BatchProcessResult;
 /// may insert records into a database, send them to a remote service, or apply
 /// any other batch-level operation chosen by the implementation.
 ///
+/// # When to use a processor
+///
+/// Use a processor when the operation owns a stateful consumer and should see
+/// the input as one logical batch. Typical examples are database batch
+/// inserts/updates, remote bulk endpoints, and consumers that need to flush
+/// chunks or report affected-row counts. The processor controls that batching
+/// policy and returns [`BatchProcessResult`] counters rather than one outcome
+/// record per item.
+///
+/// In the original Java implementation, DAO batch methods use this shape to
+/// split collections into database-safe chunks (for example, below a driver's
+/// parameter limit), invoke the DAO operation for each chunk, and aggregate
+/// processed/affected-row counts. [`crate::ChunkedBatchProcessor`] is the
+/// corresponding Rust abstraction when that chunking is part of the domain
+/// contract.
+///
+/// Use [`crate::BatchExecutor`] instead when each item is an independent task
+/// or callable and callers need per-item failures, panic capture, stable task
+/// indexes, or executor-managed parallel scheduling. An executor's
+/// `for_each` adapter is intentionally task-oriented; it does not replace a
+/// processor whose consumer owns batch state or chunk semantics.
+///
 /// ```rust
 /// use std::time::Duration;
 ///

@@ -52,7 +52,9 @@
 可以通过 `execute::spi` 实现 `BatchExecutor`：调度前先调用
 `ParallelBatchExecutionContext::accept_task`，并且必须对每个已接受的
 `ParallelBatchTask` 恰好调用一次 `execute_task`。丢弃已接受任务会返回
-`BatchExecutionError::IncompleteSchedule`。
+`BatchExecutionError::IncompleteSchedule`。调度闭包直接返回 runtime 的提交错误，
+并由 `BatchExecutionError::ScheduleFailed` 保留。并行执行器也支持
+`TaskFailurePolicy`：达到失败阈值后停止接受新数据，并等待已接受任务完成。
 
 ## 安装
 
@@ -165,7 +167,8 @@ let result = SequentialBatchExecutor::new()
     .expect("array length should be exact");
 
 assert!(result.outcome().is_success());
-assert_eq!(result.values(), &[Some(3), Some(5)]);
+assert_eq!(result.outputs()[0].value(), &3);
+assert_eq!(result.outputs()[1].value(), &5);
 ```
 
 ### 直接处理数据项
@@ -385,8 +388,8 @@ match error {
   回退。使用 `ParallelBatchProcessor::builder(...).sequential_threshold(0).build()`
   可让所有非空数据项批次都走 scoped worker。
 - `BatchOutcome::failures()` 返回按从 0 开始的任务下标排序的失败记录。
-- `BatchCallResult::values()` 只为成功 callable 保存 `Some(value)`；失败或 panic
-  的 callable 位置为 `None`。
+- `BatchCallResult::outputs()` 只保存成功 callable 及其原始下标，早停时不会
+  按声明数量分配密集结果。
 - `BatchCallError::outputs()` 只返回批次级错误发生前成功完成的 callable 输出，
   每条输出都带有原始下标。
 - `BatchProcessResult::processed_count()` 是代理 processor 报告的成功数量。对于

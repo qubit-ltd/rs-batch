@@ -92,10 +92,12 @@ pub struct ParallelBatchProcessor<Item> {
 
 impl<Item> ParallelBatchProcessor<Item> {
     /// Default interval between progress callbacks.
-    pub const DEFAULT_REPORT_INTERVAL: Duration = crate::constants::DEFAULT_REPORT_INTERVAL;
+    pub const DEFAULT_REPORT_INTERVAL: Duration =
+        crate::constants::DEFAULT_REPORT_INTERVAL;
 
     /// Default maximum batch size that still uses sequential processing.
-    pub const DEFAULT_SEQUENTIAL_THRESHOLD: usize = crate::constants::DEFAULT_SEQUENTIAL_THRESHOLD;
+    pub const DEFAULT_SEQUENTIAL_THRESHOLD: usize =
+        crate::constants::DEFAULT_SEQUENTIAL_THRESHOLD;
 
     /// Creates a parallel consumer-backed batch processor.
     ///

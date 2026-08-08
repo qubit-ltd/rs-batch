@@ -30,8 +30,9 @@
 //! assert!(outcome.is_success());
 //! ```
 //!
-//! [`ParallelBatchExecutionCoordinator`] and [`ParallelBatchExecutionContext`]
-//! let runtime-specific executor crates reuse the built-in progress,
+//! [`execute::spi::ParallelBatchExecutionCoordinator`] and
+//! [`execute::spi::ParallelBatchExecutionContext`] let runtime-specific
+//! executor crates reuse the built-in progress,
 //! accounting, and outcome rules while supplying only their scheduler.
 //!
 //! # Progress Interval Semantics
@@ -51,6 +52,7 @@
 #![cfg_attr(doctest, doc = include_str!("../README.md"))]
 #![deny(missing_docs)]
 #![deny(unsafe_op_in_unsafe_fn)]
+#![allow(clippy::result_large_err)]
 
 pub mod execute;
 pub mod process;
@@ -58,6 +60,7 @@ pub(crate) mod utils;
 
 mod constants;
 mod progress_failure;
+mod sync;
 
 pub use execute::BatchCallError;
 pub use execute::BatchCallOutput;

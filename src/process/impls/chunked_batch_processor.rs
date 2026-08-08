@@ -103,7 +103,8 @@ pub struct ChunkedBatchProcessor<P> {
 
 impl<P> ChunkedBatchProcessor<P> {
     /// Default interval between progress callbacks.
-    pub const DEFAULT_REPORT_INTERVAL: Duration = crate::constants::DEFAULT_REPORT_INTERVAL;
+    pub const DEFAULT_REPORT_INTERVAL: Duration =
+        crate::constants::DEFAULT_REPORT_INTERVAL;
 
     /// Creates a chunked batch processor.
     ///
