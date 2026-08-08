@@ -7,7 +7,8 @@
 // =============================================================================
 //! Tests for sparse callable outputs preserved by batch-level errors.
 
-use qubit_batch::{BatchExecutionError, SequentialBatchExecutor};
+use qubit_batch::BatchExecutionError;
+use qubit_batch::SequentialBatchExecutor;
 
 use crate::support::TestCallable;
 

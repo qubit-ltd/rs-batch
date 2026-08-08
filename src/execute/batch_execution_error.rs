@@ -7,7 +7,8 @@
 // =============================================================================
 use thiserror::Error;
 
-use crate::{BatchOutcome, ProgressFailure};
+use crate::BatchOutcome;
+use crate::ProgressFailure;
 
 /// Batch-level error returned when progress, source-count validation, or
 /// parallel scheduling fails.
@@ -176,7 +177,9 @@ impl<E> BatchExecutionError<E> {
             Self::ProgressReport { source, .. } => Some(source.as_ref()),
             Self::CountShortfall { report_error, .. }
             | Self::CountExceeded { report_error, .. }
-            | Self::IncompleteSchedule { report_error, .. } => report_error.as_deref(),
+            | Self::IncompleteSchedule { report_error, .. } => {
+                report_error.as_deref()
+            }
         }
     }
 }

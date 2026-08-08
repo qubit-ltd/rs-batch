@@ -12,13 +12,15 @@ use std::time::Duration;
 use qubit_function::Runnable;
 use qubit_progress::Reporter;
 
-use crate::TaskFailurePolicy;
-use crate::execute::{BatchExecutor, ParallelBatchExecutionCoordinator, SequentialBatchExecutor};
-use crate::utils::run_scoped_parallel_tasks;
-use crate::{BatchExecutionError, BatchOutcome};
-
 use super::ParallelBatchExecutorBuildError;
 use super::ParallelBatchExecutorBuilder;
+use crate::BatchExecutionError;
+use crate::BatchOutcome;
+use crate::TaskFailurePolicy;
+use crate::execute::BatchExecutor;
+use crate::execute::ParallelBatchExecutionCoordinator;
+use crate::execute::SequentialBatchExecutor;
+use crate::utils::run_scoped_parallel_tasks;
 
 /// Fixed-width parallel batch executor backed by scoped standard threads.
 ///
@@ -65,10 +67,10 @@ pub struct ParallelBatchExecutor {
 
 impl ParallelBatchExecutor {
     /// Default interval between progress callbacks.
-    pub const DEFAULT_REPORT_INTERVAL: Duration = Duration::from_secs(5);
+    pub const DEFAULT_REPORT_INTERVAL: Duration = crate::constants::DEFAULT_REPORT_INTERVAL;
 
     /// Default maximum batch size that still uses sequential execution.
-    pub const DEFAULT_SEQUENTIAL_THRESHOLD: usize = 100;
+    pub const DEFAULT_SEQUENTIAL_THRESHOLD: usize = crate::constants::DEFAULT_SEQUENTIAL_THRESHOLD;
 
     /// Returns the default worker-thread count.
     ///
@@ -107,7 +109,9 @@ impl ParallelBatchExecutor {
     /// Returns [`ParallelBatchExecutorBuildError::ZeroThreadCount`] when
     /// `thread_count` is zero.
     #[inline]
-    pub fn new(thread_count: usize) -> Result<Self, ParallelBatchExecutorBuildError> {
+    pub fn new(
+        thread_count: usize,
+    ) -> Result<Self, ParallelBatchExecutorBuildError> {
         Self::builder().thread_count(thread_count).build()
     }
 

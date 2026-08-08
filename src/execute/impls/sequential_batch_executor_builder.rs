@@ -5,9 +5,11 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
+use std::time::Duration;
 
-use qubit_progress::reporter::{NoopReporter, Reporter};
+use qubit_progress::reporter::NoopReporter;
+use qubit_progress::reporter::Reporter;
 
 use super::SequentialBatchExecutor;
 use crate::TaskFailurePolicy;
@@ -66,7 +68,10 @@ impl SequentialBatchExecutorBuilder {
     ///
     /// This builder for fluent configuration.
     #[inline]
-    pub const fn task_failure_policy(mut self, task_failure_policy: TaskFailurePolicy) -> Self {
+    pub const fn task_failure_policy(
+        mut self,
+        task_failure_policy: TaskFailurePolicy,
+    ) -> Self {
         self.task_failure_policy = task_failure_policy;
         self
     }

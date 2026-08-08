@@ -5,9 +5,13 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{collections::HashSet, time::Duration};
+use std::collections::HashSet;
+use std::time::Duration;
 
-use crate::{BatchOutcomeBuildError, BatchTaskError, BatchTaskFailure, BatchTermination};
+use crate::BatchOutcomeBuildError;
+use crate::BatchTaskError;
+use crate::BatchTaskFailure;
+use crate::BatchTermination;
 
 /// Builder carrying validated parts for a [`crate::BatchOutcome`].
 ///
@@ -221,7 +225,9 @@ impl<E> BatchOutcomeBuilder<E> {
     /// Returns [`BatchOutcomeBuildError`] when the counters or failure details
     /// are inconsistent.
     #[inline]
-    pub fn build(self) -> Result<crate::BatchOutcome<E>, BatchOutcomeBuildError> {
+    pub fn build(
+        self,
+    ) -> Result<crate::BatchOutcome<E>, BatchOutcomeBuildError> {
         self.validate().map(crate::BatchOutcome::new)
     }
 }
@@ -299,7 +305,9 @@ fn validate_failure_details<E>(
             BatchTaskError::Panicked { .. } => observed_panicked_count += 1,
         }
     }
-    if observed_failed_count != failed_count || observed_panicked_count != panicked_count {
+    if observed_failed_count != failed_count
+        || observed_panicked_count != panicked_count
+    {
         return Err(BatchOutcomeBuildError::FailureVariantCountMismatch {
             expected_failed: failed_count,
             actual_failed: observed_failed_count,

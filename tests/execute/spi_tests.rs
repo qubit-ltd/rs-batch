@@ -7,9 +7,9 @@
 // =============================================================================
 //! Tests for the runtime executor SPI exports.
 
-use qubit_batch::execute::spi::{
-    ParallelBatchExecutionContext, ParallelBatchExecutionCoordinator, ParallelBatchTask,
-};
+use qubit_batch::execute::spi::ParallelBatchExecutionContext;
+use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
+use qubit_batch::execute::spi::ParallelBatchTask;
 
 #[test]
 fn test_runtime_spi_exports_are_available_under_execute_spi() {

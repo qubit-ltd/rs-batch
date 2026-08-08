@@ -6,7 +6,9 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use std::panic::{AssertUnwindSafe, catch_unwind, panic_any};
+use std::panic::AssertUnwindSafe;
+use std::panic::catch_unwind;
+use std::panic::panic_any;
 
 use qubit_batch::BatchTaskError;
 
@@ -31,16 +33,19 @@ fn test_batch_task_error_failed_and_panicked_helpers() {
 
 #[test]
 fn test_batch_task_error_builds_from_string_panic_payloads() {
-    let payload = catch_unwind(AssertUnwindSafe(|| panic_any("borrowed panic message")))
-        .expect_err("panic payload should be captured");
-    let error = BatchTaskError::<&'static str>::from_panic_payload(payload.as_ref());
+    let payload =
+        catch_unwind(AssertUnwindSafe(|| panic_any("borrowed panic message")))
+            .expect_err("panic payload should be captured");
+    let error =
+        BatchTaskError::<&'static str>::from_panic_payload(payload.as_ref());
     assert_eq!(error.panic_message(), Some("borrowed panic message"));
 
     let payload = catch_unwind(AssertUnwindSafe(|| {
         panic_any("owned panic message".to_owned());
     }))
     .expect_err("panic payload should be captured");
-    let error = BatchTaskError::<&'static str>::from_panic_payload(payload.as_ref());
+    let error =
+        BatchTaskError::<&'static str>::from_panic_payload(payload.as_ref());
     assert_eq!(error.panic_message(), Some("owned panic message"));
 }
 
@@ -48,7 +53,8 @@ fn test_batch_task_error_builds_from_string_panic_payloads() {
 fn test_batch_task_error_builds_from_non_string_panic_payloads() {
     let payload = catch_unwind(AssertUnwindSafe(|| panic_any(7usize)))
         .expect_err("panic payload should be captured");
-    let error = BatchTaskError::<&'static str>::from_panic_payload(payload.as_ref());
+    let error =
+        BatchTaskError::<&'static str>::from_panic_payload(payload.as_ref());
     assert!(error.is_panicked());
     assert_eq!(error.panic_message(), None);
 }

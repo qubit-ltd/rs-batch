@@ -8,9 +8,11 @@
 use std::sync::Arc;
 
 use qubit_function::Runnable;
-use qubit_progress::{AutoReporterStatus, ProgressNotifier};
+use qubit_progress::AutoReporterStatus;
+use qubit_progress::ProgressNotifier;
 
-use super::{BatchExecutionState, ParallelBatchTask};
+use super::BatchExecutionState;
+use super::ParallelBatchTask;
 
 /// Worker-facing context for one parallel batch execution.
 ///
@@ -92,9 +94,9 @@ impl<E> ParallelBatchExecutionContext<E> {
             return;
         }
         let (index, task) = task.into_parts();
-        self.state
-            .execute_task(index, task)
-            .expect("accepted parallel batch task must have valid progress transitions");
+        self.state.execute_task(index, task).expect(
+            "accepted parallel batch task must have valid progress transitions",
+        );
         self.notifier.notify();
     }
 }

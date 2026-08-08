@@ -8,7 +8,10 @@
 
 use std::time::Duration;
 
-use qubit_batch::{BatchOutcomeBuildError, BatchOutcomeBuilder, BatchTaskError, BatchTaskFailure};
+use qubit_batch::BatchOutcomeBuildError;
+use qubit_batch::BatchOutcomeBuilder;
+use qubit_batch::BatchTaskError;
+use qubit_batch::BatchTaskFailure;
 
 #[test]
 fn test_batch_outcome_builder_builds_valid_outcome() {

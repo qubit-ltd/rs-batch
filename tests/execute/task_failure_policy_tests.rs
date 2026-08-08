@@ -7,10 +7,13 @@
 // =============================================================================
 //! Tests for `TaskFailurePolicy` through the public sequential executor API.
 
-use std::{collections::VecDeque, num::NonZeroUsize};
+use std::collections::VecDeque;
+use std::num::NonZeroUsize;
 
 use qubit_atomic::ArcAtomicCount;
-use qubit_batch::{BatchTermination, SequentialBatchExecutor, TaskFailurePolicy};
+use qubit_batch::BatchTermination;
+use qubit_batch::SequentialBatchExecutor;
+use qubit_batch::TaskFailurePolicy;
 
 use crate::support::TestTask;
 
@@ -145,7 +148,10 @@ impl CountingTaskIterator {
     /// # Returns
     ///
     /// An iterator that reports its pulls through `next_calls`.
-    fn new<const N: usize>(next_calls: ArcAtomicCount, tasks: [TestTask; N]) -> Self {
+    fn new<const N: usize>(
+        next_calls: ArcAtomicCount,
+        tasks: [TestTask; N],
+    ) -> Self {
         Self {
             next_calls,
             tasks: VecDeque::from(tasks),
