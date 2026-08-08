@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+use std::convert::Infallible;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -187,6 +188,7 @@ impl Default for ParallelBatchExecutor {
 }
 
 impl BatchExecutor for ParallelBatchExecutor {
+    type SchedulerError = Infallible;
     /// Executes the batch on scoped standard threads when the batch is large
     /// enough.
     ///
@@ -215,7 +217,7 @@ impl BatchExecutor for ParallelBatchExecutor {
         &self,
         tasks: I,
         count: usize,
-    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E, Self::SchedulerError>>
     where
         I: IntoIterator<Item = T>,
         T: Runnable<E> + Send,
@@ -234,6 +236,7 @@ impl BatchExecutor for ParallelBatchExecutor {
                     |task| context.accept_task(task),
                     |task| context.execute_task(task),
                 );
+                Ok::<(), Infallible>(())
             })
     }
 }

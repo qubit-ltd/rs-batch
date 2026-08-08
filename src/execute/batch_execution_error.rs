@@ -5,6 +5,8 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+use std::convert::Infallible;
+
 use thiserror::Error;
 
 use crate::BatchOutcome;
@@ -46,7 +48,7 @@ use crate::ProgressFailure;
 /// * `E` - The task-specific error type stored inside the attached outcome.
 #[non_exhaustive]
 #[derive(Debug, Error)]
-pub enum BatchExecutionError<E> {
+pub enum BatchExecutionError<E, S = Infallible> {
     /// Reporting batch progress failed.
     #[error("batch progress reporting failed")]
     ProgressReport {
@@ -55,6 +57,19 @@ pub enum BatchExecutionError<E> {
         source: Box<ProgressFailure>,
         /// Outcome accumulated before reporting failed.
         outcome: BatchOutcome<E>,
+    },
+
+    /// The runtime scheduler rejected or could not submit work.
+    #[error("batch scheduler failed: {source}")]
+    ScheduleFailed {
+        /// Scheduler error returned by the runtime integration.
+        #[source]
+        source: S,
+        /// Outcome accumulated before scheduling failed.
+        outcome: BatchOutcome<E>,
+        /// Additional progress-reporting error observed while reporting this
+        /// primary scheduler error.
+        report_error: Option<Box<ProgressFailure>>,
     },
 
     /// The task source ended before the declared task count was reached.
@@ -97,6 +112,8 @@ pub enum BatchExecutionError<E> {
         expected: usize,
         /// Number of tasks accepted by the scheduler.
         accepted: usize,
+        /// Number of source tasks observed before scheduling stopped.
+        observed: usize,
         /// Number of accepted tasks that reached a terminal outcome.
         completed: usize,
         /// Outcome accumulated before the incomplete schedule was reported.
@@ -107,7 +124,10 @@ pub enum BatchExecutionError<E> {
     },
 }
 
-impl<E> BatchExecutionError<E> {
+impl<E, S> BatchExecutionError<E, S>
+where
+    S: std::error::Error + Send + Sync + 'static,
+{
     /// Returns the batch outcome attached to this error.
     ///
     /// # Returns
@@ -117,6 +137,7 @@ impl<E> BatchExecutionError<E> {
     pub const fn outcome(&self) -> &BatchOutcome<E> {
         match self {
             Self::ProgressReport { outcome, .. }
+            | Self::ScheduleFailed { outcome, .. }
             | Self::CountShortfall { outcome, .. }
             | Self::CountExceeded { outcome, .. }
             | Self::IncompleteSchedule { outcome, .. } => outcome,
@@ -132,6 +153,7 @@ impl<E> BatchExecutionError<E> {
     pub fn into_outcome(self) -> BatchOutcome<E> {
         match self {
             Self::ProgressReport { outcome, .. }
+            | Self::ScheduleFailed { outcome, .. }
             | Self::CountShortfall { outcome, .. }
             | Self::CountExceeded { outcome, .. }
             | Self::IncompleteSchedule { outcome, .. } => outcome,
@@ -146,6 +168,55 @@ impl<E> BatchExecutionError<E> {
     #[inline]
     pub const fn is_count_shortfall(&self) -> bool {
         matches!(self, Self::CountShortfall { .. })
+    }
+
+    /// Returns whether this error represents a scheduler failure.
+    #[inline]
+    pub const fn is_schedule_failed(&self) -> bool {
+        matches!(self, Self::ScheduleFailed { .. })
+    }
+
+    /// Returns the scheduler error, when scheduling failed.
+    #[inline]
+    pub fn scheduler_error(&self) -> Option<&S> {
+        match self {
+            Self::ScheduleFailed { source, .. } => Some(source),
+            _ => None,
+        }
+    }
+
+    /// Maps the scheduler error while preserving the attached outcome.
+    pub fn map_scheduler_error<T, F>(
+        self,
+        map: F,
+    ) -> BatchExecutionError<E, T>
+    where
+        T: std::error::Error + Send + Sync + 'static,
+        F: FnOnce(S) -> T,
+    {
+        match self {
+            Self::ProgressReport { source, outcome } => {
+                BatchExecutionError::ProgressReport { source, outcome }
+            }
+            Self::ScheduleFailed {
+                source,
+                outcome,
+                report_error,
+            } => BatchExecutionError::ScheduleFailed {
+                source: map(source),
+                outcome,
+                report_error,
+            },
+            Self::CountShortfall { expected, actual, outcome, report_error } => {
+                BatchExecutionError::CountShortfall { expected, actual, outcome, report_error }
+            }
+            Self::CountExceeded { expected, observed_at_least, outcome, report_error } => {
+                BatchExecutionError::CountExceeded { expected, observed_at_least, outcome, report_error }
+            }
+            Self::IncompleteSchedule { expected, accepted, observed, completed, outcome, report_error } => {
+                BatchExecutionError::IncompleteSchedule { expected, accepted, observed, completed, outcome, report_error }
+            }
+        }
     }
 
     /// Returns whether this error represents an oversized task source.
@@ -175,7 +246,8 @@ impl<E> BatchExecutionError<E> {
     pub fn progress_report_error(&self) -> Option<&ProgressFailure> {
         match self {
             Self::ProgressReport { source, .. } => Some(source.as_ref()),
-            Self::CountShortfall { report_error, .. }
+            Self::ScheduleFailed { report_error, .. }
+            | Self::CountShortfall { report_error, .. }
             | Self::CountExceeded { report_error, .. }
             | Self::IncompleteSchedule { report_error, .. } => {
                 report_error.as_deref()

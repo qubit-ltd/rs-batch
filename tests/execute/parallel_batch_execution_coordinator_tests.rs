@@ -13,7 +13,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use qubit_batch::BatchExecutionError;
-use qubit_batch::ParallelBatchExecutionCoordinator;
+use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
+use qubit_batch::execute::spi::ParallelBatchExecutionContext;
 use qubit_progress::reporter::NoopReporter;
 
 use crate::support::FailingReporter;
@@ -40,6 +41,7 @@ fn test_parallel_batch_execution_coordinator_records_task_outcomes() {
                         .expect("task should be accepted");
                     context.execute_task(task);
                 }
+                Ok::<(), std::convert::Infallible>(())
             },
         )
         .expect("coordinator should return an outcome");
@@ -62,6 +64,7 @@ fn test_parallel_batch_execution_coordinator_reports_count_shortfall() {
                     context.accept_task(task).expect("task should be accepted");
                 context.execute_task(task);
             }
+            Ok::<(), std::convert::Infallible>(())
         })
         .expect_err("shortfall should be reported");
 
@@ -100,6 +103,7 @@ fn test_parallel_batch_execution_coordinator_reports_count_exceeded() {
                         context.execute_task(task);
                     }
                 }
+                Ok::<(), std::convert::Infallible>(())
             },
         )
         .expect_err("overflow should be reported");
@@ -131,9 +135,9 @@ fn test_parallel_batch_execution_coordinator_reports_start_error_as_progress_rep
             [TestTask::succeed()],
             1,
             |_tasks,
-             _context: &qubit_batch::ParallelBatchExecutionContext<
+             _context: &ParallelBatchExecutionContext<
                 &'static str,
-            >| {},
+            >| Ok::<(), std::convert::Infallible>(()),
         )
         .expect_err("start failures should return progress report errors");
 
@@ -162,6 +166,7 @@ fn test_parallel_batch_execution_coordinator_propagates_scheduler_panic() {
                     panic!("scheduler failure");
                 }
             }
+            Ok::<(), std::convert::Infallible>(())
         })
     }))
     .expect_err("scheduler panic should be propagated");
@@ -182,6 +187,7 @@ fn test_parallel_batch_execution_coordinator_uses_context_observed_count() {
                     context.accept_task(task).expect("task should be accepted");
                 context.execute_task(task);
             }
+            Ok::<(), std::convert::Infallible>(())
         })
         .expect_err("context observations should determine count validation");
 
@@ -199,7 +205,7 @@ fn test_parallel_batch_execution_coordinator_rejects_dropped_accepted_tasks() {
             [TestTask::succeed()],
             1,
             |tasks,
-             context: &qubit_batch::ParallelBatchExecutionContext<
+             context: &ParallelBatchExecutionContext<
                 &'static str,
             >| {
                 for task in tasks {
@@ -207,6 +213,7 @@ fn test_parallel_batch_execution_coordinator_rejects_dropped_accepted_tasks() {
                         .accept_task(task)
                         .expect("task should be accepted");
                 }
+                Ok::<(), std::convert::Infallible>(())
             },
         )
         .expect_err("accepted tasks must be executed before returning");

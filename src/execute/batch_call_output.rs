@@ -14,7 +14,7 @@
 /// # Type Parameters
 ///
 /// * `R` - Callable success value type.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BatchCallOutput<R> {
     /// Zero-based callable index that produced `value`.
     index: usize,

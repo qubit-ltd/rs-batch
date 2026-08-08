@@ -30,7 +30,6 @@ use crate::execute::EXECUTION_PROGRESS_METRIC_ID;
 use crate::execute::EXECUTION_PROGRESS_METRIC_NAME;
 use crate::execute::TaskExecutionStatus;
 use crate::execute::batch_executor::collect_call_outputs;
-use crate::execute::batch_executor::collect_call_values;
 use crate::execute::callable_task::CallableTask;
 use crate::execute::for_each_task::ForEachTask;
 
@@ -419,10 +418,7 @@ impl SequentialBatchExecutor {
         let execution = self.execute_with_count(runnable_tasks, count);
         let outputs = collect_call_outputs(outputs);
         match execution {
-            Ok(outcome) => Ok(BatchCallResult::try_new(
-                outcome,
-                collect_call_values(outputs, count),
-            )
+            Ok(outcome) => Ok(BatchCallResult::try_new(outcome, outputs)
             .expect("call output collection must return one value slot per declared task")),
             Err(source) => Err(BatchCallError::new(source, outputs)),
         }
@@ -493,12 +489,13 @@ impl SequentialBatchExecutor {
 }
 
 impl BatchExecutor for SequentialBatchExecutor {
+    type SchedulerError = std::convert::Infallible;
     /// Executes the batch sequentially on the caller thread.
     fn execute_with_count<T, E, I>(
         &self,
         tasks: I,
         count: usize,
-    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E, Self::SchedulerError>>
     where
         I: IntoIterator<Item = T>,
         T: Runnable<E> + Send,

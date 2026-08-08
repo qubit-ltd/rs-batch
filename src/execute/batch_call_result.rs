@@ -5,149 +5,96 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+use crate::BatchCallOutput;
 use crate::BatchCallResultBuildError;
 use crate::BatchOutcome;
 
 /// Result produced by [`crate::BatchExecutor::call`].
 ///
-/// The execution outcome contains the same failure aggregation as
-/// [`crate::BatchExecutor::execute`]. The value list is indexed by the original
-/// callable index; successful callables store `Some(value)`, while failed or
-/// panicked callables store `None`.
-///
-/// ```rust
-/// use qubit_batch::{
-///     BatchExecutor,
-///     SequentialBatchExecutor,
-/// };
-///
-/// fn count_users() -> Result<usize, &'static str> {
-///     Ok(3)
-/// }
-///
-/// fn count_orders() -> Result<usize, &'static str> {
-///     Ok(5)
-/// }
-///
-/// let result = SequentialBatchExecutor::new()
-///     .call([count_users, count_orders])
-///     .expect("array length should be exact");
-///
-/// assert!(result.outcome().is_success());
-/// assert_eq!(result.values(), &[Some(3), Some(5)]);
-/// ```
-///
-/// # Type Parameters
-///
-/// * `R` - Callable success value type.
-/// * `E` - Callable error type.
+/// Successful callable outputs are retained sparsely with their original
+/// indexes. This keeps early-stop results bounded by the number of completed
+/// callables instead of the declared task count.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[must_use = "batch call results contain execution failures and returned values"]
 pub struct BatchCallResult<R, E> {
     /// Execution outcome and failures for the callable batch.
     outcome: BatchOutcome<E>,
-    /// Success values indexed by callable position.
-    values: Vec<Option<R>>,
+    /// Successful outputs sorted by callable position.
+    outputs: Vec<BatchCallOutput<R>>,
 }
 
 impl<R, E> BatchCallResult<R, E> {
-    /// Creates a new callable batch result.
-    ///
-    /// # Parameters
-    ///
-    /// * `outcome` - Execution outcome and failures.
-    /// * `values` - Success values indexed by callable position.
-    ///
-    /// # Returns
-    ///
-    /// A callable batch result when `values` has one entry per declared task,
-    /// every failed or panicked callable has `None`, and the number of present
-    /// values equals the successful task count.
+    /// Creates a new callable batch result from sparse successful outputs.
     ///
     /// # Errors
     ///
-    /// Returns [`BatchCallResultBuildError`] when the value vector length,
-    /// present value count, or failure-index mapping disagrees with `outcome`.
-    #[inline]
+    /// Returns [`BatchCallResultBuildError`] when output ordering, indexes, or
+    /// count disagrees with `outcome`.
     pub fn try_new(
         outcome: BatchOutcome<E>,
-        values: Vec<Option<R>>,
+        outputs: Vec<BatchCallOutput<R>>,
     ) -> Result<Self, BatchCallResultBuildError> {
-        let task_count = outcome.task_count();
-        let value_count = values.len();
-        if value_count != task_count {
-            return Err(BatchCallResultBuildError::ValueCountMismatch {
-                task_count,
-                value_count,
-            });
+        let mut previous_index = None;
+        for output in &outputs {
+            if let Some(previous_index) = previous_index {
+                if output.index() <= previous_index {
+                    return Err(BatchCallResultBuildError::OutputIndexOutOfOrder {
+                        previous_index,
+                        index: output.index(),
+                    });
+                }
+            }
+            previous_index = Some(output.index());
+            if output.index() >= outcome.completed_count() {
+                return Err(BatchCallResultBuildError::OutputIndexNotCompleted {
+                    index: output.index(),
+                    completed_count: outcome.completed_count(),
+                });
+            }
         }
         for failure in outcome.failures() {
-            if values[failure.index()].is_some() {
-                return Err(BatchCallResultBuildError::FailureValuePresent {
+            if outputs.iter().any(|output| output.index() == failure.index()) {
+                return Err(BatchCallResultBuildError::FailureOutputPresent {
                     index: failure.index(),
                 });
             }
         }
-        let succeeded_count = outcome.succeeded_count();
-        let value_count = values.iter().filter(|value| value.is_some()).count();
-        if value_count != succeeded_count {
-            return Err(
-                BatchCallResultBuildError::SucceededValueCountMismatch {
-                    succeeded_count,
-                    value_count,
-                },
-            );
+        if outputs.len() != outcome.succeeded_count() {
+            return Err(BatchCallResultBuildError::SucceededOutputCountMismatch {
+                succeeded_count: outcome.succeeded_count(),
+                output_count: outputs.len(),
+            });
         }
-        Ok(Self { outcome, values })
+        Ok(Self { outcome, outputs })
     }
 
     /// Returns the execution outcome for the callable batch.
-    ///
-    /// # Returns
-    ///
-    /// A shared reference to the underlying execution outcome.
     #[inline]
     pub const fn outcome(&self) -> &BatchOutcome<E> {
         &self.outcome
     }
 
-    /// Returns success values indexed by callable position.
-    ///
-    /// # Returns
-    ///
-    /// A shared slice of optional success values.
+    /// Returns sparse successful outputs sorted by callable position.
     #[inline]
-    pub fn values(&self) -> &[Option<R>] {
-        self.values.as_slice()
+    pub fn outputs(&self) -> &[BatchCallOutput<R>] {
+        &self.outputs
     }
 
     /// Consumes this result and returns the execution outcome.
-    ///
-    /// # Returns
-    ///
-    /// The underlying execution outcome.
     #[inline]
     pub fn into_outcome(self) -> BatchOutcome<E> {
         self.outcome
     }
 
-    /// Consumes this result and returns success values.
-    ///
-    /// # Returns
-    ///
-    /// Success values indexed by callable position.
+    /// Consumes this result and returns sparse successful outputs.
     #[inline]
-    pub fn into_values(self) -> Vec<Option<R>> {
-        self.values
+    pub fn into_outputs(self) -> Vec<BatchCallOutput<R>> {
+        self.outputs
     }
 
     /// Consumes this result and returns both stored parts.
-    ///
-    /// # Returns
-    ///
-    /// A tuple containing the execution outcome and indexed success values.
     #[inline]
-    pub fn into_parts(self) -> (BatchOutcome<E>, Vec<Option<R>>) {
-        (self.outcome, self.values)
+    pub fn into_parts(self) -> (BatchOutcome<E>, Vec<BatchCallOutput<R>>) {
+        (self.outcome, self.outputs)
     }
 }

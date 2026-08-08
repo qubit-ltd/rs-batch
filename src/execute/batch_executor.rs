@@ -6,6 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::sync::Arc;
+use std::error::Error;
 
 use crossbeam_queue::SegQueue;
 use qubit_function::Callable;
@@ -53,6 +54,8 @@ use crate::BatchOutcome;
 /// assert!(outcome.is_success());
 /// ```
 pub trait BatchExecutor: Send + Sync {
+    /// Error returned when the runtime scheduler cannot submit work.
+    type SchedulerError: Error + Send + Sync + 'static;
     /// Executes a batch of runnable tasks whose iterator exposes an exact
     /// length.
     ///
@@ -81,7 +84,7 @@ pub trait BatchExecutor: Send + Sync {
     fn execute<T, E, I>(
         &self,
         tasks: I,
-    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E, Self::SchedulerError>>
     where
         I: IntoIterator<Item = T>,
         I::IntoIter: ExactSizeIterator,
@@ -126,7 +129,7 @@ pub trait BatchExecutor: Send + Sync {
         &self,
         tasks: I,
         count: usize,
-    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E, Self::SchedulerError>>
     where
         I: IntoIterator<Item = T>,
         T: Runnable<E> + Send,
@@ -162,7 +165,7 @@ pub trait BatchExecutor: Send + Sync {
     fn call<C, R, E, I>(
         &self,
         tasks: I,
-    ) -> Result<BatchCallResult<R, E>, BatchCallError<R, E>>
+    ) -> Result<BatchCallResult<R, E>, BatchCallError<R, E, Self::SchedulerError>>
     where
         I: IntoIterator<Item = C>,
         I::IntoIter: ExactSizeIterator,
@@ -206,7 +209,7 @@ pub trait BatchExecutor: Send + Sync {
         &self,
         tasks: I,
         count: usize,
-    ) -> Result<BatchCallResult<R, E>, BatchCallError<R, E>>
+    ) -> Result<BatchCallResult<R, E>, BatchCallError<R, E, Self::SchedulerError>>
     where
         I: IntoIterator<Item = C>,
         C: Callable<R, E> + Send,
@@ -226,10 +229,7 @@ pub trait BatchExecutor: Send + Sync {
         let execution = self.execute_with_count(runnable_tasks, count);
         let outputs = collect_call_outputs(outputs);
         match execution {
-            Ok(outcome) => Ok(BatchCallResult::try_new(
-                outcome,
-                collect_call_values(outputs, count),
-            )
+            Ok(outcome) => Ok(BatchCallResult::try_new(outcome, outputs)
             .expect("call output collection must return one value slot per declared task")),
             Err(source) => Err(BatchCallError::new(source, outputs)),
         }
@@ -256,7 +256,7 @@ pub trait BatchExecutor: Send + Sync {
         &self,
         items: I,
         action: F,
-    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E, Self::SchedulerError>>
     where
         I: IntoIterator<Item = Item>,
         I::IntoIter: ExactSizeIterator,
@@ -292,7 +292,7 @@ pub trait BatchExecutor: Send + Sync {
         items: I,
         count: usize,
         action: F,
-    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E, Self::SchedulerError>>
     where
         I: IntoIterator<Item = Item>,
         Item: Send,
@@ -334,34 +334,4 @@ pub(crate) fn collect_call_outputs<R>(
     }
     collected.sort_unstable_by_key(BatchCallOutput::index);
     collected
-}
-
-/// Densifies validated callable outputs for a successful batch result.
-///
-/// # Parameters
-///
-/// * `outputs` - Successful outputs sorted by callable index.
-/// * `count` - Validated callable count used to size the dense vector.
-///
-/// # Returns
-///
-/// Optional successful values indexed by callable position.
-///
-/// # Panics
-///
-/// Panics if an output index is outside the validated callable range.
-pub(crate) fn collect_call_values<R>(
-    outputs: Vec<BatchCallOutput<R>>,
-    count: usize,
-) -> Vec<Option<R>> {
-    let mut values = Vec::with_capacity(count);
-    values.resize_with(count, || None);
-    for output in outputs {
-        let (index, value) = output.into_parts();
-        let slot = values
-            .get_mut(index)
-            .expect("callable index must be within the declared count");
-        *slot = Some(value);
-    }
-    values
 }
