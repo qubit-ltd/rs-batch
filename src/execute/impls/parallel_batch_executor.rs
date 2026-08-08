@@ -70,10 +70,12 @@ pub struct ParallelBatchExecutor {
 
 impl ParallelBatchExecutor {
     /// Default interval between progress callbacks.
-    pub const DEFAULT_REPORT_INTERVAL: Duration = crate::constants::DEFAULT_REPORT_INTERVAL;
+    pub const DEFAULT_REPORT_INTERVAL: Duration =
+        crate::constants::DEFAULT_REPORT_INTERVAL;
 
     /// Default maximum batch size that still uses sequential execution.
-    pub const DEFAULT_SEQUENTIAL_THRESHOLD: usize = crate::constants::DEFAULT_SEQUENTIAL_THRESHOLD;
+    pub const DEFAULT_SEQUENTIAL_THRESHOLD: usize =
+        crate::constants::DEFAULT_SEQUENTIAL_THRESHOLD;
 
     /// Returns the default worker-thread count.
     ///
@@ -236,8 +238,11 @@ impl BatchExecutor for ParallelBatchExecutor {
         }
 
         let worker_count = self.thread_count.min(count);
-        self.coordinator
-            .execute(tasks, count, self.task_failure_policy, move |tasks, context| {
+        self.coordinator.execute(
+            tasks,
+            count,
+            self.task_failure_policy,
+            move |tasks, context| {
                 run_scoped_parallel_tasks(
                     tasks,
                     worker_count,
@@ -245,6 +250,7 @@ impl BatchExecutor for ParallelBatchExecutor {
                     |task| context.execute_task(task),
                 );
                 Ok::<(), Infallible>(())
-            })
+            },
+        )
     }
 }

@@ -7,7 +7,8 @@
 // =============================================================================
 use thiserror::Error;
 
-/// Error returned when sparse callable outputs do not match their execution outcome.
+/// Error returned when sparse callable outputs do not match their execution
+/// outcome.
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum BatchCallResultBuildError {
     /// The number of sparse outputs differs from the successful task count.
@@ -22,7 +23,9 @@ pub enum BatchCallResultBuildError {
     },
 
     /// An output index is not strictly greater than the previous index.
-    #[error("callable output indexes must be strictly increasing: previous {previous_index}, current {index}")]
+    #[error(
+        "callable output indexes must be strictly increasing: previous {previous_index}, current {index}"
+    )]
     OutputIndexOutOfOrder {
         /// Previous output index.
         previous_index: usize,
@@ -31,7 +34,9 @@ pub enum BatchCallResultBuildError {
     },
 
     /// An output refers to a task that did not complete.
-    #[error("callable output index {index} is not completed: completed_count {completed_count}")]
+    #[error(
+        "callable output index {index} is not completed: completed_count {completed_count}"
+    )]
     OutputIndexNotCompleted {
         /// Original zero-based callable index.
         index: usize,

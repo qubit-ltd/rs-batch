@@ -19,9 +19,11 @@ use qubit_atomic::ArcAtomicCount;
 use qubit_atomic::AtomicCount;
 use qubit_batch::BatchExecutionError;
 use qubit_batch::BatchExecutor;
+use qubit_batch::BatchTermination;
 use qubit_batch::ParallelBatchExecutor;
 use qubit_batch::ParallelBatchExecutorBuildError;
 use qubit_batch::ProgressFailure;
+use qubit_batch::TaskFailurePolicy;
 use qubit_function::Runnable;
 use qubit_progress::AutoReporterError;
 use qubit_progress::Phase;
@@ -178,6 +180,33 @@ fn test_parallel_batch_executor_collects_failures_and_panics() {
         result.failures()[1].error().panic_message(),
         Some("panic in parallel batch")
     );
+}
+
+#[test]
+fn test_parallel_batch_executor_stops_accepting_after_first_failure() {
+    let executor = ParallelBatchExecutor::builder()
+        .thread_count(2)
+        .sequential_threshold(0)
+        .task_failure_policy(TaskFailurePolicy::StopOnFirstFailure)
+        .build()
+        .expect("parallel executor should build");
+    let outcome = executor
+        .for_each_with_count(0..100, 100, |value| {
+            if value == 0 {
+                Err::<(), _>("failed")
+            } else {
+                std::thread::sleep(std::time::Duration::from_millis(1));
+                Ok(())
+            }
+        })
+        .expect("task failure policy should return a partial outcome");
+
+    assert_eq!(
+        outcome.termination(),
+        BatchTermination::StoppedByTaskFailurePolicy
+    );
+    assert!(outcome.completed_count() < 100);
+    assert!(outcome.failure_count() >= 1);
 }
 
 #[test]

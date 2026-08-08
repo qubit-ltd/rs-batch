@@ -142,7 +142,10 @@ fn test_sequential_batch_executor_calls_non_send_local_callables() {
             .into_iter()
             .map(|output| output.into_value())
             .collect::<Vec<_>>(),
-        vec![Rc::new(String::from("local")), Rc::new(String::from("local"))]
+        vec![
+            Rc::new(String::from("local")),
+            Rc::new(String::from("local"))
+        ]
     );
 }
 

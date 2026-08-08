@@ -11,6 +11,7 @@ use std::error::Error;
 use std::fmt;
 
 use qubit_batch::SequentialBatchExecutor;
+use qubit_function::Callable;
 
 #[derive(Debug, PartialEq, Eq)]
 struct CallableError;
@@ -30,13 +31,13 @@ enum MixedCallable {
     Error,
 }
 
-impl qubit_function::Callable<i32, CallableError> for ErrorCallable {
+impl Callable<i32, CallableError> for ErrorCallable {
     fn call(&mut self) -> Result<i32, CallableError> {
         Err(CallableError)
     }
 }
 
-impl qubit_function::Callable<i32, CallableError> for MixedCallable {
+impl Callable<i32, CallableError> for MixedCallable {
     fn call(&mut self) -> Result<i32, CallableError> {
         match self {
             Self::Success(value) => Ok(*value),

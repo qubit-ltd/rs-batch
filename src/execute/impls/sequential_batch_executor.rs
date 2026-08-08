@@ -65,7 +65,8 @@ pub struct SequentialBatchExecutor {
 
 impl SequentialBatchExecutor {
     /// Default interval between progress callbacks.
-    pub const DEFAULT_REPORT_INTERVAL: Duration = crate::constants::DEFAULT_REPORT_INTERVAL;
+    pub const DEFAULT_REPORT_INTERVAL: Duration =
+        crate::constants::DEFAULT_REPORT_INTERVAL;
 
     /// Creates a sequential batch executor with default configuration.
     ///
@@ -188,7 +189,8 @@ impl SequentialBatchExecutor {
         let metric = progress
             .metric(EXECUTION_PROGRESS_METRIC_ID)
             .expect("configured execution metric must exist");
-        let state = BatchExecutionState::new(count, metric, self.task_failure_policy);
+        let state =
+            BatchExecutionState::new(count, metric, self.task_failure_policy);
         let mut actual_count = 0;
         let mut stopped_by_task_failure_policy = false;
         let mut failure_count = 0usize;
@@ -419,7 +421,7 @@ impl SequentialBatchExecutor {
         let outputs = collect_call_outputs(outputs);
         match execution {
             Ok(outcome) => Ok(BatchCallResult::try_new(outcome, outputs)
-            .expect("call output collection must return one value slot per declared task")),
+                .expect("call output collection must return one value slot per declared task")),
             Err(source) => Err(BatchCallError::new(source, outputs)),
         }
     }

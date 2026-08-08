@@ -23,7 +23,7 @@ pub struct BatchCallOutput<R> {
 }
 
 impl<R> BatchCallOutput<R> {
-    /// Creates one indexed callable output for internal result assembly.
+    /// Creates one indexed callable output.
     ///
     /// # Parameters
     ///
