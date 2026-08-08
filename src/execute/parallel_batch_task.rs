@@ -9,8 +9,8 @@
 ///
 /// The context creates this token only after assigning a unique, in-range
 /// index. The token is consumed by
-/// [`crate::ParallelBatchExecutionContext::execute_task`] and cannot be
-/// constructed or reused by a scheduler.
+/// [`crate::execute::spi::ParallelBatchExecutionContext::execute_task`] and
+/// cannot be constructed or reused by a scheduler.
 ///
 /// # Type Parameters
 ///

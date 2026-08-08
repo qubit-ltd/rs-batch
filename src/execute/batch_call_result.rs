@@ -36,34 +36,41 @@ impl<R, E> BatchCallResult<R, E> {
     ) -> Result<Self, BatchCallResultBuildError> {
         let mut previous_index = None;
         for output in &outputs {
-            if let Some(previous_index) = previous_index {
-                if output.index() <= previous_index {
-                    return Err(BatchCallResultBuildError::OutputIndexOutOfOrder {
-                        previous_index,
-                        index: output.index(),
-                    });
-                }
+            if let Some(previous_index) = previous_index
+                && output.index() <= previous_index
+            {
+                return Err(BatchCallResultBuildError::OutputIndexOutOfOrder {
+                    previous_index,
+                    index: output.index(),
+                });
             }
             previous_index = Some(output.index());
             if output.index() >= outcome.completed_count() {
-                return Err(BatchCallResultBuildError::OutputIndexNotCompleted {
-                    index: output.index(),
-                    completed_count: outcome.completed_count(),
-                });
+                return Err(
+                    BatchCallResultBuildError::OutputIndexNotCompleted {
+                        index: output.index(),
+                        completed_count: outcome.completed_count(),
+                    },
+                );
             }
         }
         for failure in outcome.failures() {
-            if outputs.iter().any(|output| output.index() == failure.index()) {
+            if outputs
+                .iter()
+                .any(|output| output.index() == failure.index())
+            {
                 return Err(BatchCallResultBuildError::FailureOutputPresent {
                     index: failure.index(),
                 });
             }
         }
         if outputs.len() != outcome.succeeded_count() {
-            return Err(BatchCallResultBuildError::SucceededOutputCountMismatch {
-                succeeded_count: outcome.succeeded_count(),
-                output_count: outputs.len(),
-            });
+            return Err(
+                BatchCallResultBuildError::SucceededOutputCountMismatch {
+                    succeeded_count: outcome.succeeded_count(),
+                    output_count: outputs.len(),
+                },
+            );
         }
         Ok(Self { outcome, outputs })
     }

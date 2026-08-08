@@ -5,15 +5,8 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! # Batch API Tests
-//!
-//! Tests for batch execution, processing, utilities, and documentation.
-#![allow(clippy::result_large_err)]
+//! Atomic synchronization aliases used by production state and Loom tests.
 
-mod docs;
-mod execute;
-#[cfg(feature = "loom-tests")]
-mod loom_tests;
-mod process;
-mod support;
-mod utils;
+pub(crate) use std::sync::atomic::AtomicBool;
+pub(crate) use std::sync::atomic::AtomicUsize;
+pub(crate) use std::sync::atomic::Ordering;

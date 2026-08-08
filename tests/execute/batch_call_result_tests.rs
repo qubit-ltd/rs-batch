@@ -83,10 +83,7 @@ fn test_batch_call_result_rejects_mismatched_success_output_count() {
         .expect("outcome should be valid");
 
     assert_eq!(
-        BatchCallResult::try_new(
-            outcome,
-            vec![BatchCallOutput::new(0, 10)],
-        ),
+        BatchCallResult::try_new(outcome, vec![BatchCallOutput::new(0, 10)],),
         Err(BatchCallResultBuildError::SucceededOutputCountMismatch {
             succeeded_count: 2,
             output_count: 1,

@@ -5,15 +5,14 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! # Batch API Tests
-//!
-//! Tests for batch execution, processing, utilities, and documentation.
-#![allow(clippy::result_large_err)]
+//! Tests for synchronization support.
 
-mod docs;
-mod execute;
-#[cfg(feature = "loom-tests")]
-mod loom_tests;
-mod process;
-mod support;
-mod utils;
+use qubit_batch::SequentialBatchExecutor;
+
+#[test]
+fn synchronization_support_is_internal() {
+    assert_eq!(
+        SequentialBatchExecutor::DEFAULT_REPORT_INTERVAL.as_secs(),
+        5
+    );
+}

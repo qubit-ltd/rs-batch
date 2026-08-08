@@ -9,13 +9,14 @@
 
 use qubit_batch::BatchExecutionError;
 use qubit_batch::SequentialBatchExecutor;
+use qubit_batch::TaskFailurePolicy;
 
 use crate::support::TestTask;
 
 #[test]
 fn test_batch_execution_state_tracks_success_failure_and_panic() {
     let executor = SequentialBatchExecutor::builder()
-        .task_failure_policy(qubit_batch::TaskFailurePolicy::Continue)
+        .task_failure_policy(TaskFailurePolicy::Continue)
         .build();
 
     let outcome = executor

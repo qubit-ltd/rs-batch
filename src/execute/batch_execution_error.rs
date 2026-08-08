@@ -46,6 +46,8 @@ use crate::ProgressFailure;
 /// # Type Parameters
 ///
 /// * `E` - The task-specific error type stored inside the attached outcome.
+/// * `S` - The runtime scheduler error type. It defaults to
+///   [`std::convert::Infallible`] for built-in executors.
 #[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum BatchExecutionError<E, S = Infallible> {
@@ -186,10 +188,7 @@ where
     }
 
     /// Maps the scheduler error while preserving the attached outcome.
-    pub fn map_scheduler_error<T, F>(
-        self,
-        map: F,
-    ) -> BatchExecutionError<E, T>
+    pub fn map_scheduler_error<T, F>(self, map: F) -> BatchExecutionError<E, T>
     where
         T: std::error::Error + Send + Sync + 'static,
         F: FnOnce(S) -> T,
@@ -207,15 +206,43 @@ where
                 outcome,
                 report_error,
             },
-            Self::CountShortfall { expected, actual, outcome, report_error } => {
-                BatchExecutionError::CountShortfall { expected, actual, outcome, report_error }
-            }
-            Self::CountExceeded { expected, observed_at_least, outcome, report_error } => {
-                BatchExecutionError::CountExceeded { expected, observed_at_least, outcome, report_error }
-            }
-            Self::IncompleteSchedule { expected, accepted, observed, completed, outcome, report_error } => {
-                BatchExecutionError::IncompleteSchedule { expected, accepted, observed, completed, outcome, report_error }
-            }
+            Self::CountShortfall {
+                expected,
+                actual,
+                outcome,
+                report_error,
+            } => BatchExecutionError::CountShortfall {
+                expected,
+                actual,
+                outcome,
+                report_error,
+            },
+            Self::CountExceeded {
+                expected,
+                observed_at_least,
+                outcome,
+                report_error,
+            } => BatchExecutionError::CountExceeded {
+                expected,
+                observed_at_least,
+                outcome,
+                report_error,
+            },
+            Self::IncompleteSchedule {
+                expected,
+                accepted,
+                observed,
+                completed,
+                outcome,
+                report_error,
+            } => BatchExecutionError::IncompleteSchedule {
+                expected,
+                accepted,
+                observed,
+                completed,
+                outcome,
+                report_error,
+            },
         }
     }
 

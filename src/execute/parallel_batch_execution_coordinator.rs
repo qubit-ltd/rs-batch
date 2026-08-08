@@ -71,11 +71,16 @@ impl ParallelBatchExecutionCoordinator {
     ///
     /// * `tasks` - Task source consumed by the scheduler.
     /// * `count` - Declared task count expected from `tasks`.
+    /// * `task_failure_policy` - Policy that stops accepting new source tasks
+    ///   after the configured number of task failures while allowing accepted
+    ///   tokens to finish.
     /// * `schedule` - Runtime-specific scheduler that consumes tasks and uses
     ///   [`ParallelBatchExecutionContext::accept_task`] before dispatching each
     ///   accepted token. Every accepted token must be passed to
     ///   [`ParallelBatchExecutionContext::execute_task`] exactly once before
-    ///   the scheduler returns.
+    ///   the scheduler returns. The closure returns its runtime-specific
+    ///   scheduler error directly; it must not silently drop a rejected
+    ///   submission.
     ///
     /// # Returns
     ///
@@ -84,9 +89,11 @@ impl ParallelBatchExecutionCoordinator {
     ///
     /// # Errors
     ///
-    /// Returns [`BatchExecutionError::ProgressReport`] when progress setup,
-    /// running reporting, or terminal reporting fails; a count-mismatch error
-    /// when the scheduler observes a different number of tasks than `count`; or
+    /// Returns [`BatchExecutionError::ScheduleFailed`] when the scheduler
+    /// returns an error, [`BatchExecutionError::ProgressReport`] when progress
+    /// setup, running reporting, or terminal reporting fails; a
+    /// count-mismatch error when the scheduler observes a different number
+    /// of tasks than `count`; or
     /// [`BatchExecutionError::IncompleteSchedule`] when accepted task tokens
     /// are not all completed.
     ///
@@ -150,12 +157,24 @@ impl ParallelBatchExecutionCoordinator {
             let accepted_count = state.accepted_count();
             let completed_count = state.completed_count();
             let stop_result = running_progress.stop();
-            (schedule_result, observed_count, accepted_count, completed_count, stop_result)
+            (
+                schedule_result,
+                observed_count,
+                accepted_count,
+                completed_count,
+                stop_result,
+            )
         });
         let state = Arc::into_inner(state).expect(
             "parallel batch execution state should have a single owner",
         );
-        let (schedule_result, observed_count, accepted_count, completed_count, stop_result) = stop_result;
+        let (
+            schedule_result,
+            observed_count,
+            accepted_count,
+            completed_count,
+            stop_result,
+        ) = stop_result;
         if let Err(source) = schedule_result {
             let (elapsed, report_error) = match stop_result {
                 Ok(()) => Self::fail_progress(progress),
@@ -227,6 +246,17 @@ impl ParallelBatchExecutionCoordinator {
                 crate::BatchTermination::StoppedByTaskFailurePolicy,
             ));
         }
+        if completed_count < accepted_count {
+            let (elapsed, report_error) = Self::fail_progress(progress);
+            return Err(BatchExecutionError::IncompleteSchedule {
+                expected: count,
+                accepted: accepted_count,
+                observed: observed_count,
+                completed: completed_count,
+                outcome: state.into_outcome(elapsed),
+                report_error,
+            });
+        }
         if observed_count < count {
             let (elapsed, report_error) = Self::fail_progress(progress);
             return Err(BatchExecutionError::CountShortfall {
@@ -241,17 +271,6 @@ impl ParallelBatchExecutionCoordinator {
             return Err(BatchExecutionError::CountExceeded {
                 expected: count,
                 observed_at_least: observed_count,
-                outcome: state.into_outcome(elapsed),
-                report_error,
-            });
-        }
-        if completed_count < accepted_count {
-            let (elapsed, report_error) = Self::fail_progress(progress);
-            return Err(BatchExecutionError::IncompleteSchedule {
-                expected: count,
-                accepted: accepted_count,
-                observed: observed_count,
-                completed: completed_count,
                 outcome: state.into_outcome(elapsed),
                 report_error,
             });

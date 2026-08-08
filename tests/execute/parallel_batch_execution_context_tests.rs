@@ -11,9 +11,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use qubit_batch::BatchExecutionError;
+use qubit_batch::ProgressFailure;
 use qubit_batch::TaskFailurePolicy;
 use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
-use qubit_batch::ProgressFailure;
 use qubit_progress::Reporter;
 
 use crate::support::FailingReporter;
@@ -98,8 +98,11 @@ fn test_parallel_batch_execution_context_auto_reporter_failure_is_reported_as_pr
         Duration::ZERO,
     );
 
-    let error =
-        coordinator.execute([TestTask::succeed()], 1, TaskFailurePolicy::Continue, |tasks, context| {
+    let error = coordinator.execute(
+        [TestTask::succeed()],
+        1,
+        TaskFailurePolicy::Continue,
+        |tasks, context| {
             for task in tasks {
                 if let Some(task) = context.accept_task(task) {
                     context.execute_task(task);
@@ -109,7 +112,8 @@ fn test_parallel_batch_execution_context_auto_reporter_failure_is_reported_as_pr
                 }
             }
             Ok::<(), std::convert::Infallible>(())
-        });
+        },
+    );
 
     let error = error
         .expect_err("auto reporter failure should be mapped to progress error");

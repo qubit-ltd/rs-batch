@@ -5,15 +5,11 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! # Batch API Tests
-//!
-//! Tests for batch execution, processing, utilities, and documentation.
-#![allow(clippy::result_large_err)]
+//! Tests for batch execution defaults.
 
-mod docs;
-mod execute;
-#[cfg(feature = "loom-tests")]
-mod loom_tests;
-mod process;
-mod support;
-mod utils;
+use qubit_batch::ParallelBatchExecutor;
+
+#[test]
+fn default_threshold_is_stable() {
+    assert_eq!(ParallelBatchExecutor::DEFAULT_SEQUENTIAL_THRESHOLD, 100);
+}

@@ -13,8 +13,8 @@ use qubit_progress::reporter::Reporter;
 
 use super::ParallelBatchExecutor;
 use super::ParallelBatchExecutorBuildError;
-use crate::execute::ParallelBatchExecutionCoordinator;
 use crate::TaskFailurePolicy;
+use crate::execute::ParallelBatchExecutionCoordinator;
 
 /// Builder for [`ParallelBatchExecutor`].
 ///

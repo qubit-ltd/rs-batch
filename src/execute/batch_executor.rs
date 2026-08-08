@@ -5,8 +5,8 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::sync::Arc;
 use std::error::Error;
+use std::sync::Arc;
 
 use crossbeam_queue::SegQueue;
 use qubit_function::Callable;
@@ -37,6 +37,23 @@ use crate::BatchOutcome;
 /// [`Self::call`] and [`Self::call_with_count`] adapters rely on these
 /// synchronous ownership and count guarantees when collecting callable
 /// outputs.
+///
+/// # When to use an executor
+///
+/// Choose an executor when each input item is an independent runnable or
+/// callable operation and the important result is per-task success, failure,
+/// panic, and timing metadata. Executors are a good fit for heterogeneous
+/// work, retry classification, and parallel CPU/I/O tasks where the caller
+/// needs stable failure indexes. Use [`BatchExecutor::for_each`] when the
+/// input values are merely a convenient way to create those independent
+/// tasks.
+///
+/// Choose a [`crate::BatchProcessor`] when a component owns a stateful,
+/// batch-level consumer (for example, a DAO writer) and the primary contract
+/// is how many items/chunks that component accepted and processed. A processor
+/// may deliberately batch items, mutate internal state, or expose a domain
+/// error instead of one task failure per item. The two APIs therefore overlap
+/// in mechanics but represent different ownership and result semantics.
 ///
 /// ```rust
 /// use qubit_batch::{
@@ -230,7 +247,7 @@ pub trait BatchExecutor: Send + Sync {
         let outputs = collect_call_outputs(outputs);
         match execution {
             Ok(outcome) => Ok(BatchCallResult::try_new(outcome, outputs)
-            .expect("call output collection must return one value slot per declared task")),
+                .expect("call output collection must return one value slot per declared task")),
             Err(source) => Err(BatchCallError::new(source, outputs)),
         }
     }

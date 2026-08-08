@@ -9,9 +9,6 @@ use std::panic::AssertUnwindSafe;
 use std::panic::catch_unwind;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use qubit_atomic::AtomicCount;
@@ -27,6 +24,9 @@ use crate::BatchTaskFailure;
 use crate::BatchTermination;
 use crate::TaskFailurePolicy;
 use crate::execute::panic_payload_to_error;
+use crate::sync::AtomicBool;
+use crate::sync::AtomicUsize;
+use crate::sync::Ordering;
 
 /// Metric id used for task progress counters.
 pub(crate) const EXECUTION_PROGRESS_METRIC_ID: &str = "tasks";
@@ -66,7 +66,7 @@ impl<E> BatchExecutionState<E> {
     ///
     /// Empty execution state.
     #[inline]
-    pub(crate) const fn new(
+    pub(crate) fn new(
         task_count: usize,
         metric: MetricHandle,
         task_failure_policy: TaskFailurePolicy,
@@ -134,7 +134,8 @@ impl<E> BatchExecutionState<E> {
             }
         };
         if status == TaskExecutionStatus::Failed {
-            let failures = self.failure_count_atomic.fetch_add(1, Ordering::AcqRel) + 1;
+            let failures =
+                self.failure_count_atomic.fetch_add(1, Ordering::AcqRel) + 1;
             if self.task_failure_policy.should_stop(failures) {
                 self.stop_accepting.store(true, Ordering::Release);
             }
