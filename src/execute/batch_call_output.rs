@@ -34,7 +34,7 @@ impl<R> BatchCallOutput<R> {
     ///
     /// An indexed callable output.
     #[inline]
-    pub(crate) const fn new(index: usize, value: R) -> Self {
+    pub const fn new(index: usize, value: R) -> Self {
         Self { index, value }
     }
 
