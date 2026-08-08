@@ -6,7 +6,9 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::panic::resume_unwind;
-use std::sync::{Arc, Mutex, mpsc};
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::mpsc;
 use std::thread;
 
 /// Indexed work item sent to scoped workers.
@@ -71,7 +73,11 @@ pub(crate) fn run_scoped_parallel<I, T, O, S, F>(
             let worker_should_stop = &should_stop;
             let worker_run_item = &run_item;
             worker_handles.push(scope.spawn(move || {
-                run_scoped_worker(worker_receiver, worker_should_stop, worker_run_item);
+                run_scoped_worker(
+                    worker_receiver,
+                    worker_should_stop,
+                    worker_run_item,
+                );
             }));
         }
         drop(work_receiver);
@@ -195,8 +201,10 @@ fn run_scoped_worker<T, S, F>(
 }
 
 /// Runs accepted work until the token channel closes.
-fn run_scoped_task_worker<W, F>(work_receiver: Arc<Mutex<mpsc::Receiver<W>>>, run_item: &F)
-where
+fn run_scoped_task_worker<W, F>(
+    work_receiver: Arc<Mutex<mpsc::Receiver<W>>>,
+    run_item: &F,
+) where
     F: Fn(W),
 {
     loop {

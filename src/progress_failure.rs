@@ -7,9 +7,12 @@
 // =============================================================================
 //! Progress failures normalized for batch APIs.
 
-use qubit_progress::{
-    AutoReporterError, CompletionError, EmissionError, FinishError, StartError, TerminalError,
-};
+use qubit_progress::AutoReporterError;
+use qubit_progress::CompletionError;
+use qubit_progress::EmissionError;
+use qubit_progress::FinishError;
+use qubit_progress::StartError;
+use qubit_progress::TerminalError;
 use thiserror::Error;
 
 /// Progress failure observed by a batch executor or processor.
@@ -77,9 +80,10 @@ impl ProgressFailure {
     pub fn elapsed(&self) -> Option<std::time::Duration> {
         match self {
             Self::Terminal(error) => Some(error.elapsed()),
-            Self::Start(_) | Self::Emission(_) | Self::AutoReporter(_) | Self::Completion(_) => {
-                None
-            }
+            Self::Start(_)
+            | Self::Emission(_)
+            | Self::AutoReporter(_)
+            | Self::Completion(_) => None,
         }
     }
 }

@@ -14,10 +14,13 @@ mod test_chunk_processor;
 mod test_task;
 
 pub use failing_progress_reporter::FailingReporter;
-pub use progress_reporter::{
-    PanickingReporter, PhaseRecordingReporter, ProgressEvent, ProgressPanicPhase,
-    RecordingReporter, panic_payload_message,
-};
+pub use progress_reporter::PanickingReporter;
+pub use progress_reporter::PhaseRecordingReporter;
+pub use progress_reporter::ProgressEvent;
+pub use progress_reporter::ProgressPanicPhase;
+pub use progress_reporter::RecordingReporter;
+pub use progress_reporter::panic_payload_message;
 pub use test_callable::TestCallable;
-pub use test_chunk_processor::{TestChunkOutcome, TestChunkProcessor};
+pub use test_chunk_processor::TestChunkOutcome;
+pub use test_chunk_processor::TestChunkProcessor;
 pub use test_task::TestTask;

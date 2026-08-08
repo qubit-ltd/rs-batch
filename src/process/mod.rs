@@ -20,13 +20,15 @@ pub use batch_process_error::BatchProcessError;
 pub use batch_process_result::BatchProcessResult;
 pub use batch_process_result_build_error::BatchProcessResultBuildError;
 pub use batch_process_result_builder::BatchProcessResultBuilder;
-pub(crate) use batch_process_state::{
-    BatchProcessState, PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME,
-};
+pub(crate) use batch_process_state::BatchProcessState;
+pub(crate) use batch_process_state::PROCESS_PROGRESS_METRIC_ID;
+pub(crate) use batch_process_state::PROCESS_PROGRESS_METRIC_NAME;
 pub use batch_processor::BatchProcessor;
 pub use chunked_batch_process_error::ChunkedBatchProcessError;
-pub use impls::{
-    ChunkedBatchProcessor, ChunkedBatchProcessorBuilder, ParallelBatchProcessor,
-    ParallelBatchProcessorBuildError, ParallelBatchProcessorBuilder, SequentialBatchProcessor,
-    SequentialBatchProcessorBuilder,
-};
+pub use impls::ChunkedBatchProcessor;
+pub use impls::ChunkedBatchProcessorBuilder;
+pub use impls::ParallelBatchProcessor;
+pub use impls::ParallelBatchProcessorBuildError;
+pub use impls::ParallelBatchProcessorBuilder;
+pub use impls::SequentialBatchProcessor;
+pub use impls::SequentialBatchProcessorBuilder;

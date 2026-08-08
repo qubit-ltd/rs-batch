@@ -23,9 +23,10 @@ const PARALLEL_BATCH_PROCESSOR: &str =
 /// Ensures README dependency snippets use the same major.minor line as
 /// `[package] version`.
 fn test_readme_dependency_version_matches_cargo_toml() {
-    let cargo_version =
-        extract_package_version(CARGO_TOML).expect("Failed to extract version from Cargo.toml");
-    let expected = minor_series(cargo_version).expect("Cargo.toml version must have major.minor");
+    let cargo_version = extract_package_version(CARGO_TOML)
+        .expect("Failed to extract version from Cargo.toml");
+    let expected = minor_series(cargo_version)
+        .expect("Cargo.toml version must have major.minor");
     let readme_en_version = extract_readme_dependency_version(README_EN)
         .expect("Failed to extract version from README.md");
     let readme_zh_version = extract_readme_dependency_version(README_ZH)
@@ -44,7 +45,8 @@ fn test_readme_mentions_current_executor_types() {
 }
 
 #[test]
-/// Ensures license and repository links use the package-local documentation paths.
+/// Ensures license and repository links use the package-local documentation
+/// paths.
 fn test_readmes_use_local_license_and_repository_links() {
     for readme in [README_EN, README_ZH] {
         assert!(readme.contains("license-Apache%202.0-blue.svg)](LICENSE)"));
@@ -60,12 +62,17 @@ fn test_readmes_use_local_license_and_repository_links() {
 #[test]
 /// Ensures parallel implementations use the shared scoped progress guard.
 fn test_parallel_progress_reporting_uses_scoped_progress_guard() {
-    assert!(PARALLEL_BATCH_EXECUTION_COORDINATOR.contains("spawn_auto_reporter"));
+    assert!(
+        PARALLEL_BATCH_EXECUTION_COORDINATOR.contains("spawn_auto_reporter")
+    );
     assert!(
         PARALLEL_BATCH_EXECUTOR.contains("coordinator")
             && PARALLEL_BATCH_EXECUTOR.contains(".execute")
     );
-    assert!(PARALLEL_BATCH_EXECUTOR_BUILDER.contains("ParallelBatchExecutionCoordinator::new"));
+    assert!(
+        PARALLEL_BATCH_EXECUTOR_BUILDER
+            .contains("ParallelBatchExecutionCoordinator::new")
+    );
     assert!(PARALLEL_BATCH_PROCESSOR.contains("spawn_auto_reporter"));
     assert!(!PARALLEL_BATCH_EXECUTOR.contains("RunningProgressLoop"));
     assert!(!PARALLEL_BATCH_PROCESSOR.contains("RunningProgressLoop"));

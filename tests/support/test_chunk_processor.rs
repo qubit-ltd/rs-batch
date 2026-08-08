@@ -7,12 +7,12 @@
 // =============================================================================
 //! Shared test processor for chunked batch processing.
 
-use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex},
-};
+use std::collections::VecDeque;
+use std::sync::Arc;
+use std::sync::Mutex;
 
-use qubit_batch::{BatchProcessResult, BatchProcessor};
+use qubit_batch::BatchProcessResult;
+use qubit_batch::BatchProcessor;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TestChunkOutcome {
