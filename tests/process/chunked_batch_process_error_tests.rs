@@ -6,8 +6,10 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use qubit_batch::{BatchProcessResult, ChunkedBatchProcessError};
 use std::time::Duration;
+
+use qubit_batch::BatchProcessResult;
+use qubit_batch::ChunkedBatchProcessError;
 
 #[test]
 fn test_chunked_batch_process_error_result_accessors() {

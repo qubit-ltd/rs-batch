@@ -9,7 +9,9 @@
 use std::num::NonZeroUsize;
 use std::time::Duration;
 
-use qubit_batch::{BatchProcessor, ChunkedBatchProcessor, SequentialBatchProcessor};
+use qubit_batch::BatchProcessor;
+use qubit_batch::ChunkedBatchProcessor;
+use qubit_batch::SequentialBatchProcessor;
 
 use crate::support::TestChunkProcessor;
 
