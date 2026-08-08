@@ -7,9 +7,14 @@
 // =============================================================================
 //! Test progress reporters and panic payload helpers.
 
-use std::{any::Any, panic::panic_any, sync::Mutex};
+use std::any::Any;
+use std::panic::panic_any;
+use std::sync::Mutex;
 
-use qubit_progress::{Event as QubitProgressEvent, Phase, Reporter, ReporterError};
+use qubit_progress::Event as QubitProgressEvent;
+use qubit_progress::Phase;
+use qubit_progress::Reporter;
+use qubit_progress::ReporterError;
 
 /// Progress callback that should panic during a test.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -135,7 +140,9 @@ impl Reporter for RecordingReporter {
             .metrics()
             .first()
             .expect("batch progress event should contain one counter");
-        let total_count = progress_count_to_usize(counter.total().unwrap_or(counter.completed()));
+        let total_count = progress_count_to_usize(
+            counter.total().unwrap_or(counter.completed()),
+        );
         let recorded = match event.phase() {
             Phase::Started => ProgressEvent::Start { total_count },
             Phase::Running => ProgressEvent::Process {
@@ -143,10 +150,14 @@ impl Reporter for RecordingReporter {
                 active_count: progress_count_to_usize(counter.active()),
                 completed_count: progress_count_to_usize(counter.completed()),
             },
-            Phase::Succeeded | Phase::Failed | Phase::Cancelled => ProgressEvent::Finish {
-                total_count,
-                completed_count: progress_count_to_usize(counter.completed()),
-            },
+            Phase::Succeeded | Phase::Failed | Phase::Cancelled => {
+                ProgressEvent::Finish {
+                    total_count,
+                    completed_count: progress_count_to_usize(
+                        counter.completed(),
+                    ),
+                }
+            }
         };
         self.events
             .lock()
@@ -212,8 +223,12 @@ impl PanickingReporter {
 impl Reporter for PanickingReporter {
     fn report(&self, event: &QubitProgressEvent) -> Result<(), ReporterError> {
         match event.phase() {
-            Phase::Started => self.panic_if_configured(ProgressPanicPhase::Start),
-            Phase::Running => self.panic_if_configured(ProgressPanicPhase::Process),
+            Phase::Started => {
+                self.panic_if_configured(ProgressPanicPhase::Start)
+            }
+            Phase::Running => {
+                self.panic_if_configured(ProgressPanicPhase::Process)
+            }
             Phase::Succeeded | Phase::Failed | Phase::Cancelled => {
                 self.panic_if_configured(ProgressPanicPhase::Finish);
             }

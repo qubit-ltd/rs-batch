@@ -11,10 +11,16 @@ use std::error::Error;
 use std::time::Duration;
 
 use qubit_batch::ProgressFailure;
-use qubit_progress::{
-    AutoReporterError, CompletionError, EmissionError, Event, FinishError, Metric, Progress,
-    Reporter, ReporterError, StartError,
-};
+use qubit_progress::AutoReporterError;
+use qubit_progress::CompletionError;
+use qubit_progress::EmissionError;
+use qubit_progress::Event;
+use qubit_progress::FinishError;
+use qubit_progress::Metric;
+use qubit_progress::Progress;
+use qubit_progress::Reporter;
+use qubit_progress::ReporterError;
+use qubit_progress::StartError;
 
 #[derive(Debug)]
 struct TerminalFailingReporter {
@@ -67,13 +73,14 @@ fn test_progress_failure_converts_auto_reporter_error() {
 
 #[test]
 fn test_progress_failure_from_finish_error_maps_completion_and_terminal() {
-    let incomplete = ProgressFailure::from_finish_error(FinishError::Incomplete {
-        elapsed: Duration::ZERO,
-        source: CompletionError::ActiveWork {
-            metric_id: "tasks".into(),
-            active: 1,
-        },
-    });
+    let incomplete =
+        ProgressFailure::from_finish_error(FinishError::Incomplete {
+            elapsed: Duration::ZERO,
+            source: CompletionError::ActiveWork {
+                metric_id: "tasks".into(),
+                active: 1,
+            },
+        });
     assert!(matches!(incomplete, ProgressFailure::Completion(_)));
 
     let terminal_error = Progress::builder(&TerminalFailingReporter::new())

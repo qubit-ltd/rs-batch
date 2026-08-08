@@ -7,7 +7,9 @@
 // =============================================================================
 //! Configurable runnable tasks for executor tests.
 
-use std::{panic::panic_any, thread, time::Duration};
+use std::panic::panic_any;
+use std::thread;
+use std::time::Duration;
 
 use qubit_atomic::ArcAtomicCount;
 use qubit_function::Runnable;

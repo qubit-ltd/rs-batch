@@ -9,11 +9,16 @@
 
 use std::hint::black_box;
 
-use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use qubit_batch::{
-    BatchExecutor, BatchProcessor, ParallelBatchExecutor, ParallelBatchProcessor,
-    SequentialBatchExecutor, SequentialBatchProcessor,
-};
+use criterion::BenchmarkId;
+use criterion::Criterion;
+use criterion::criterion_group;
+use criterion::criterion_main;
+use qubit_batch::BatchExecutor;
+use qubit_batch::BatchProcessor;
+use qubit_batch::ParallelBatchExecutor;
+use qubit_batch::ParallelBatchProcessor;
+use qubit_batch::SequentialBatchExecutor;
+use qubit_batch::SequentialBatchProcessor;
 use qubit_function::Runnable;
 
 /// Batch sizes around the default sequential execution threshold.
@@ -88,7 +93,10 @@ fn benchmark_no_op_execution(criterion: &mut Criterion) {
                 bencher.iter(|| {
                     let _ = black_box(
                         sequential
-                            .execute_with_count((0..task_count).map(|_| NoOpTask), task_count)
+                            .execute_with_count(
+                                (0..task_count).map(|_| NoOpTask),
+                                task_count,
+                            )
                             .expect("no-op batch should succeed"),
                     );
                 });
@@ -101,7 +109,10 @@ fn benchmark_no_op_execution(criterion: &mut Criterion) {
                 bencher.iter(|| {
                     let _ = black_box(
                         parallel
-                            .execute_with_count((0..task_count).map(|_| NoOpTask), task_count)
+                            .execute_with_count(
+                                (0..task_count).map(|_| NoOpTask),
+                                task_count,
+                            )
                             .expect("no-op batch should succeed"),
                     );
                 });
@@ -134,7 +145,8 @@ fn benchmark_cpu_execution(criterion: &mut Criterion) {
                     let _ = black_box(
                         sequential
                             .execute_with_count(
-                                (0..task_count).map(|seed| CpuTask { seed: seed as u64 }),
+                                (0..task_count)
+                                    .map(|seed| CpuTask { seed: seed as u64 }),
                                 task_count,
                             )
                             .expect("CPU batch should succeed"),
@@ -150,7 +162,8 @@ fn benchmark_cpu_execution(criterion: &mut Criterion) {
                     let _ = black_box(
                         parallel
                             .execute_with_count(
-                                (0..task_count).map(|seed| CpuTask { seed: seed as u64 }),
+                                (0..task_count)
+                                    .map(|seed| CpuTask { seed: seed as u64 }),
                                 task_count,
                             )
                             .expect("CPU batch should succeed"),
@@ -226,7 +239,10 @@ fn benchmark_item_processing(criterion: &mut Criterion) {
             |bencher, &task_count| {
                 bencher.iter(|| {
                     let result = sequential
-                        .process_with_count((0..task_count).map(|value| value as u64), task_count)
+                        .process_with_count(
+                            (0..task_count).map(|value| value as u64),
+                            task_count,
+                        )
                         .expect("sequential batch should succeed");
                     let _ = black_box(result);
                 });
@@ -238,7 +254,10 @@ fn benchmark_item_processing(criterion: &mut Criterion) {
             |bencher, &task_count| {
                 bencher.iter(|| {
                     let result = parallel
-                        .process_with_count((0..task_count).map(|value| value as u64), task_count)
+                        .process_with_count(
+                            (0..task_count).map(|value| value as u64),
+                            task_count,
+                        )
                         .expect("parallel batch should succeed");
                     let _ = black_box(result);
                 });
