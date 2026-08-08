@@ -205,7 +205,7 @@ fn test_batch_execution_error_accessors() {
         .succeeded_count(1)
         .build()
         .expect("outcome should be valid");
-    let shortfall = BatchExecutionError::CountShortfall {
+    let shortfall: BatchExecutionError<_, std::convert::Infallible> = BatchExecutionError::CountShortfall {
         expected: 2,
         actual: 1,
         outcome: outcome.clone(),
@@ -220,7 +220,7 @@ fn test_batch_execution_error_accessors() {
     );
     assert_eq!(shortfall.into_outcome(), outcome.clone());
 
-    let exceeded = BatchExecutionError::CountExceeded {
+    let exceeded: BatchExecutionError<_, std::convert::Infallible> = BatchExecutionError::CountExceeded {
         expected: 2,
         observed_at_least: 3,
         outcome,

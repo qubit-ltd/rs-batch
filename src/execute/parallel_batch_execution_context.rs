@@ -62,7 +62,7 @@ impl<E> ParallelBatchExecutionContext<E> {
     /// stop accepting work.
     #[inline]
     pub fn accept_task<T>(&self, task: T) -> Option<ParallelBatchTask<T>> {
-        if self.status.is_failed() {
+        if self.status.is_failed() || self.state.should_stop_accepting() {
             return None;
         }
         let observed_count = self.state.record_task_observed();
@@ -90,9 +90,6 @@ impl<E> ParallelBatchExecutionContext<E> {
     where
         T: Runnable<E>,
     {
-        if self.status.is_failed() {
-            return;
-        }
         let (index, task) = task.into_parts();
         self.state.execute_task(index, task).expect(
             "accepted parallel batch task must have valid progress transitions",
