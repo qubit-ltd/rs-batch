@@ -66,11 +66,7 @@ impl<E> BatchExecutionState<E> {
     ///
     /// Empty execution state.
     #[inline]
-    pub(crate) fn new(
-        task_count: usize,
-        metric: MetricHandle,
-        task_failure_policy: TaskFailurePolicy,
-    ) -> Self {
+    pub(crate) fn new(task_count: usize, metric: MetricHandle, task_failure_policy: TaskFailurePolicy) -> Self {
         Self {
             task_count,
             observed_count: AtomicCount::zero(),
@@ -101,11 +97,7 @@ impl<E> BatchExecutionState<E> {
     ///
     /// Returns a metric error when a progress lifecycle transition is rejected.
     #[inline]
-    pub(crate) fn execute_task<T>(
-        &self,
-        index: usize,
-        mut task: T,
-    ) -> Result<TaskExecutionStatus, MetricError>
+    pub(crate) fn execute_task<T>(&self, index: usize, mut task: T) -> Result<TaskExecutionStatus, MetricError>
     where
         T: Runnable<E>,
     {
@@ -117,25 +109,18 @@ impl<E> BatchExecutionState<E> {
             }
             Ok(Err(error)) => {
                 self.metric.fail(1)?;
-                Self::lock_failures(&self.failures).push(
-                    BatchTaskFailure::new(index, BatchTaskError::Failed(error)),
-                );
+                Self::lock_failures(&self.failures).push(BatchTaskFailure::new(index, BatchTaskError::Failed(error)));
                 TaskExecutionStatus::Failed
             }
             Err(payload) => {
                 self.metric.fail(1)?;
-                Self::lock_failures(&self.failures).push(
-                    BatchTaskFailure::new(
-                        index,
-                        panic_payload_to_error(payload.as_ref()),
-                    ),
-                );
+                Self::lock_failures(&self.failures)
+                    .push(BatchTaskFailure::new(index, panic_payload_to_error(payload.as_ref())));
                 TaskExecutionStatus::Failed
             }
         };
         if status == TaskExecutionStatus::Failed {
-            let failures =
-                self.failure_count_atomic.fetch_add(1, Ordering::AcqRel) + 1;
+            let failures = self.failure_count_atomic.fetch_add(1, Ordering::AcqRel) + 1;
             if self.task_failure_policy.should_stop(failures) {
                 self.stop_accepting.store(true, Ordering::Release);
             }
@@ -265,10 +250,7 @@ impl<E> BatchExecutionState<E> {
             .failures
             .into_inner()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let failed_count = failures
-            .iter()
-            .filter(|failure| failure.error().is_failed())
-            .count();
+        let failed_count = failures.iter().filter(|failure| failure.error().is_failed()).count();
         let panicked_count = failures.len() - failed_count;
         BatchOutcomeBuilder::builder(self.task_count)
             .completed_count(snapshot.completed() as usize)
@@ -290,11 +272,7 @@ impl<E> BatchExecutionState<E> {
     /// # Returns
     ///
     /// A guard for the failure list.
-    fn lock_failures(
-        failures: &Mutex<Vec<BatchTaskFailure<E>>>,
-    ) -> MutexGuard<'_, Vec<BatchTaskFailure<E>>> {
-        failures
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    fn lock_failures(failures: &Mutex<Vec<BatchTaskFailure<E>>>) -> MutexGuard<'_, Vec<BatchTaskFailure<E>>> {
+        failures.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 }

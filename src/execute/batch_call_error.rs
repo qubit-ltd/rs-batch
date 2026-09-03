@@ -63,10 +63,7 @@ where
     ///
     /// A callable error preserving both execution metadata and sparse outputs.
     #[inline]
-    pub(crate) fn new(
-        source: BatchExecutionError<E, S>,
-        outputs: Vec<BatchCallOutput<R>>,
-    ) -> Self {
+    pub(crate) fn new(source: BatchExecutionError<E, S>, outputs: Vec<BatchCallOutput<R>>) -> Self {
         Self {
             source: Box::new(source),
             outputs,
@@ -109,9 +106,7 @@ where
 
     /// Consumes this error and returns both preserved parts.
     #[inline]
-    pub fn into_parts(
-        self,
-    ) -> (BatchExecutionError<E, S>, Vec<BatchCallOutput<R>>) {
+    pub fn into_parts(self) -> (BatchExecutionError<E, S>, Vec<BatchCallOutput<R>>) {
         (*self.source, self.outputs)
     }
 }

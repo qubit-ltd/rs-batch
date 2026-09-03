@@ -91,9 +91,9 @@ impl<E> ParallelBatchExecutionContext<E> {
         T: Runnable<E>,
     {
         let (index, task) = task.into_parts();
-        self.state.execute_task(index, task).expect(
-            "accepted parallel batch task must have valid progress transitions",
-        );
+        self.state
+            .execute_task(index, task)
+            .expect("accepted parallel batch task must have valid progress transitions");
         self.notifier.notify();
     }
 }

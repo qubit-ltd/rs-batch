@@ -44,8 +44,7 @@ fn test_sequential_batch_executor_returns_progress_report_error() {
 }
 
 #[test]
-fn test_sequential_batch_executor_preserves_count_error_when_failure_report_fails()
- {
+fn test_sequential_batch_executor_preserves_count_error_when_failure_report_fails() {
     let executor = SequentialBatchExecutor::builder()
         .reporter(FailingReporter::after_successes(1))
         .build();
@@ -94,9 +93,7 @@ fn test_sequential_batch_executor_executes_successfully() {
 fn test_sequential_batch_executor_runs_non_send_local_tasks() {
     let executor = SequentialBatchExecutor::new();
     let counter = Rc::new(RefCell::new(0));
-    let tasks = (0..3)
-        .map(|_| LocalTask(Rc::clone(&counter)))
-        .collect::<Vec<_>>();
+    let tasks = (0..3).map(|_| LocalTask(Rc::clone(&counter))).collect::<Vec<_>>();
 
     let result = executor
         .execute_with_count(tasks, 3)
@@ -127,10 +124,7 @@ fn test_sequential_batch_executor_runs_non_send_for_each_action() {
 fn test_sequential_batch_executor_calls_non_send_local_callables() {
     let executor = SequentialBatchExecutor::new();
     let prefix = Rc::new(String::from("local"));
-    let callables = vec![
-        LocalCallable(Rc::clone(&prefix)),
-        LocalCallable(Rc::clone(&prefix)),
-    ];
+    let callables = vec![LocalCallable(Rc::clone(&prefix)), LocalCallable(Rc::clone(&prefix))];
 
     let result = executor
         .call_with_count(callables, 2)
@@ -142,10 +136,7 @@ fn test_sequential_batch_executor_calls_non_send_local_callables() {
             .into_iter()
             .map(|output| output.into_value())
             .collect::<Vec<_>>(),
-        vec![
-            Rc::new(String::from("local")),
-            Rc::new(String::from("local"))
-        ]
+        vec![Rc::new(String::from("local")), Rc::new(String::from("local"))]
     );
 }
 
@@ -166,8 +157,7 @@ fn test_sequential_batch_executor_accessors_and_value_reporter() {
         .reporter(RecordingReporter::new())
         .report_interval(Duration::from_millis(25))
         .build();
-    let no_reporter_executor =
-        SequentialBatchExecutor::builder().no_reporter().build();
+    let no_reporter_executor = SequentialBatchExecutor::builder().no_reporter().build();
 
     assert_eq!(executor.report_interval(), Duration::from_millis(25));
     assert!(Arc::strong_count(executor.reporter()) >= 1);
@@ -201,8 +191,7 @@ fn test_sequential_batch_executor_reports_start_failure() {
 }
 
 #[test]
-fn test_sequential_batch_executor_preserves_count_exceeded_when_failure_report_fails()
- {
+fn test_sequential_batch_executor_preserves_count_exceeded_when_failure_report_fails() {
     let executor = SequentialBatchExecutor::builder()
         .reporter(FailingReporter::after_successes(1))
         .build();
@@ -354,10 +343,7 @@ fn test_sequential_batch_executor_reports_progress() {
     let events = reporter.events();
 
     assert_eq!(result.completed_count(), 3);
-    assert!(matches!(
-        events.first(),
-        Some(ProgressEvent::Start { total_count: 3 })
-    ));
+    assert!(matches!(events.first(), Some(ProgressEvent::Start { total_count: 3 })));
     assert!(events.iter().any(|event| matches!(
         event,
         ProgressEvent::Process {
@@ -403,17 +389,12 @@ fn test_sequential_batch_executor_reports_progress_with_zero_interval() {
 fn test_sequential_batch_executor_propagates_progress_reporter_start_panic() {
     const PANIC_MESSAGE: &str = "progress reporter start panic";
     let executor = SequentialBatchExecutor::builder()
-        .reporter(PanickingReporter::new(
-            ProgressPanicPhase::Start,
-            PANIC_MESSAGE,
-        ))
+        .reporter(PanickingReporter::new(ProgressPanicPhase::Start, PANIC_MESSAGE))
         .build();
     let tasks = vec![TestTask::succeed()];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| {
-        executor.execute_with_count(tasks, 1)
-    }))
-    .expect_err("progress reporter start panic should be propagated");
+    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
+        .expect_err("progress reporter start panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }
@@ -422,18 +403,13 @@ fn test_sequential_batch_executor_propagates_progress_reporter_start_panic() {
 fn test_sequential_batch_executor_propagates_progress_reporter_process_panic() {
     const PANIC_MESSAGE: &str = "progress reporter process panic";
     let executor = SequentialBatchExecutor::builder()
-        .reporter(PanickingReporter::new(
-            ProgressPanicPhase::Process,
-            PANIC_MESSAGE,
-        ))
+        .reporter(PanickingReporter::new(ProgressPanicPhase::Process, PANIC_MESSAGE))
         .report_interval(Duration::from_nanos(1))
         .build();
     let tasks = vec![TestTask::sleep_success(Duration::from_millis(1))];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| {
-        executor.execute_with_count(tasks, 1)
-    }))
-    .expect_err("progress reporter process panic should be propagated");
+    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
+        .expect_err("progress reporter process panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }
@@ -442,17 +418,12 @@ fn test_sequential_batch_executor_propagates_progress_reporter_process_panic() {
 fn test_sequential_batch_executor_propagates_progress_reporter_finish_panic() {
     const PANIC_MESSAGE: &str = "progress reporter finish panic";
     let executor = SequentialBatchExecutor::builder()
-        .reporter(PanickingReporter::new(
-            ProgressPanicPhase::Finish,
-            PANIC_MESSAGE,
-        ))
+        .reporter(PanickingReporter::new(ProgressPanicPhase::Finish, PANIC_MESSAGE))
         .build();
     let tasks = vec![TestTask::succeed()];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| {
-        executor.execute_with_count(tasks, 1)
-    }))
-    .expect_err("progress reporter finish panic should be propagated");
+    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
+        .expect_err("progress reporter finish panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }

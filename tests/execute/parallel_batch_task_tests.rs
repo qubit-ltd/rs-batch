@@ -18,10 +18,7 @@ use crate::support::TestTask;
 
 #[test]
 fn test_parallel_batch_task_is_created_and_consumed_by_context() {
-    let coordinator = ParallelBatchExecutionCoordinator::new(
-        Arc::new(NoopReporter),
-        std::time::Duration::ZERO,
-    );
+    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), std::time::Duration::ZERO);
     let outcome = coordinator
         .execute(
             [TestTask::succeed()],
@@ -29,8 +26,7 @@ fn test_parallel_batch_task_is_created_and_consumed_by_context() {
             TaskFailurePolicy::Continue,
             |tasks, context| {
                 for task in tasks {
-                    let token: Option<ParallelBatchTask<_>> =
-                        context.accept_task(task);
+                    let token: Option<ParallelBatchTask<_>> = context.accept_task(task);
                     if let Some(token) = token {
                         context.execute_task(token);
                     }

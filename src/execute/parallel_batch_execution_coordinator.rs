@@ -115,35 +115,24 @@ impl ParallelBatchExecutionCoordinator {
         S: std::error::Error + Send + Sync + 'static,
         Schedule: FnOnce(I, &ParallelBatchExecutionContext<E>) -> Result<(), S>,
     {
-        let mut progress =
-            match Progress::builder_arc(Arc::clone(&self.reporter))
-                .interval(self.report_interval)
-                .metric(
-                    Metric::new(
-                        EXECUTION_PROGRESS_METRIC_ID,
-                        EXECUTION_PROGRESS_METRIC_NAME,
-                    )
-                    .total(count as u64),
-                )
-                .start()
-            {
-                Ok(progress) => progress,
-                Err(source) => {
-                    return Err(BatchExecutionError::ProgressReport {
-                        source: Box::new(ProgressFailure::from(source)),
-                        outcome: Self::empty_outcome(count),
-                    });
-                }
-            };
+        let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
+            .interval(self.report_interval)
+            .metric(Metric::new(EXECUTION_PROGRESS_METRIC_ID, EXECUTION_PROGRESS_METRIC_NAME).total(count as u64))
+            .start()
+        {
+            Ok(progress) => progress,
+            Err(source) => {
+                return Err(BatchExecutionError::ProgressReport {
+                    source: Box::new(ProgressFailure::from(source)),
+                    outcome: Self::empty_outcome(count),
+                });
+            }
+        };
 
         let metric = progress
             .metric(EXECUTION_PROGRESS_METRIC_ID)
             .expect("configured execution metric must exist");
-        let state = Arc::new(BatchExecutionState::new(
-            count,
-            metric,
-            task_failure_policy,
-        ));
+        let state = Arc::new(BatchExecutionState::new(count, metric, task_failure_policy));
 
         let stop_result = thread::scope(|scope| {
             let running_progress = progress.spawn_auto_reporter(scope);
@@ -165,23 +154,12 @@ impl ParallelBatchExecutionCoordinator {
                 stop_result,
             )
         });
-        let state = Arc::into_inner(state).expect(
-            "parallel batch execution state should have a single owner",
-        );
-        let (
-            schedule_result,
-            observed_count,
-            accepted_count,
-            completed_count,
-            stop_result,
-        ) = stop_result;
+        let state = Arc::into_inner(state).expect("parallel batch execution state should have a single owner");
+        let (schedule_result, observed_count, accepted_count, completed_count, stop_result) = stop_result;
         if let Err(source) = schedule_result {
             let (elapsed, report_error) = match stop_result {
                 Ok(()) => Self::fail_progress(progress),
-                Err(report_source) => (
-                    progress.elapsed(),
-                    Some(Box::new(ProgressFailure::from(report_source))),
-                ),
+                Err(report_source) => (progress.elapsed(), Some(Box::new(ProgressFailure::from(report_source)))),
             };
             return Err(BatchExecutionError::ScheduleFailed {
                 source,
@@ -196,14 +174,7 @@ impl ParallelBatchExecutionCoordinator {
             });
         }
 
-        Self::finish(
-            progress,
-            state,
-            count,
-            observed_count,
-            accepted_count,
-            completed_count,
-        )
+        Self::finish(progress, state, count, observed_count, accepted_count, completed_count)
     }
 
     /// Returns a zero-completion outcome for immediate setup failures.
@@ -241,10 +212,9 @@ impl ParallelBatchExecutionCoordinator {
                     });
                 }
             };
-            return Ok(state.into_outcome_with_termination(
-                elapsed,
-                crate::BatchTermination::StoppedByTaskFailurePolicy,
-            ));
+            return Ok(
+                state.into_outcome_with_termination(elapsed, crate::BatchTermination::StoppedByTaskFailurePolicy)
+            );
         }
         if completed_count < accepted_count {
             let (elapsed, report_error) = Self::fail_progress(progress);
@@ -277,37 +247,30 @@ impl ParallelBatchExecutionCoordinator {
         }
 
         let terminal = if state.failure_count() > 0 {
-            progress.fail().map_err(|source| {
-                (source.elapsed(), ProgressFailure::from(source))
-            })
+            progress
+                .fail()
+                .map_err(|source| (source.elapsed(), ProgressFailure::from(source)))
         } else {
-            progress.finish().map_err(|source| {
-                (source.elapsed(), ProgressFailure::from_finish_error(source))
-            })
+            progress
+                .finish()
+                .map_err(|source| (source.elapsed(), ProgressFailure::from_finish_error(source)))
         };
 
         match terminal {
             Ok(elapsed) => Ok(state.into_outcome(elapsed)),
-            Err((elapsed, source)) => {
-                Err(BatchExecutionError::ProgressReport {
-                    source: Box::new(source),
-                    outcome: state.into_outcome(elapsed),
-                })
-            }
+            Err((elapsed, source)) => Err(BatchExecutionError::ProgressReport {
+                source: Box::new(source),
+                outcome: state.into_outcome(elapsed),
+            }),
         }
     }
 
     /// Reports a failed terminal phase and returns elapsed with secondary
     /// error.
-    fn fail_progress(
-        progress: Progress<'_>,
-    ) -> (Duration, Option<Box<ProgressFailure>>) {
+    fn fail_progress(progress: Progress<'_>) -> (Duration, Option<Box<ProgressFailure>>) {
         match progress.fail() {
             Ok(elapsed) => (elapsed, None),
-            Err(source) => (
-                source.elapsed(),
-                Some(Box::new(ProgressFailure::from(source))),
-            ),
+            Err(source) => (source.elapsed(), Some(Box::new(ProgressFailure::from(source)))),
         }
     }
 }

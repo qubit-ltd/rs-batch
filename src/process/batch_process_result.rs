@@ -142,8 +142,7 @@ impl BatchProcessResult {
     /// `true` when every declared item completed and was reported as processed.
     #[inline]
     pub const fn is_success(&self) -> bool {
-        self.completed_count == self.item_count
-            && self.processed_count == self.item_count
+        self.completed_count == self.item_count && self.processed_count == self.item_count
     }
 }
 
@@ -161,10 +160,7 @@ impl fmt::Display for BatchProcessResult {
         write!(
             f,
             "processed {}/{} items in {} chunks ({:?})",
-            self.processed_count,
-            self.item_count,
-            self.chunk_count,
-            self.elapsed
+            self.processed_count, self.item_count, self.chunk_count, self.elapsed
         )
     }
 }

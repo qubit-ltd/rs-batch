@@ -44,9 +44,7 @@ fn test_sequential_batch_executor_for_each_with_count_reports_mismatches() {
         .expect_err("explicit count mismatch should be reported");
 
     match error {
-        BatchExecutionError::CountShortfall {
-            expected, actual, ..
-        } => {
+        BatchExecutionError::CountShortfall { expected, actual, .. } => {
             assert_eq!(expected, 3);
             assert_eq!(actual, 2);
         }

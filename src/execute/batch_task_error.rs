@@ -116,9 +116,7 @@ impl<E> BatchTaskError<E> {
     pub fn panic_message(&self) -> Option<&str> {
         match self {
             Self::Failed(_) | Self::Panicked { message: None } => None,
-            Self::Panicked {
-                message: Some(message),
-            } => Some(message.as_str()),
+            Self::Panicked { message: Some(message) } => Some(message.as_str()),
         }
     }
 }
@@ -140,9 +138,7 @@ where
         match self {
             Self::Failed(error) => write!(f, "task failed: {error}"),
             Self::Panicked { message: None } => f.write_str("task panicked"),
-            Self::Panicked {
-                message: Some(message),
-            } => write!(f, "task panicked: {message}"),
+            Self::Panicked { message: Some(message) } => write!(f, "task panicked: {message}"),
         }
     }
 }
@@ -176,9 +172,7 @@ where
 ///
 /// A panicked task error containing a string message when the payload carries
 /// one.
-pub(crate) fn panic_payload_to_error<E>(
-    payload: &(dyn Any + Send),
-) -> BatchTaskError<E> {
+pub(crate) fn panic_payload_to_error<E>(payload: &(dyn Any + Send)) -> BatchTaskError<E> {
     BatchTaskError::from_panic_payload(payload)
 }
 

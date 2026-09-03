@@ -76,9 +76,7 @@ pub enum ChunkedBatchProcessError<E> {
     },
 
     /// The input source yielded more items than the declared item count.
-    #[error(
-        "batch item count exceeded: expected {expected}, observed at least {observed_at_least}"
-    )]
+    #[error("batch item count exceeded: expected {expected}, observed at least {observed_at_least}")]
     CountExceeded {
         /// Declared item count.
         expected: usize,
@@ -91,9 +89,7 @@ pub enum ChunkedBatchProcessError<E> {
     },
 
     /// The delegate processor failed while processing one chunk.
-    #[error(
-        "batch chunk {chunk_index} failed at item {start_index} with {chunk_len} items"
-    )]
+    #[error("batch chunk {chunk_index} failed at item {start_index} with {chunk_len} items")]
     ChunkFailed {
         /// Zero-based chunk index.
         chunk_index: usize,
@@ -182,9 +178,7 @@ impl<E> ChunkedBatchProcessError<E> {
             Self::CountShortfall { report_error, .. }
             | Self::CountExceeded { report_error, .. }
             | Self::ChunkFailed { report_error, .. }
-            | Self::InvalidChunkResult { report_error, .. } => {
-                report_error.as_ref()
-            }
+            | Self::InvalidChunkResult { report_error, .. } => report_error.as_ref(),
         }
     }
 }

@@ -68,8 +68,7 @@ impl<P> ChunkedBatchProcessorBuilder<P> {
         Self {
             delegate,
             chunk_size,
-            report_interval:
-                ChunkedBatchProcessor::<P>::DEFAULT_REPORT_INTERVAL,
+            report_interval: ChunkedBatchProcessor::<P>::DEFAULT_REPORT_INTERVAL,
             reporter: Arc::new(NoopReporter),
         }
     }

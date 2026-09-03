@@ -98,10 +98,7 @@ pub trait BatchExecutor: Send + Sync {
     /// callbacks invoked synchronously may panic; automatic reporter failures
     /// are returned as [`BatchExecutionError::ProgressReport`].
     /// Implementations must not return while an accepted task can still run.
-    fn execute<T, E, I>(
-        &self,
-        tasks: I,
-    ) -> Result<BatchOutcome<E>, BatchExecutionError<E, Self::SchedulerError>>
+    fn execute<T, E, I>(&self, tasks: I) -> Result<BatchOutcome<E>, BatchExecutionError<E, Self::SchedulerError>>
     where
         I: IntoIterator<Item = T>,
         I::IntoIter: ExactSizeIterator,
@@ -179,10 +176,7 @@ pub trait BatchExecutor: Send + Sync {
     /// Implementations must not return while an accepted callable can still
     /// run; the adapter collects outputs immediately after this method
     /// returns.
-    fn call<C, R, E, I>(
-        &self,
-        tasks: I,
-    ) -> Result<BatchCallResult<R, E>, BatchCallError<R, E, Self::SchedulerError>>
+    fn call<C, R, E, I>(&self, tasks: I) -> Result<BatchCallResult<R, E>, BatchCallError<R, E, Self::SchedulerError>>
     where
         I: IntoIterator<Item = C>,
         I::IntoIter: ExactSizeIterator,
@@ -239,9 +233,7 @@ pub trait BatchExecutor: Send + Sync {
         // still executed later by `CallableTask::run`.
         let runnable_tasks = tasks.into_iter().enumerate().map({
             let outputs = Arc::clone(&outputs);
-            move |(index, callable)| {
-                CallableTask::new(callable, index, Arc::clone(&outputs))
-            }
+            move |(index, callable)| CallableTask::new(callable, index, Arc::clone(&outputs))
         });
         let execution = self.execute_with_count(runnable_tasks, count);
         let outputs = collect_call_outputs(outputs);
@@ -336,14 +328,10 @@ pub trait BatchExecutor: Send + Sync {
 /// # Panics
 ///
 /// Panics if callable wrappers still hold references to `outputs`.
-pub(crate) fn collect_call_outputs<R>(
-    outputs: Arc<SegQueue<(usize, R)>>,
-) -> Vec<BatchCallOutput<R>> {
+pub(crate) fn collect_call_outputs<R>(outputs: Arc<SegQueue<(usize, R)>>) -> Vec<BatchCallOutput<R>> {
     let outputs = match Arc::try_unwrap(outputs) {
         Ok(outputs) => outputs,
-        Err(_) => panic!(
-            "callable output queue should have a single owner after execution"
-        ),
+        Err(_) => panic!("callable output queue should have a single owner after execution"),
     };
     let mut collected = Vec::new();
     while let Some((index, value)) = outputs.pop() {

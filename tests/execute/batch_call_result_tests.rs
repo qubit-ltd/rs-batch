@@ -11,17 +11,11 @@ fn test_batch_call_result_accessors_and_parts() {
         .completed_count(2)
         .succeeded_count(1)
         .panicked_count(1)
-        .failures(vec![BatchTaskFailure::new(
-            1,
-            BatchTaskError::panicked("panic"),
-        )])
+        .failures(vec![BatchTaskFailure::new(1, BatchTaskError::panicked("panic"))])
         .build()
         .expect("outcome should be valid");
-    let result = BatchCallResult::try_new(
-        outcome.clone(),
-        vec![BatchCallOutput::new(0, 10)],
-    )
-    .expect("sparse outputs should match the outcome");
+    let result = BatchCallResult::try_new(outcome.clone(), vec![BatchCallOutput::new(0, 10)])
+        .expect("sparse outputs should match the outcome");
 
     assert_eq!(result.outcome(), &outcome);
     assert_eq!(result.outputs()[0].value(), &10);
@@ -41,10 +35,7 @@ fn test_batch_call_result_rejects_output_for_uncompleted_task() {
         .expect("outcome should be valid");
 
     assert_eq!(
-        BatchCallResult::<usize, &'static str>::try_new(
-            outcome,
-            vec![BatchCallOutput::new(2, 10)],
-        ),
+        BatchCallResult::<usize, &'static str>::try_new(outcome, vec![BatchCallOutput::new(2, 10)],),
         Err(BatchCallResultBuildError::OutputIndexNotCompleted {
             index: 2,
             completed_count: 1,
@@ -66,10 +57,7 @@ fn test_batch_call_result_rejects_value_at_failed_callable_index() {
         .expect("outcome should be valid");
 
     assert_eq!(
-        BatchCallResult::try_new(
-            outcome,
-            vec![BatchCallOutput::new(0, 10), BatchCallOutput::new(1, 20)],
-        ),
+        BatchCallResult::try_new(outcome, vec![BatchCallOutput::new(0, 10), BatchCallOutput::new(1, 20)],),
         Err(BatchCallResultBuildError::FailureOutputPresent { index: 1 })
     );
 }
