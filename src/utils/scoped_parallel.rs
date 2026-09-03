@@ -60,10 +60,7 @@ pub(crate) fn run_scoped_parallel<I, T, O, S, F>(
     S: Fn() -> bool + Sync,
     F: Fn(usize, T) + Sync,
 {
-    assert!(
-        worker_count > 0,
-        "scoped parallel worker count must be positive"
-    );
+    assert!(worker_count > 0, "scoped parallel worker count must be positive");
     thread::scope(|scope| {
         let (work_sender, work_receiver) = mpsc::sync_channel(worker_count);
         let work_receiver = Arc::new(Mutex::new(work_receiver));
@@ -73,11 +70,7 @@ pub(crate) fn run_scoped_parallel<I, T, O, S, F>(
             let worker_should_stop = &should_stop;
             let worker_run_item = &run_item;
             worker_handles.push(scope.spawn(move || {
-                run_scoped_worker(
-                    worker_receiver,
-                    worker_should_stop,
-                    worker_run_item,
-                );
+                run_scoped_worker(worker_receiver, worker_should_stop, worker_run_item);
             }));
         }
         drop(work_receiver);
@@ -122,22 +115,15 @@ pub(crate) fn run_scoped_parallel<I, T, O, S, F>(
 /// * `accept_item` - Converts an item into an accepted work token, or returns
 ///   `None` to stop consuming the source.
 /// * `run_item` - Executes one accepted work token on a worker.
-pub(crate) fn run_scoped_parallel_tasks<I, T, W, A, F>(
-    items: I,
-    worker_count: usize,
-    accept_item: A,
-    run_item: F,
-) where
+pub(crate) fn run_scoped_parallel_tasks<I, T, W, A, F>(items: I, worker_count: usize, accept_item: A, run_item: F)
+where
     I: IntoIterator<Item = T>,
     T: Send,
     W: Send,
     A: Fn(T) -> Option<W>,
     F: Fn(W) + Sync,
 {
-    assert!(
-        worker_count > 0,
-        "scoped parallel worker count must be positive"
-    );
+    assert!(worker_count > 0, "scoped parallel worker count must be positive");
     thread::scope(|scope| {
         let (work_sender, work_receiver) = mpsc::sync_channel(worker_count);
         let work_receiver = Arc::new(Mutex::new(work_receiver));
@@ -201,10 +187,8 @@ fn run_scoped_worker<T, S, F>(
 }
 
 /// Runs accepted work until the token channel closes.
-fn run_scoped_task_worker<W, F>(
-    work_receiver: Arc<Mutex<mpsc::Receiver<W>>>,
-    run_item: &F,
-) where
+fn run_scoped_task_worker<W, F>(work_receiver: Arc<Mutex<mpsc::Receiver<W>>>, run_item: &F)
+where
     F: Fn(W),
 {
     loop {

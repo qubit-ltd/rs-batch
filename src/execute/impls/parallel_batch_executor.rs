@@ -70,12 +70,10 @@ pub struct ParallelBatchExecutor {
 
 impl ParallelBatchExecutor {
     /// Default interval between progress callbacks.
-    pub const DEFAULT_REPORT_INTERVAL: Duration =
-        crate::constants::DEFAULT_REPORT_INTERVAL;
+    pub const DEFAULT_REPORT_INTERVAL: Duration = crate::constants::DEFAULT_REPORT_INTERVAL;
 
     /// Default maximum batch size that still uses sequential execution.
-    pub const DEFAULT_SEQUENTIAL_THRESHOLD: usize =
-        crate::constants::DEFAULT_SEQUENTIAL_THRESHOLD;
+    pub const DEFAULT_SEQUENTIAL_THRESHOLD: usize = crate::constants::DEFAULT_SEQUENTIAL_THRESHOLD;
 
     /// Returns the default worker-thread count.
     ///
@@ -84,9 +82,7 @@ impl ParallelBatchExecutor {
     /// The available CPU parallelism, or `1` if it cannot be detected.
     #[inline]
     pub fn default_thread_count() -> usize {
-        thread::available_parallelism()
-            .map(usize::from)
-            .unwrap_or(1)
+        thread::available_parallelism().map(usize::from).unwrap_or(1)
     }
 
     /// Creates a builder for configuring a parallel batch executor.
@@ -114,9 +110,7 @@ impl ParallelBatchExecutor {
     /// Returns [`ParallelBatchExecutorBuildError::ZeroThreadCount`] when
     /// `thread_count` is zero.
     #[inline]
-    pub fn new(
-        thread_count: usize,
-    ) -> Result<Self, ParallelBatchExecutorBuildError> {
+    pub fn new(thread_count: usize) -> Result<Self, ParallelBatchExecutorBuildError> {
         Self::builder().thread_count(thread_count).build()
     }
 
@@ -238,11 +232,8 @@ impl BatchExecutor for ParallelBatchExecutor {
         }
 
         let worker_count = self.thread_count.min(count);
-        self.coordinator.execute(
-            tasks,
-            count,
-            self.task_failure_policy,
-            move |tasks, context| {
+        self.coordinator
+            .execute(tasks, count, self.task_failure_policy, move |tasks, context| {
                 run_scoped_parallel_tasks(
                     tasks,
                     worker_count,
@@ -250,7 +241,6 @@ impl BatchExecutor for ParallelBatchExecutor {
                     |task| context.execute_task(task),
                 );
                 Ok::<(), Infallible>(())
-            },
-        )
+            })
     }
 }

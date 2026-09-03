@@ -61,8 +61,7 @@ pub struct SequentialBatchProcessor<Item> {
 
 impl<Item> SequentialBatchProcessor<Item> {
     /// Default interval between progress callbacks.
-    pub const DEFAULT_REPORT_INTERVAL: Duration =
-        crate::constants::DEFAULT_REPORT_INTERVAL;
+    pub const DEFAULT_REPORT_INTERVAL: Duration = crate::constants::DEFAULT_REPORT_INTERVAL;
 
     /// Creates a sequential consumer-backed batch processor.
     ///
@@ -166,37 +165,26 @@ impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
     ///
     /// Propagates any panic raised by the stored consumer or the configured
     /// progress reporter.
-    fn process_with_count<I>(
-        &mut self,
-        items: I,
-        count: usize,
-    ) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
     {
-        let mut progress =
-            match Progress::builder_arc(Arc::clone(&self.reporter))
-                .interval(self.report_interval)
-                .metric(
-                    Metric::new(
-                        PROCESS_PROGRESS_METRIC_ID,
-                        PROCESS_PROGRESS_METRIC_NAME,
-                    )
-                    .total(count as u64),
-                )
-                .start()
-            {
-                Ok(progress) => progress,
-                Err(source) => {
-                    return Err(BatchProcessError::ProgressReport {
-                        source: Box::new(ProgressFailure::from(source)),
-                        result: BatchProcessResult::builder(count)
-                            .elapsed(Duration::ZERO)
-                            .build()
-                            .expect("empty batch process result must be valid"),
-                    });
-                }
-            };
+        let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
+            .interval(self.report_interval)
+            .metric(Metric::new(PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME).total(count as u64))
+            .start()
+        {
+            Ok(progress) => progress,
+            Err(source) => {
+                return Err(BatchProcessError::ProgressReport {
+                    source: Box::new(ProgressFailure::from(source)),
+                    result: BatchProcessResult::builder(count)
+                        .elapsed(Duration::ZERO)
+                        .build()
+                        .expect("empty batch process result must be valid"),
+                });
+            }
+        };
         let metric = progress
             .metric(PROCESS_PROGRESS_METRIC_ID)
             .expect("configured process metric must exist");

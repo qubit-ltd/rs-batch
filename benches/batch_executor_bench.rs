@@ -57,9 +57,7 @@ impl Runnable<()> for CpuTask {
     fn run(&mut self) -> Result<(), ()> {
         let mut value = self.seed;
         for _ in 0..256 {
-            value = value
-                .wrapping_mul(6_364_136_223_846_793_005)
-                .wrapping_add(1);
+            value = value.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
         }
         black_box(value);
         Ok(())
@@ -93,10 +91,7 @@ fn benchmark_no_op_execution(criterion: &mut Criterion) {
                 bencher.iter(|| {
                     let _ = black_box(
                         sequential
-                            .execute_with_count(
-                                (0..task_count).map(|_| NoOpTask),
-                                task_count,
-                            )
+                            .execute_with_count((0..task_count).map(|_| NoOpTask), task_count)
                             .expect("no-op batch should succeed"),
                     );
                 });
@@ -109,10 +104,7 @@ fn benchmark_no_op_execution(criterion: &mut Criterion) {
                 bencher.iter(|| {
                     let _ = black_box(
                         parallel
-                            .execute_with_count(
-                                (0..task_count).map(|_| NoOpTask),
-                                task_count,
-                            )
+                            .execute_with_count((0..task_count).map(|_| NoOpTask), task_count)
                             .expect("no-op batch should succeed"),
                     );
                 });
@@ -144,11 +136,7 @@ fn benchmark_cpu_execution(criterion: &mut Criterion) {
                 bencher.iter(|| {
                     let _ = black_box(
                         sequential
-                            .execute_with_count(
-                                (0..task_count)
-                                    .map(|seed| CpuTask { seed: seed as u64 }),
-                                task_count,
-                            )
+                            .execute_with_count((0..task_count).map(|seed| CpuTask { seed: seed as u64 }), task_count)
                             .expect("CPU batch should succeed"),
                     );
                 });
@@ -161,11 +149,7 @@ fn benchmark_cpu_execution(criterion: &mut Criterion) {
                 bencher.iter(|| {
                     let _ = black_box(
                         parallel
-                            .execute_with_count(
-                                (0..task_count)
-                                    .map(|seed| CpuTask { seed: seed as u64 }),
-                                task_count,
-                            )
+                            .execute_with_count((0..task_count).map(|seed| CpuTask { seed: seed as u64 }), task_count)
                             .expect("CPU batch should succeed"),
                     );
                 });
@@ -239,10 +223,7 @@ fn benchmark_item_processing(criterion: &mut Criterion) {
             |bencher, &task_count| {
                 bencher.iter(|| {
                     let result = sequential
-                        .process_with_count(
-                            (0..task_count).map(|value| value as u64),
-                            task_count,
-                        )
+                        .process_with_count((0..task_count).map(|value| value as u64), task_count)
                         .expect("sequential batch should succeed");
                     let _ = black_box(result);
                 });
@@ -254,10 +235,7 @@ fn benchmark_item_processing(criterion: &mut Criterion) {
             |bencher, &task_count| {
                 bencher.iter(|| {
                     let result = parallel
-                        .process_with_count(
-                            (0..task_count).map(|value| value as u64),
-                            task_count,
-                        )
+                        .process_with_count((0..task_count).map(|value| value as u64), task_count)
                         .expect("parallel batch should succeed");
                     let _ = black_box(result);
                 });

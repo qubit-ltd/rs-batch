@@ -83,8 +83,5 @@ fn test_batch_outcome_builder_rejects_duplicate_failure_indexes() {
         .build()
         .expect_err("duplicate failure indexes should be rejected");
 
-    assert_eq!(
-        error,
-        BatchOutcomeBuildError::DuplicateFailureIndex { index: 0 }
-    );
+    assert_eq!(error, BatchOutcomeBuildError::DuplicateFailureIndex { index: 0 });
 }

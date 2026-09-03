@@ -28,24 +28,15 @@ struct SchedulerError;
 
 #[test]
 fn test_parallel_batch_execution_coordinator_records_task_outcomes() {
-    let coordinator = ParallelBatchExecutionCoordinator::new(
-        Arc::new(NoopReporter),
-        Duration::ZERO,
-    );
+    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let outcome = coordinator
         .execute(
-            [
-                TestTask::succeed(),
-                TestTask::fail("failed"),
-                TestTask::panic("panic"),
-            ],
+            [TestTask::succeed(), TestTask::fail("failed"), TestTask::panic("panic")],
             3,
             TaskFailurePolicy::Continue,
             |tasks, context: &ParallelBatchExecutionContext<&'static str>| {
                 for task in tasks {
-                    let task = context
-                        .accept_task(task)
-                        .expect("task should be accepted");
+                    let task = context.accept_task(task).expect("task should be accepted");
                     context.execute_task(task);
                 }
                 Ok::<(), std::convert::Infallible>(())
@@ -60,10 +51,7 @@ fn test_parallel_batch_execution_coordinator_records_task_outcomes() {
 
 #[test]
 fn test_parallel_batch_execution_coordinator_reports_count_shortfall() {
-    let coordinator = ParallelBatchExecutionCoordinator::new(
-        Arc::new(NoopReporter),
-        Duration::ZERO,
-    );
+    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let error = coordinator
         .execute(
             [TestTask::succeed()],
@@ -71,9 +59,7 @@ fn test_parallel_batch_execution_coordinator_reports_count_shortfall() {
             TaskFailurePolicy::Continue,
             |tasks, context| {
                 for task in tasks {
-                    let task = context
-                        .accept_task(task)
-                        .expect("task should be accepted");
+                    let task = context.accept_task(task).expect("task should be accepted");
                     context.execute_task(task);
                 }
                 Ok::<(), std::convert::Infallible>(())
@@ -98,17 +84,10 @@ fn test_parallel_batch_execution_coordinator_reports_count_shortfall() {
 
 #[test]
 fn test_parallel_batch_execution_coordinator_reports_count_exceeded() {
-    let coordinator = ParallelBatchExecutionCoordinator::new(
-        Arc::new(NoopReporter),
-        Duration::ZERO,
-    );
+    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let error = coordinator
         .execute(
-            [
-                TestTask::succeed(),
-                TestTask::succeed(),
-                TestTask::succeed(),
-            ],
+            [TestTask::succeed(), TestTask::succeed(), TestTask::succeed()],
             2,
             TaskFailurePolicy::Continue,
             |tasks, context| {
@@ -138,20 +117,15 @@ fn test_parallel_batch_execution_coordinator_reports_count_exceeded() {
 }
 
 #[test]
-fn test_parallel_batch_execution_coordinator_reports_start_error_as_progress_report()
- {
-    let coordinator = ParallelBatchExecutionCoordinator::new(
-        Arc::new(FailingReporter::after_successes(0)),
-        Duration::ZERO,
-    );
+fn test_parallel_batch_execution_coordinator_reports_start_error_as_progress_report() {
+    let coordinator =
+        ParallelBatchExecutionCoordinator::new(Arc::new(FailingReporter::after_successes(0)), Duration::ZERO);
     let error = coordinator
         .execute(
             [TestTask::succeed()],
             1,
             TaskFailurePolicy::Continue,
-            |_tasks, _context: &ParallelBatchExecutionContext<&'static str>| {
-                Ok::<(), std::convert::Infallible>(())
-            },
+            |_tasks, _context: &ParallelBatchExecutionContext<&'static str>| Ok::<(), std::convert::Infallible>(()),
         )
         .expect_err("start failures should return progress report errors");
 
@@ -165,28 +139,20 @@ fn test_parallel_batch_execution_coordinator_reports_start_error_as_progress_rep
 
 #[test]
 fn test_parallel_batch_execution_coordinator_propagates_scheduler_panic() {
-    let coordinator = ParallelBatchExecutionCoordinator::new(
-        Arc::new(NoopReporter),
-        Duration::ZERO,
-    );
+    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let payload = catch_unwind(AssertUnwindSafe(|| {
-        coordinator.execute(
-            [1, 2, 3],
-            3,
-            TaskFailurePolicy::Continue,
-            |tasks, context| {
-                for task in tasks {
-                    let task_token = context
-                        .accept_task(TestTask::succeed())
-                        .expect("task should be accepted");
-                    context.execute_task(task_token);
-                    if task == 2 {
-                        panic!("scheduler failure");
-                    }
+        coordinator.execute([1, 2, 3], 3, TaskFailurePolicy::Continue, |tasks, context| {
+            for task in tasks {
+                let task_token = context
+                    .accept_task(TestTask::succeed())
+                    .expect("task should be accepted");
+                context.execute_task(task_token);
+                if task == 2 {
+                    panic!("scheduler failure");
                 }
-                Ok::<(), std::convert::Infallible>(())
-            },
-        )
+            }
+            Ok::<(), std::convert::Infallible>(())
+        })
     }))
     .expect_err("scheduler panic should be propagated");
 
@@ -195,10 +161,7 @@ fn test_parallel_batch_execution_coordinator_propagates_scheduler_panic() {
 
 #[test]
 fn test_parallel_batch_execution_coordinator_uses_context_observed_count() {
-    let coordinator = ParallelBatchExecutionCoordinator::new(
-        Arc::new(NoopReporter),
-        Duration::ZERO,
-    );
+    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let error = coordinator
         .execute(
             [TestTask::succeed()],
@@ -206,9 +169,7 @@ fn test_parallel_batch_execution_coordinator_uses_context_observed_count() {
             TaskFailurePolicy::Continue,
             |tasks, context| {
                 for task in tasks {
-                    let task = context
-                        .accept_task(task)
-                        .expect("task should be accepted");
+                    let task = context.accept_task(task).expect("task should be accepted");
                     context.execute_task(task);
                 }
                 Ok::<(), std::convert::Infallible>(())
@@ -221,10 +182,7 @@ fn test_parallel_batch_execution_coordinator_uses_context_observed_count() {
 
 #[test]
 fn test_parallel_batch_execution_coordinator_rejects_dropped_accepted_tasks() {
-    let coordinator = ParallelBatchExecutionCoordinator::new(
-        Arc::new(NoopReporter),
-        Duration::ZERO,
-    );
+    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let error = coordinator
         .execute(
             [TestTask::succeed()],
@@ -232,9 +190,7 @@ fn test_parallel_batch_execution_coordinator_rejects_dropped_accepted_tasks() {
             TaskFailurePolicy::Continue,
             |tasks, context: &ParallelBatchExecutionContext<&'static str>| {
                 for task in tasks {
-                    let _dropped = context
-                        .accept_task(task)
-                        .expect("task should be accepted");
+                    let _dropped = context.accept_task(task).expect("task should be accepted");
                 }
                 Ok::<(), std::convert::Infallible>(())
             },
@@ -259,12 +215,8 @@ fn test_parallel_batch_execution_coordinator_rejects_dropped_accepted_tasks() {
 }
 
 #[test]
-fn test_parallel_batch_execution_coordinator_prioritizes_incomplete_schedule_over_shortfall()
- {
-    let coordinator = ParallelBatchExecutionCoordinator::new(
-        Arc::new(NoopReporter),
-        Duration::ZERO,
-    );
+fn test_parallel_batch_execution_coordinator_prioritizes_incomplete_schedule_over_shortfall() {
+    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let error = coordinator
         .execute(
             [TestTask::succeed()],
@@ -272,9 +224,7 @@ fn test_parallel_batch_execution_coordinator_prioritizes_incomplete_schedule_ove
             TaskFailurePolicy::Continue,
             |tasks, context: &ParallelBatchExecutionContext<&'static str>| {
                 if let Some(task) = tasks.into_iter().next() {
-                    let _ = context
-                        .accept_task(task)
-                        .expect("task should be accepted");
+                    let _ = context.accept_task(task).expect("task should be accepted");
                 }
                 Ok::<(), std::convert::Infallible>(())
             },
@@ -299,12 +249,8 @@ fn test_parallel_batch_execution_coordinator_prioritizes_incomplete_schedule_ove
 }
 
 #[test]
-fn test_parallel_batch_execution_coordinator_returns_scheduler_error_directly()
-{
-    let coordinator = ParallelBatchExecutionCoordinator::new(
-        Arc::new(NoopReporter),
-        Duration::ZERO,
-    );
+fn test_parallel_batch_execution_coordinator_returns_scheduler_error_directly() {
+    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let error = coordinator
         .execute(
             [TestTask::succeed()],
@@ -312,9 +258,7 @@ fn test_parallel_batch_execution_coordinator_returns_scheduler_error_directly()
             TaskFailurePolicy::Continue,
             |tasks, context| {
                 for task in tasks {
-                    let token = context
-                        .accept_task(task)
-                        .expect("task should be accepted");
+                    let token = context.accept_task(task).expect("task should be accepted");
                     context.execute_task(token);
                 }
                 Err(SchedulerError)

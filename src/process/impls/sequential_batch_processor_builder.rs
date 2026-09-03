@@ -57,8 +57,7 @@ impl<Item> SequentialBatchProcessorBuilder<Item> {
     {
         Self {
             consumer: BoxConsumer::new(consumer),
-            report_interval:
-                SequentialBatchProcessor::<Item>::DEFAULT_REPORT_INTERVAL,
+            report_interval: SequentialBatchProcessor::<Item>::DEFAULT_REPORT_INTERVAL,
             reporter: Arc::new(NoopReporter),
         }
     }

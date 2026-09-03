@@ -159,9 +159,7 @@ impl BatchProcessResultBuilder {
     /// Returns [`BatchProcessResultBuildError`] when the counters are
     /// inconsistent.
     #[inline]
-    pub fn build(
-        self,
-    ) -> Result<BatchProcessResult, BatchProcessResultBuildError> {
+    pub fn build(self) -> Result<BatchProcessResult, BatchProcessResultBuildError> {
         self.validate().map(BatchProcessResult::new)
     }
 }
@@ -186,11 +184,7 @@ fn validate_process_result_invariants(
         });
     }
     if completed_count > 0 && chunk_count == 0 {
-        return Err(
-            BatchProcessResultBuildError::MissingChunkForCompletedItems {
-                completed_count,
-            },
-        );
+        return Err(BatchProcessResultBuildError::MissingChunkForCompletedItems { completed_count });
     }
     if chunk_count > completed_count {
         return Err(BatchProcessResultBuildError::ChunkCountExceeded {

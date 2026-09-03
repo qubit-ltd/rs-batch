@@ -186,9 +186,7 @@ impl<E> BatchOutcome<E> {
     /// `true` if the batch has no failures and every declared task completed.
     #[inline]
     pub const fn is_success(&self) -> bool {
-        self.completed_count == self.task_count
-            && self.failed_count == 0
-            && self.panicked_count == 0
+        self.completed_count == self.task_count && self.failed_count == 0 && self.panicked_count == 0
     }
 
     /// Consumes this outcome and returns its failure list.

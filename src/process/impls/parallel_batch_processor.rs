@@ -92,12 +92,10 @@ pub struct ParallelBatchProcessor<Item> {
 
 impl<Item> ParallelBatchProcessor<Item> {
     /// Default interval between progress callbacks.
-    pub const DEFAULT_REPORT_INTERVAL: Duration =
-        crate::constants::DEFAULT_REPORT_INTERVAL;
+    pub const DEFAULT_REPORT_INTERVAL: Duration = crate::constants::DEFAULT_REPORT_INTERVAL;
 
     /// Default maximum batch size that still uses sequential processing.
-    pub const DEFAULT_SEQUENTIAL_THRESHOLD: usize =
-        crate::constants::DEFAULT_SEQUENTIAL_THRESHOLD;
+    pub const DEFAULT_SEQUENTIAL_THRESHOLD: usize = crate::constants::DEFAULT_SEQUENTIAL_THRESHOLD;
 
     /// Creates a parallel consumer-backed batch processor.
     ///
@@ -143,9 +141,7 @@ impl<Item> ParallelBatchProcessor<Item> {
     /// The available CPU parallelism, or `1` if it cannot be detected.
     #[inline]
     pub fn default_thread_count() -> usize {
-        thread::available_parallelism()
-            .map(usize::from)
-            .unwrap_or(1)
+        thread::available_parallelism().map(usize::from).unwrap_or(1)
     }
 
     /// Returns the configured worker-thread count.
@@ -238,61 +234,38 @@ where
     ///
     /// Propagates any panic raised by the stored consumer from the caller
     /// thread or a worker thread, or by the configured progress reporter.
-    fn process_with_count<I>(
-        &mut self,
-        items: I,
-        count: usize,
-    ) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
     {
-        let mut progress =
-            match Progress::builder_arc(Arc::clone(&self.reporter))
-                .interval(self.report_interval)
-                .metric(
-                    Metric::new(
-                        PROCESS_PROGRESS_METRIC_ID,
-                        PROCESS_PROGRESS_METRIC_NAME,
-                    )
-                    .total(count as u64),
-                )
-                .start()
-            {
-                Ok(progress) => progress,
-                Err(source) => {
-                    return Err(BatchProcessError::ProgressReport {
-                        source: Box::new(ProgressFailure::from(source)),
-                        result: BatchProcessResult::builder(count)
-                            .elapsed(Duration::ZERO)
-                            .build()
-                            .expect("empty batch process result must be valid"),
-                    });
-                }
-            };
+        let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
+            .interval(self.report_interval)
+            .metric(Metric::new(PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME).total(count as u64))
+            .start()
+        {
+            Ok(progress) => progress,
+            Err(source) => {
+                return Err(BatchProcessError::ProgressReport {
+                    source: Box::new(ProgressFailure::from(source)),
+                    result: BatchProcessResult::builder(count)
+                        .elapsed(Duration::ZERO)
+                        .build()
+                        .expect("empty batch process result must be valid"),
+                });
+            }
+        };
         let metric = progress
             .metric(PROCESS_PROGRESS_METRIC_ID)
             .expect("configured process metric must exist");
         let state = Arc::new(BatchProcessState::new(count, metric));
 
         let running_result: Result<(), ProgressFailure> = if count > 0 {
-            if count <= self.sequential_threshold
-                || self.thread_count.get() <= 1
-            {
-                self.process_sequential(
-                    items,
-                    count,
-                    state.as_ref(),
-                    &mut progress,
-                )
-                .map_err(ProgressFailure::from)
+            if count <= self.sequential_threshold || self.thread_count.get() <= 1 {
+                self.process_sequential(items, count, state.as_ref(), &mut progress)
+                    .map_err(ProgressFailure::from)
             } else {
-                self.process_parallel_non_empty(
-                    items,
-                    count,
-                    Arc::clone(&state),
-                    &mut progress,
-                )
-                .map_err(ProgressFailure::from)
+                self.process_parallel_non_empty(items, count, Arc::clone(&state), &mut progress)
+                    .map_err(ProgressFailure::from)
             }
         } else if items.into_iter().next().is_some() {
             state.record_item_observed();
@@ -423,8 +396,7 @@ where
     {
         thread::scope(|scope| {
             let running_progress = progress.spawn_auto_reporter(scope);
-            let running_point_handle: ProgressNotifier =
-                running_progress.notifier();
+            let running_point_handle: ProgressNotifier = running_progress.notifier();
             let running_status: AutoReporterStatus = running_progress.status();
 
             let worker_count = self.thread_count.get().min(count);
@@ -438,13 +410,13 @@ where
                 move || observer_state.record_item_observed(),
                 move || running_status.is_failed(),
                 move |_index, item| {
-                    worker_state.record_item_started().expect(
-                        "batch progress state transition must be valid",
-                    );
+                    worker_state
+                        .record_item_started()
+                        .expect("batch progress state transition must be valid");
                     consumer.accept(&item);
-                    worker_state.record_item_processed().expect(
-                        "batch progress state transition must be valid",
-                    );
+                    worker_state
+                        .record_item_processed()
+                        .expect("batch progress state transition must be valid");
                     running_point_handle.notify();
                 },
             );

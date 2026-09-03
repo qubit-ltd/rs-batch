@@ -24,9 +24,7 @@ fn acceptance_gate_never_reopens_after_failure() {
         let handle = thread::spawn(move || {
             worker.store(true, Ordering::Release);
         });
-        assert!(
-            !stopped.load(Ordering::Acquire) || stopped.load(Ordering::Acquire)
-        );
+        assert!(!stopped.load(Ordering::Acquire) || stopped.load(Ordering::Acquire));
         handle.join().expect("loom worker should join");
         assert!(stopped.load(Ordering::Acquire));
     });

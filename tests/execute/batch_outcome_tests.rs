@@ -102,8 +102,7 @@ fn test_batch_outcome_rejects_failure_detail_mismatches() {
         Err(BatchOutcomeBuildError::FailureIndexOutOfRange { .. })
     ));
 
-    let failure: BatchTaskFailure<&'static str> =
-        BatchTaskFailure::new(0, BatchTaskError::panicked("panic"));
+    let failure: BatchTaskFailure<&'static str> = BatchTaskFailure::new(0, BatchTaskError::panicked("panic"));
     assert!(matches!(
         BatchOutcomeBuilder::builder(2)
             .completed_count(1)
@@ -185,8 +184,7 @@ fn test_batch_task_error_helpers_display_and_source() {
     assert_eq!(panicked.to_string(), "task panicked: panic");
     assert!(panicked.source().is_none());
 
-    let panicked_without_message =
-        BatchTaskError::<TestError>::panicked_without_message();
+    let panicked_without_message = BatchTaskError::<TestError>::panicked_without_message();
     assert_eq!(panicked_without_message.panic_message(), None);
     assert_eq!(panicked_without_message.to_string(), "task panicked");
 }
@@ -205,13 +203,12 @@ fn test_batch_execution_error_accessors() {
         .succeeded_count(1)
         .build()
         .expect("outcome should be valid");
-    let shortfall: BatchExecutionError<_, std::convert::Infallible> =
-        BatchExecutionError::CountShortfall {
-            expected: 2,
-            actual: 1,
-            outcome: outcome.clone(),
-            report_error: None,
-        };
+    let shortfall: BatchExecutionError<_, std::convert::Infallible> = BatchExecutionError::CountShortfall {
+        expected: 2,
+        actual: 1,
+        outcome: outcome.clone(),
+        report_error: None,
+    };
     assert!(shortfall.is_count_shortfall());
     assert!(!shortfall.is_count_exceeded());
     assert_eq!(shortfall.outcome().completed_count(), 1);
@@ -221,13 +218,12 @@ fn test_batch_execution_error_accessors() {
     );
     assert_eq!(shortfall.into_outcome(), outcome.clone());
 
-    let exceeded: BatchExecutionError<_, std::convert::Infallible> =
-        BatchExecutionError::CountExceeded {
-            expected: 2,
-            observed_at_least: 3,
-            outcome,
-            report_error: None,
-        };
+    let exceeded: BatchExecutionError<_, std::convert::Infallible> = BatchExecutionError::CountExceeded {
+        expected: 2,
+        observed_at_least: 3,
+        outcome,
+        report_error: None,
+    };
     assert!(!exceeded.is_count_shortfall());
     assert!(exceeded.is_count_exceeded());
     assert_eq!(exceeded.outcome().completed_count(), 1);

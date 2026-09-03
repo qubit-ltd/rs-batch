@@ -89,9 +89,7 @@ pub enum BatchExecutionError<E, S = Infallible> {
     },
 
     /// The task source yielded more tasks than the declared task count.
-    #[error(
-        "batch task count exceeded: expected {expected}, observed at least {observed_at_least}"
-    )]
+    #[error("batch task count exceeded: expected {expected}, observed at least {observed_at_least}")]
     CountExceeded {
         /// Declared task count.
         expected: usize,
@@ -106,9 +104,7 @@ pub enum BatchExecutionError<E, S = Infallible> {
     },
 
     /// The scheduler accepted tasks but did not execute all of them.
-    #[error(
-        "parallel batch schedule incomplete: expected {expected}, accepted {accepted}, completed {completed}"
-    )]
+    #[error("parallel batch schedule incomplete: expected {expected}, accepted {accepted}, completed {completed}")]
     IncompleteSchedule {
         /// Declared task count.
         expected: usize,
@@ -194,9 +190,7 @@ where
         F: FnOnce(S) -> T,
     {
         match self {
-            Self::ProgressReport { source, outcome } => {
-                BatchExecutionError::ProgressReport { source, outcome }
-            }
+            Self::ProgressReport { source, outcome } => BatchExecutionError::ProgressReport { source, outcome },
             Self::ScheduleFailed {
                 source,
                 outcome,
@@ -276,9 +270,7 @@ where
             Self::ScheduleFailed { report_error, .. }
             | Self::CountShortfall { report_error, .. }
             | Self::CountExceeded { report_error, .. }
-            | Self::IncompleteSchedule { report_error, .. } => {
-                report_error.as_deref()
-            }
+            | Self::IncompleteSchedule { report_error, .. } => report_error.as_deref(),
         }
     }
 }

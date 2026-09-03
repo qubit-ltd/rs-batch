@@ -68,10 +68,7 @@ impl SequentialBatchExecutorBuilder {
     ///
     /// This builder for fluent configuration.
     #[inline]
-    pub const fn task_failure_policy(
-        mut self,
-        task_failure_policy: TaskFailurePolicy,
-    ) -> Self {
+    pub const fn task_failure_policy(mut self, task_failure_policy: TaskFailurePolicy) -> Self {
         self.task_failure_policy = task_failure_policy;
         self
     }

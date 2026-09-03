@@ -23,9 +23,7 @@ pub enum BatchCallResultBuildError {
     },
 
     /// An output index is not strictly greater than the previous index.
-    #[error(
-        "callable output indexes must be strictly increasing: previous {previous_index}, current {index}"
-    )]
+    #[error("callable output indexes must be strictly increasing: previous {previous_index}, current {index}")]
     OutputIndexOutOfOrder {
         /// Previous output index.
         previous_index: usize,
@@ -34,9 +32,7 @@ pub enum BatchCallResultBuildError {
     },
 
     /// An output refers to a task that did not complete.
-    #[error(
-        "callable output index {index} is not completed: completed_count {completed_count}"
-    )]
+    #[error("callable output index {index} is not completed: completed_count {completed_count}")]
     OutputIndexNotCompleted {
         /// Original zero-based callable index.
         index: usize,
@@ -45,9 +41,7 @@ pub enum BatchCallResultBuildError {
     },
 
     /// A failed or panicked callable still contains a success output.
-    #[error(
-        "failed or panicked callable at index {index} must not contain a value"
-    )]
+    #[error("failed or panicked callable at index {index} must not contain a value")]
     FailureOutputPresent {
         /// Original zero-based callable index.
         index: usize,
