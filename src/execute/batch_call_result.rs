@@ -45,10 +45,10 @@ impl<R, E> BatchCallResult<R, E> {
                 });
             }
             previous_index = Some(output.index());
-            if output.index() >= outcome.completed_count() {
-                return Err(BatchCallResultBuildError::OutputIndexNotCompleted {
+            if output.index() >= outcome.task_count() {
+                return Err(BatchCallResultBuildError::OutputIndexOutOfRange {
                     index: output.index(),
-                    completed_count: outcome.completed_count(),
+                    task_count: outcome.task_count(),
                 });
             }
         }

@@ -31,13 +31,13 @@ pub enum BatchCallResultBuildError {
         index: usize,
     },
 
-    /// An output refers to a task that did not complete.
-    #[error("callable output index {index} is not completed: completed_count {completed_count}")]
-    OutputIndexNotCompleted {
+    /// An output refers to a task outside the declared batch.
+    #[error("callable output index {index} is outside task count {task_count}")]
+    OutputIndexOutOfRange {
         /// Original zero-based callable index.
         index: usize,
-        /// Number of completed tasks.
-        completed_count: usize,
+        /// Declared number of tasks.
+        task_count: usize,
     },
 
     /// A failed or panicked callable still contains a success output.

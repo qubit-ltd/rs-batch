@@ -117,6 +117,64 @@ fn test_parallel_batch_execution_coordinator_reports_count_exceeded() {
 }
 
 #[test]
+fn test_parallel_batch_execution_coordinator_count_exceeded_precedes_failure_stop() {
+    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
+    let error = coordinator
+        .execute(
+            [TestTask::fail("failed"), TestTask::succeed()],
+            1,
+            TaskFailurePolicy::StopOnFirstFailure,
+            |tasks, context| {
+                let mut tasks = tasks.into_iter();
+                let first = context
+                    .accept_task(tasks.next().expect("first task should exist"))
+                    .expect("first task should be accepted");
+                let second = context.accept_task(tasks.next().expect("second task should exist"));
+                assert!(second.is_none(), "the overflow task must be rejected");
+                context.execute_task(first);
+                Ok::<(), std::convert::Infallible>(())
+            },
+        )
+        .expect_err("count overflow must not be masked by the failure policy");
+
+    assert!(matches!(error, BatchExecutionError::CountExceeded { .. }));
+}
+
+#[test]
+fn test_parallel_batch_execution_context_rejects_token_from_another_execution() {
+    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
+    let outer_error = coordinator
+        .execute(
+            [TestTask::succeed()],
+            1,
+            TaskFailurePolicy::Continue,
+            |tasks, outer_context: &ParallelBatchExecutionContext<&'static str>| {
+                let token = outer_context
+                    .accept_task(tasks.into_iter().next().expect("outer task should exist"))
+                    .expect("outer task should be accepted");
+                let inner_result = catch_unwind(AssertUnwindSafe(|| {
+                    coordinator
+                        .execute(
+                            [TestTask::succeed()],
+                            1,
+                            TaskFailurePolicy::Continue,
+                            |_tasks, inner_context: &ParallelBatchExecutionContext<&'static str>| {
+                                inner_context.execute_task(token);
+                                Ok::<(), std::convert::Infallible>(())
+                            },
+                        )
+                        .expect_err("inner execution should be incomplete after rejecting the token");
+                }));
+                assert!(inner_result.is_err(), "cross-context token use must panic");
+                Ok::<(), std::convert::Infallible>(())
+            },
+        )
+        .expect_err("outer execution intentionally leaves its token incomplete");
+
+    assert!(matches!(outer_error, BatchExecutionError::IncompleteSchedule { .. }));
+}
+
+#[test]
 fn test_parallel_batch_execution_coordinator_reports_start_error_as_progress_report() {
     let coordinator =
         ParallelBatchExecutionCoordinator::new(Arc::new(FailingReporter::after_successes(0)), Duration::ZERO);
