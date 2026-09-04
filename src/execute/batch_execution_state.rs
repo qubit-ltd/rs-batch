@@ -11,11 +11,11 @@ use std::sync::Mutex;
 use std::sync::MutexGuard;
 use std::time::Duration;
 
-use qubit_atomic::AtomicCount;
 use qubit_function::Runnable;
 use qubit_progress::MetricError;
 use qubit_progress::MetricHandle;
 
+use super::ParallelBatchAcceptanceState;
 use super::TaskExecutionStatus;
 use crate::BatchOutcome;
 use crate::BatchOutcomeBuilder;
@@ -24,7 +24,6 @@ use crate::BatchTaskFailure;
 use crate::BatchTermination;
 use crate::TaskFailurePolicy;
 use crate::execute::panic_payload_to_error;
-use crate::sync::AtomicBool;
 use crate::sync::AtomicUsize;
 use crate::sync::Ordering;
 
@@ -36,12 +35,8 @@ pub(crate) const EXECUTION_PROGRESS_METRIC_NAME: &str = "Tasks";
 
 /// Shared state collected while a batch executor is running.
 pub(crate) struct BatchExecutionState<E> {
-    /// Declared task count.
-    task_count: usize,
-    /// Number of tasks observed from the source.
-    observed_count: AtomicCount,
-    /// Number of source tasks accepted for execution.
-    accepted_count: AtomicCount,
+    /// Atomic source-admission counters and stop state.
+    acceptance: ParallelBatchAcceptanceState,
     /// Progress-owned lifecycle state for task counts.
     metric: MetricHandle,
     /// Detailed failures collected during execution.
@@ -50,8 +45,6 @@ pub(crate) struct BatchExecutionState<E> {
     task_failure_policy: TaskFailurePolicy,
     /// Number of task failures observed by parallel workers.
     failure_count_atomic: AtomicUsize,
-    /// Whether source consumption should stop due to task failure.
-    stop_accepting: AtomicBool,
 }
 
 impl<E> BatchExecutionState<E> {
@@ -68,14 +61,11 @@ impl<E> BatchExecutionState<E> {
     #[inline]
     pub(crate) fn new(task_count: usize, metric: MetricHandle, task_failure_policy: TaskFailurePolicy) -> Self {
         Self {
-            task_count,
-            observed_count: AtomicCount::zero(),
-            accepted_count: AtomicCount::zero(),
+            acceptance: ParallelBatchAcceptanceState::new(task_count),
             metric,
             failures: Mutex::new(Vec::new()),
             task_failure_policy,
             failure_count_atomic: AtomicUsize::new(0),
-            stop_accepting: AtomicBool::new(false),
         }
     }
 
@@ -122,7 +112,7 @@ impl<E> BatchExecutionState<E> {
         if status == TaskExecutionStatus::Failed {
             let failures = self.failure_count_atomic.fetch_add(1, Ordering::AcqRel) + 1;
             if self.task_failure_policy.should_stop(failures) {
-                self.stop_accepting.store(true, Ordering::Release);
+                self.acceptance.stop();
             }
         }
         Ok(status)
@@ -135,31 +125,38 @@ impl<E> BatchExecutionState<E> {
     /// The observed task count after this task was recorded.
     #[inline]
     pub(crate) fn record_task_observed(&self) -> usize {
-        self.observed_count.inc()
+        self.acceptance.record_observed()
+    }
+
+    /// Records one observed task unless failure policy already stopped
+    /// admission.
+    #[inline]
+    pub(crate) fn try_record_task_observed(&self) -> Option<usize> {
+        self.acceptance.try_record_observed()
     }
 
     /// Records one source task accepted for execution.
     #[inline]
     pub(crate) fn record_task_accepted(&self) -> usize {
-        self.accepted_count.inc()
+        self.acceptance.record_accepted()
     }
 
     /// Returns the declared task count used by the active execution.
     #[inline]
     pub(crate) const fn task_count(&self) -> usize {
-        self.task_count
+        self.acceptance.task_count()
     }
 
     /// Returns the number of source tasks observed by the scheduler.
     #[inline]
     pub(crate) fn observed_count(&self) -> usize {
-        self.observed_count.get()
+        self.acceptance.observed_count()
     }
 
     /// Returns the number of source tasks accepted for execution.
     #[inline]
     pub(crate) fn accepted_count(&self) -> usize {
-        self.accepted_count.get()
+        self.acceptance.accepted_count()
     }
 
     /// Returns the number of tasks that reached a terminal metric state.
@@ -181,7 +178,7 @@ impl<E> BatchExecutionState<E> {
     /// Returns whether the failure policy has stopped accepting new tasks.
     #[inline]
     pub(crate) fn should_stop_accepting(&self) -> bool {
-        self.stop_accepting.load(Ordering::Acquire)
+        self.acceptance.should_stop()
     }
 
     /// Consumes this state and builds a batch outcome.
@@ -252,7 +249,7 @@ impl<E> BatchExecutionState<E> {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         let failed_count = failures.iter().filter(|failure| failure.error().is_failed()).count();
         let panicked_count = failures.len() - failed_count;
-        BatchOutcomeBuilder::builder(self.task_count)
+        BatchOutcomeBuilder::builder(self.acceptance.task_count())
             .completed_count(snapshot.completed() as usize)
             .succeeded_count(snapshot.succeeded() as usize)
             .failed_count(failed_count)

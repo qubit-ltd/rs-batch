@@ -42,6 +42,9 @@ qubit-progress = { version = "0.8", path = "../rs-progress", default-features = 
 [features]
 loom-tests = ["dep:loom"]
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(loom)"] }
+
 [dev-dependencies]
 criterion = { version = "0.8.2", default-features = false }
 

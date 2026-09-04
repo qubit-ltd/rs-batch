@@ -4,6 +4,7 @@ use qubit_batch::BatchCallResultBuildError;
 use qubit_batch::BatchOutcomeBuilder;
 use qubit_batch::BatchTaskError;
 use qubit_batch::BatchTaskFailure;
+use qubit_batch::BatchTermination;
 
 #[test]
 fn test_batch_call_result_accessors_and_parts() {
@@ -35,12 +36,29 @@ fn test_batch_call_result_rejects_output_for_uncompleted_task() {
         .expect("outcome should be valid");
 
     assert_eq!(
-        BatchCallResult::<usize, &'static str>::try_new(outcome, vec![BatchCallOutput::new(2, 10)],),
-        Err(BatchCallResultBuildError::OutputIndexNotCompleted {
-            index: 2,
-            completed_count: 1,
+        BatchCallResult::<usize, &'static str>::try_new(outcome, vec![BatchCallOutput::new(3, 10)],),
+        Err(BatchCallResultBuildError::OutputIndexOutOfRange {
+            index: 3,
+            task_count: 3,
         })
     );
+}
+
+#[test]
+fn test_batch_call_result_accepts_sparse_output_after_completed_failure() {
+    let outcome = BatchOutcomeBuilder::<&'static str>::builder(3)
+        .completed_count(2)
+        .succeeded_count(1)
+        .failed_count(1)
+        .failures(vec![BatchTaskFailure::new(0, BatchTaskError::Failed("failed"))])
+        .termination(BatchTermination::StoppedByTaskFailurePolicy)
+        .build()
+        .expect("sparse outcome should be valid");
+
+    let result = BatchCallResult::try_new(outcome, vec![BatchCallOutput::new(2, 10)])
+        .expect("a completed task index may be greater than completed_count");
+
+    assert_eq!(result.outputs()[0].index(), 2);
 }
 
 #[test]

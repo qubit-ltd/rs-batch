@@ -198,6 +198,26 @@ impl ParallelBatchExecutionCoordinator {
     where
         S: std::error::Error + Send + Sync + 'static,
     {
+        if completed_count < accepted_count {
+            let (elapsed, report_error) = Self::fail_progress(progress);
+            return Err(BatchExecutionError::IncompleteSchedule {
+                expected: count,
+                accepted: accepted_count,
+                observed: observed_count,
+                completed: completed_count,
+                outcome: state.into_outcome(elapsed),
+                report_error,
+            });
+        }
+        if observed_count > count {
+            let (elapsed, report_error) = Self::fail_progress(progress);
+            return Err(BatchExecutionError::CountExceeded {
+                expected: count,
+                observed_at_least: observed_count,
+                outcome: state.into_outcome(elapsed),
+                report_error,
+            });
+        }
         if state.should_stop_accepting() && completed_count >= accepted_count {
             let elapsed = match progress.fail() {
                 Ok(elapsed) => elapsed,
@@ -216,31 +236,11 @@ impl ParallelBatchExecutionCoordinator {
                 state.into_outcome_with_termination(elapsed, crate::BatchTermination::StoppedByTaskFailurePolicy)
             );
         }
-        if completed_count < accepted_count {
-            let (elapsed, report_error) = Self::fail_progress(progress);
-            return Err(BatchExecutionError::IncompleteSchedule {
-                expected: count,
-                accepted: accepted_count,
-                observed: observed_count,
-                completed: completed_count,
-                outcome: state.into_outcome(elapsed),
-                report_error,
-            });
-        }
         if observed_count < count {
             let (elapsed, report_error) = Self::fail_progress(progress);
             return Err(BatchExecutionError::CountShortfall {
                 expected: count,
                 actual: observed_count,
-                outcome: state.into_outcome(elapsed),
-                report_error,
-            });
-        }
-        if observed_count > count {
-            let (elapsed, report_error) = Self::fail_progress(progress);
-            return Err(BatchExecutionError::CountExceeded {
-                expected: count,
-                observed_at_least: observed_count,
                 outcome: state.into_outcome(elapsed),
                 report_error,
             });

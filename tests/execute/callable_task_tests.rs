@@ -276,7 +276,7 @@ fn test_batch_executor_call_panics_when_callable_wrapper_reports_out_of_range_in
     assert_eq!(
         panic_payload_message(payload.as_ref()),
         Some(
-            "call output collection must return one value slot per declared task: OutputIndexNotCompleted { index: 1, completed_count: 1 }"
+            "call output collection must return one value slot per declared task: OutputIndexOutOfRange { index: 1, task_count: 1 }"
         )
     );
 }

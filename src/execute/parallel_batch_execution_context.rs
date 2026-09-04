@@ -13,12 +13,27 @@ use qubit_progress::ProgressNotifier;
 
 use super::BatchExecutionState;
 use super::ParallelBatchTask;
+use crate::sync::AtomicU64;
+use crate::sync::Ordering;
+
+/// Allocates identities for active execution contexts.
+static NEXT_EXECUTION_ID: AtomicU64 = AtomicU64::new(1);
+
+/// Allocates the next nonzero execution identity without wrapping.
+#[inline]
+fn next_execution_id() -> u64 {
+    NEXT_EXECUTION_ID
+        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |current| current.checked_add(1))
+        .expect("parallel batch execution context id space exhausted")
+}
 
 /// Worker-facing context for one parallel batch execution.
 ///
 /// Runtime-specific executors receive this context from the coordinator and
 /// use it to accept and execute one-shot task tokens.
 pub struct ParallelBatchExecutionContext<E> {
+    /// Globally unique identity for this execution context.
+    execution_id: u64,
     /// Shared task accounting and failure collection state.
     state: Arc<BatchExecutionState<E>>,
     /// Handle used to wake the automatic running-progress reporter.
@@ -40,6 +55,7 @@ impl<E> ParallelBatchExecutionContext<E> {
         status: AutoReporterStatus,
     ) -> Self {
         Self {
+            execution_id: next_execution_id(),
             state,
             notifier,
             status,
@@ -62,15 +78,15 @@ impl<E> ParallelBatchExecutionContext<E> {
     /// stop accepting work.
     #[inline]
     pub fn accept_task<T>(&self, task: T) -> Option<ParallelBatchTask<T>> {
-        if self.status.is_failed() || self.state.should_stop_accepting() {
+        if self.status.is_failed() {
             return None;
         }
-        let observed_count = self.state.record_task_observed();
+        let observed_count = self.state.try_record_task_observed()?;
         if observed_count > self.state.task_count() {
             return None;
         }
         self.state.record_task_accepted();
-        Some(ParallelBatchTask::new(observed_count - 1, task))
+        Some(ParallelBatchTask::new(self.execution_id, observed_count - 1, task))
     }
 
     /// Runs one accepted token and records its terminal task outcome.
@@ -90,7 +106,11 @@ impl<E> ParallelBatchExecutionContext<E> {
     where
         T: Runnable<E>,
     {
-        let (index, task) = task.into_parts();
+        let (execution_id, index, task) = task.into_parts();
+        assert_eq!(
+            execution_id, self.execution_id,
+            "parallel batch task belongs to a different execution context"
+        );
         self.state
             .execute_task(index, task)
             .expect("accepted parallel batch task must have valid progress transitions");
