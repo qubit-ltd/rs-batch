@@ -7,66 +7,9 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
-One-shot batch execution and processing utilities for the Qubit Rust libraries.
-
-## What it does
-
-Use `qubit-batch` when you already have a finite batch and want to run it once
-with consistent accounting:
-
-- attempt every record in an import, validation, or maintenance job;
-- keep stable zero-based failure indexes for diagnostics and retries;
-- collect completed, succeeded, failed, and panicked task counts;
-- detect producer bugs when an iterator yields fewer or more items than
-  declared;
-- avoid binding shared library code to Tokio, Rayon, or another runtime.
-
-This crate is not a queue, scheduler, worker pool, or retry framework. It
-consumes the supplied iterator once and returns a structured result.
-
-## Core model
-
-- `BatchExecutor` runs fallible tasks. Use `for_each` for item-oriented jobs,
-  `execute` for explicit `Runnable` tasks, and `call` for `Callable` tasks that
-  return values. These default APIs derive the declared count from
-  `ExactSizeIterator`; use the matching `*_with_count` API when the count is an
-  explicit contract.
-- `BatchOutcome` is the executor result. It reports task counters, elapsed time,
-  and indexed `BatchTaskFailure` entries.
-- `BatchExecutionError` reports progress failures, iterator count-contract
-  violations, and incomplete schedules from custom parallel runtimes; every
-  variant carries the partial `BatchOutcome`.
-- `BatchCallError` is returned by `call` and `call_with_count` for those same
-  batch-level failures while preserving sparse `BatchCallOutput` entries for
-  successful callables collected before execution stopped.
-- `SequentialBatchExecutor` runs tasks in iterator order on the caller thread
-  and exposes concrete methods that also accept non-`Send` tasks, callables,
-  values, and errors. It continues through task errors and captured panics by
-  default. Configure
-  `TaskFailurePolicy::StopOnFirstFailure` or `StopAfterFailures(...)` when
-  early termination is required.
-- `ParallelBatchExecutor` runs tasks on fixed-width scoped standard threads.
-- `BatchProcessor` processes data items directly instead of wrapping them as
-  tasks.
-- `SequentialBatchProcessor` and `ParallelBatchProcessor` invoke a
-  `qubit-function` `Consumer` per item and support progress reporting.
-  `ParallelBatchProcessor::new(...)` keeps batches with 100 or fewer items on
-  the caller thread and uses scoped workers for larger batches.
-- `ChunkedBatchProcessor` splits one logical batch into fixed-size chunks and
-  delegates each chunk to another `BatchProcessor`. A delegate that returns
-  `Ok` for a chunk must report `item_count == chunk_len` and
-  `completed_count == chunk_len`; `processed_count` may be lower when the
-  underlying operation reports fewer successful or affected rows.
-
-Rayon-backed execution lives in the companion `qubit-rayon-batch` crate. A
-custom runtime can implement `BatchExecutor` through `execute::spi`: call
-`ParallelBatchExecutionContext::accept_task` before dispatching work and pass
-every accepted `ParallelBatchTask` to `execute_task` exactly once. Dropping an
-accepted task is reported as `BatchExecutionError::IncompleteSchedule`. The
-scheduler closure returns its runtime-specific submission error directly;
-`BatchExecutionError::ScheduleFailed` preserves it. Parallel executors also
-support `TaskFailurePolicy`: they stop accepting new source items after the
-configured failure threshold and wait for already accepted tasks to finish.
+`qubit-batch` executes a finite batch once and returns structured accounting for
+the caller that needs to validate, import, or maintain many independent items
+without coupling a shared library to a particular async runtime.
 
 ## Installation
 
@@ -75,13 +18,14 @@ configured failure threshold and wait for already accepted tasks to finish.
 qubit-batch = "0.10"
 ```
 
-Add `qubit-function` when you implement `Runnable`, `Callable`, or `Consumer`
-types directly, and add `qubit-progress` when you implement custom progress
-reporters.
+Use Rust 1.94 or later. Add `qubit-function` only when implementing
+`Runnable`, `Callable`, or `Consumer` types directly, and add `qubit-progress`
+only when implementing a custom progress reporter.
 
-## Examples
+## Quick Start
 
-### Validate every item
+An import service receives three records and wants to retain the invalid
+record's stable index for a retry report while still checking every record.
 
 ```rust
 use qubit_batch::{
@@ -93,363 +37,64 @@ use qubit_batch::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ImportError {
     record_id: u64,
-    reason: &'static str,
 }
 
-let executor = SequentialBatchExecutor::new();
 let records = [
     (101, "alice@example.com"),
     (102, "not-an-email"),
     (103, "carol@example.com"),
 ];
 
-let result = executor
+let outcome = SequentialBatchExecutor::new()
     .for_each(records, |(record_id, email)| {
         if email.contains('@') {
             Ok(())
         } else {
-            Err(ImportError {
-                record_id,
-                reason: "email address is invalid",
-            })
+            Err(ImportError { record_id })
         }
     })
     .expect("array length should be exact");
 
-assert_eq!(result.task_count(), 3);
-assert_eq!(result.succeeded_count(), 2);
-assert_eq!(result.failed_count(), 1);
-
-let failure = &result.failures()[0];
-assert_eq!(failure.index(), 1);
-match failure.error() {
-    BatchTaskError::Failed(error) => {
-        assert_eq!(error.record_id, 102);
-        assert_eq!(error.reason, "email address is invalid");
-    }
-    BatchTaskError::Panicked { .. } => unreachable!("the closure returned an error"),
-}
+assert_eq!(outcome.task_count(), 3);
+assert_eq!(outcome.succeeded_count(), 2);
+assert_eq!(outcome.failed_count(), 1);
+assert_eq!(outcome.failures()[0].index(), 1);
+assert!(matches!(outcome.failures()[0].error(), BatchTaskError::Failed(_)));
 ```
 
-### Run in parallel
+The call succeeds because the source count matches the array length; task
+failures remain in `BatchOutcome` for inspection.
 
-```rust
-use qubit_batch::{
-    BatchExecutor,
-    ParallelBatchExecutor,
-};
+## Why This Project Exists
 
-let executor = ParallelBatchExecutor::builder()
-    .thread_count(4)
-    .sequential_threshold(0)
-    .build()
-    .expect("parallel executor configuration should be valid");
+Many applications need one bounded operation, not a queue or an always-on
+worker pool. This crate centralizes count validation, elapsed-time accounting,
+stable failure indexes, captured task panics, and partial outcomes, while
+leaving retry policy and runtime ownership to the application.
 
-let result = executor
-    .for_each(0..8, |value| {
-        assert!(value < 8);
-        Ok::<(), &'static str>(())
-    })
-    .expect("range length should be exact");
+## What It Provides
 
-assert!(result.is_success());
-```
+- `BatchExecutor` for fallible tasks and `BatchProcessor` for direct item
+  processing.
+- `SequentialBatchExecutor` and `ParallelBatchExecutor` for caller-thread and
+  scoped parallel task execution.
+- Sequential execution on the caller thread, plus fixed-width scoped standard
+  threads for larger parallel batches.
+- `BatchOutcome` and `BatchProcessResult` counters, indexed failures, and
+  partial outcomes attached to batch-level errors.
+- Explicit count contracts through `*_with_count` APIs and configurable task
+  failure policies.
 
-`ParallelBatchExecutor::default()` keeps batches with 100 or fewer declared
-tasks on the sequential executor to avoid scoped-thread setup overhead. Set
-`sequential_threshold(0)` when every non-empty batch should use parallel
-workers.
+It is not a queue, scheduler, persistent worker pool, retry framework, or a
+Rayon adapter. The companion `qubit-rayon-batch` crate supplies Rayon-backed
+execution. Parallel workers are scoped to one call; benchmark representative
+workloads before changing the default sequential fallback threshold.
 
-### Collect callable values
+## Learn More
 
-```rust
-use qubit_batch::{
-    BatchExecutor,
-    SequentialBatchExecutor,
-};
-
-fn count_users() -> Result<usize, &'static str> {
-    Ok(3)
-}
-fn count_orders() -> Result<usize, &'static str> {
-    Ok(5)
-}
-
-let result = SequentialBatchExecutor::new()
-    .call([count_users, count_orders])
-    .expect("array length should be exact");
-
-assert!(result.outcome().is_success());
-assert_eq!(result.outputs()[0].value(), &3);
-assert_eq!(result.outputs()[1].value(), &5);
-```
-
-### Process items directly
-
-```rust
-use qubit_batch::{
-    BatchProcessor,
-    SequentialBatchProcessor,
-};
-
-let mut processor = SequentialBatchProcessor::new(|item: &i32| {
-    assert!(*item > 0);
-});
-
-let result = processor
-    .process([1, 2, 3])
-    .expect("array length should be exact");
-
-assert_eq!(result.completed_count(), 3);
-assert_eq!(result.processed_count(), 3);
-```
-
-### Delegate fixed-size chunks
-
-```rust
-use std::{
-    num::NonZeroUsize,
-    time::Duration,
-};
-
-use qubit_batch::{
-    BatchProcessResult,
-    BatchProcessResultBuilder,
-    BatchProcessor,
-    ChunkedBatchProcessor,
-};
-
-struct InsertChunk;
-
-impl BatchProcessor<i32> for InsertChunk {
-    type Error = &'static str;
-
-    fn process_with_count<I>(
-        &mut self,
-        rows: I,
-        count: usize,
-    ) -> Result<BatchProcessResult, Self::Error>
-    where
-        I: IntoIterator<Item = i32>,
-    {
-        let processed = rows.into_iter().count();
-        BatchProcessResultBuilder::builder(count)
-            .completed_count(processed)
-            .processed_count(processed)
-            .chunk_count(1)
-            .elapsed(Duration::ZERO)
-            .build()
-            .map_err(|_| "invalid process result")
-    }
-}
-
-let mut processor = ChunkedBatchProcessor::new(
-    InsertChunk,
-    NonZeroUsize::new(2).expect("chunk size is non-zero"),
-);
-
-let result = processor
-    .process([1, 2, 3, 4, 5])
-    .expect("array length should be exact");
-
-assert_eq!(result.completed_count(), 5);
-assert_eq!(result.processed_count(), 5);
-assert_eq!(result.chunk_count(), 3);
-```
-
-When `ChunkedBatchProcessor` delegates a chunk, the delegate result is treated
-as the result for that exact submitted chunk. Returning `Ok` means the delegate
-has reached a terminal outcome for every item in the chunk, so `item_count` and
-`completed_count` must both match the submitted chunk length. `processed_count`
-can be lower than the chunk length for domains where the target reports a
-smaller success count, such as an idempotent database insert that accepts three
-rows but affects only two. If the delegate cannot reach a terminal outcome for
-the whole chunk, it should return `Err`; inconsistent `Ok` results are reported
-as `ChunkedBatchProcessError::InvalidChunkResult`.
-
-## Progress Reporting
-
-`qubit-batch` accepts `qubit-progress` reporters but does not re-export
-`qubit-progress` types. Implement reporters from `qubit-progress` directly.
-`SequentialBatchExecutor`, `ParallelBatchExecutor`, `SequentialBatchProcessor`,
-`ParallelBatchProcessor`, and `ChunkedBatchProcessor` can all attach custom
-reporters.
-
-Configuration is builder-only. Use `SequentialBatchExecutor::builder()`,
-`ParallelBatchExecutor::builder()`, `SequentialBatchProcessor::builder(...)`,
-`ParallelBatchProcessor::builder(...)`, or `ChunkedBatchProcessor::builder(...)`
-when customizing reporters, report intervals, worker counts, thresholds, or
-chunked processor options.
-
-```rust
-use std::time::Duration;
-
-use qubit_batch::{
-    BatchExecutor,
-    SequentialBatchExecutor,
-};
-use qubit_progress::{
-    Event,
-    Phase,
-    ReporterError,
-    Reporter,
-};
-
-struct ConsoleReporter;
-
-impl Reporter for ConsoleReporter {
-    fn report(&self, event: &Event) -> Result<(), ReporterError> {
-        let counter = event
-            .metric("tasks")
-            .expect("batch progress events contain task counters");
-        let total = counter.total().unwrap_or(counter.completed());
-        match event.phase() {
-            Phase::Started => println!("starting {total} tasks"),
-            Phase::Running => println!(
-                "completed {}/{total}, active {}, elapsed {:?}",
-                counter.completed(),
-                counter.active(),
-                event.elapsed(),
-            ),
-            Phase::Succeeded => println!("finished {total} tasks in {:?}", event.elapsed()),
-            Phase::Failed | Phase::Cancelled => println!(
-                "stopped after {}/{total} tasks in {:?}",
-                counter.completed(),
-                event.elapsed(),
-            ),
-        }
-        Ok(())
-    }
-}
-
-let executor = SequentialBatchExecutor::builder()
-    .reporter(ConsoleReporter)
-    .report_interval(Duration::from_millis(250))
-    .build();
-
-let result = executor
-    .for_each(["a", "b", "c"], |_item| Ok::<(), &'static str>(()))
-    .expect("array length should be exact");
-
-assert!(result.is_success());
-```
-
-Panics from task bodies are captured as `BatchTaskError::Panicked`. Panics from
-processor consumers and progress reporters propagate to the caller because they
-are outside the task failure model. Sequential execution and processing report
-progress only between tasks or items; parallel variants use
-`Progress::spawn_auto_reporter` to emit running progress periodically from a
-scoped reporter thread.
-
-The configured `report_interval` is a throttle checked only at
-implementation-defined running progress points. It does not guarantee that a
-running event is emitted immediately when the interval elapses. Sequential
-variants check between tasks or items, and chunked processing checks after a
-chunk completes. Parallel variants use a scoped reporter thread; with a positive
-interval they can also emit periodic running events while workers are active.
-`Duration::ZERO` disables time throttling, so running progress is reported as
-soon as each implementation-defined progress point is reached; it does not
-create a tight refresh loop.
-
-## Count Contract
-
-Execution and processing APIs derive the declared count automatically when the
-input iterator implements `ExactSizeIterator`. Use `execute_with_count`,
-`call_with_count`, `for_each_with_count`, or `process_with_count` when the count
-is a separate contract. This still lets the API report stable totals before
-consuming lazy iterators and return partial results when a producer yields the
-wrong number of items.
-
-```rust
-use qubit_batch::{
-    BatchExecutionError,
-    BatchExecutor,
-    SequentialBatchExecutor,
-};
-
-let executor = SequentialBatchExecutor::new();
-let error = executor
-    .for_each_with_count([10, 20], 3, |_value| Ok::<(), &'static str>(()))
-    .expect_err("the iterator yielded fewer items than declared");
-
-match error {
-    BatchExecutionError::CountShortfall {
-        expected,
-        actual,
-        outcome,
-        ..
-    } => {
-        assert_eq!(expected, 3);
-        assert_eq!(actual, 2);
-        assert_eq!(outcome.completed_count(), 2);
-    }
-    BatchExecutionError::CountExceeded { .. } => unreachable!(),
-    other => panic!("unexpected error: {other:?}"),
-}
-```
-
-Important result semantics:
-
-- `Ok(BatchOutcome)` does not mean every task succeeded. It normally means the
-  supplied iterator matched the declared count. When an explicitly configured
-  task-failure policy stops sequential execution early, inspect
-  `result.termination()`; remaining source items were not consumed and the
-  declared count was not fully validated.
-- `result.is_success()` means all declared tasks completed without task errors
-  or panics.
-- `Err(BatchExecutionError)` means progress reporting failed, the iterator
-  produced fewer or more items than declared, or a custom parallel scheduler
-  failed to complete an accepted task; it carries a partial `BatchOutcome`.
-- `Err(BatchCallError)` additionally preserves sparse `BatchCallOutput` entries
-  collected before the error; each entry exposes its original callable index.
-
-## API Cheat Sheet
-
-- `SequentialBatchExecutor::new()` runs tasks deterministically on the caller
-  thread in iterator order.
-- Custom progress reporters and report intervals are configured through builder
-  APIs; direct `new()` constructors keep default progress settings.
-- `ParallelBatchExecutor::default()` uses available CPU parallelism, scoped
-  standard threads, and a sequential fallback for batches with 100 or fewer
-  declared tasks. Use `ParallelBatchExecutor::builder().sequential_threshold(0)`
-  to force parallel workers for every non-empty batch.
-- `ParallelBatchProcessor::new(...)` uses available CPU parallelism and the same
-  100-item sequential fallback. Use
-  `ParallelBatchProcessor::builder(...).sequential_threshold(0).build()` to
-  force scoped workers for every non-empty item batch.
-- `BatchOutcome::failures()` returns failure records sorted by zero-based task
-  index.
-- `BatchCallResult::outputs()` stores only successful callable outputs with
-  their original indexes, avoiding dense allocation for early-stop batches.
-- `BatchCallError::outputs()` returns only successful callable outputs collected
-  before the batch-level error, sorted by original index.
-- `BatchProcessResult::processed_count()` is the delegate-reported success
-  count. It can differ from `completed_count()` for processors that report
-  affected rows or similar target-side counts.
-- `ChunkedBatchProcessError<E>` carries the partial aggregate result for count
-  mismatches and delegate failures.
-
-## Project Layout
-
-- `src/execute`: batch execution traits, outcomes, count mismatch errors, task
-  failures, and execution adapters.
-- `src/execute/impls`: standard-library batch executor implementations.
-- `src/process`: data-item batch processor traits, results, and processing
-  errors.
-- `src/process/impls`: consumer-backed processors and the chunked processor.
-- `src/utils`: crate-internal utilities shared by execution and processing.
-- `tests/execute`: behavior tests for batch execution, progress callbacks,
-  failures, panics, outcomes, and count mismatches.
-- `tests/process`: behavior tests for direct processing, chunking, delegate
-  errors, and progress callbacks.
-- `tests/utils`: behavior tests for shared internal utility behavior.
-- `tests/docs`: README consistency checks.
-
-## Documentation
-
-- API documentation: [docs.rs/qubit-batch](https://docs.rs/qubit-batch)
-- Crate package: [crates.io/crates/qubit-batch](https://crates.io/crates/qubit-batch)
-- Source repository: [github.com/qubit-ltd/rs-batch](https://github.com/qubit-ltd/rs-batch)
+- [API documentation](https://docs.rs/qubit-batch)
+- [Crate package](https://crates.io/crates/qubit-batch)
+- [中文 README](README.zh_CN.md)
 
 ## Testing
 
