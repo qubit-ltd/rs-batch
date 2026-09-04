@@ -40,6 +40,10 @@ use crate::BatchTermination;
 /// assert_eq!(outcome.failed_count(), 1);
 /// assert_eq!(outcome.failures()[0].index(), 1);
 /// ```
+///
+/// # Type Parameters
+///
+/// * `E` - Task-specific error type stored in failure records.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BatchOutcomeBuilder<E> {
     /// Declared task count for the batch.

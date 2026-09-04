@@ -169,12 +169,20 @@ where
     }
 
     /// Returns whether this error represents a scheduler failure.
+    ///
+    /// # Returns
+    ///
+    /// `true` if this error is [`Self::ScheduleFailed`].
     #[inline]
     pub const fn is_schedule_failed(&self) -> bool {
         matches!(self, Self::ScheduleFailed { .. })
     }
 
     /// Returns the scheduler error, when scheduling failed.
+    ///
+    /// # Returns
+    ///
+    /// `Some(error)` for [`Self::ScheduleFailed`], or `None` for other errors.
     #[inline]
     pub fn scheduler_error(&self) -> Option<&S> {
         match self {
@@ -184,6 +192,19 @@ where
     }
 
     /// Maps the scheduler error while preserving the attached outcome.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Replacement scheduler error type.
+    /// * `F` - Function that converts `S` into `T`.
+    ///
+    /// # Parameters
+    ///
+    /// * `map` - Conversion applied only to the scheduler error variant.
+    ///
+    /// # Returns
+    ///
+    /// An equivalent error with its scheduler error converted to `T`.
     pub fn map_scheduler_error<T, F>(self, map: F) -> BatchExecutionError<E, T>
     where
         T: std::error::Error + Send + Sync + 'static,
@@ -251,6 +272,10 @@ where
     }
 
     /// Returns whether this error represents an incomplete parallel schedule.
+    ///
+    /// # Returns
+    ///
+    /// `true` if this error is [`Self::IncompleteSchedule`].
     #[inline]
     pub const fn is_incomplete_schedule(&self) -> bool {
         matches!(self, Self::IncompleteSchedule { .. })

@@ -31,6 +31,10 @@ use super::SequentialBatchProcessor;
 ///
 /// assert_eq!(processor.report_interval(), Duration::ZERO);
 /// ```
+///
+/// # Type Parameters
+///
+/// * `Item` - Item type consumed by the processor being built.
 pub struct SequentialBatchProcessorBuilder<Item> {
     /// Consumer called once for each accepted item.
     consumer: BoxConsumer<Item>,

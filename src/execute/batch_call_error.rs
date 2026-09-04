@@ -23,6 +23,7 @@ use crate::BatchOutcome;
 ///
 /// * `R` - Callable success value type.
 /// * `E` - Callable error type stored in the nested execution outcome.
+/// * `S` - Scheduler error type stored in the nested execution error.
 #[must_use = "call errors preserve partial callable values"]
 pub struct BatchCallError<R, E, S = Infallible>
 where
@@ -71,12 +72,20 @@ where
     }
 
     /// Returns the nested batch execution error.
+    ///
+    /// # Returns
+    ///
+    /// The batch-level error that stopped execution.
     #[inline]
     pub fn source(&self) -> &BatchExecutionError<E, S> {
         self.source.as_ref()
     }
 
     /// Returns the partial execution outcome.
+    ///
+    /// # Returns
+    ///
+    /// The outcome accumulated before the batch-level error occurred.
     #[inline]
     pub fn outcome(&self) -> &BatchOutcome<E> {
         self.source.outcome()
@@ -93,18 +102,30 @@ where
     }
 
     /// Consumes this error and returns the nested execution error.
+    ///
+    /// # Returns
+    ///
+    /// The owned batch-level execution error.
     #[inline]
     pub fn into_source(self) -> BatchExecutionError<E, S> {
         *self.source
     }
 
     /// Consumes this error and returns sparse successful callable outputs.
+    ///
+    /// # Returns
+    ///
+    /// Successful outputs sorted by their original zero-based callable index.
     #[inline]
     pub fn into_outputs(self) -> Vec<BatchCallOutput<R>> {
         self.outputs
     }
 
     /// Consumes this error and returns both preserved parts.
+    ///
+    /// # Returns
+    ///
+    /// The nested execution error and its preserved successful outputs.
     #[inline]
     pub fn into_parts(self) -> (BatchExecutionError<E, S>, Vec<BatchCallOutput<R>>) {
         (*self.source, self.outputs)

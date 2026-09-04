@@ -20,6 +20,11 @@ use crate::sync::Ordering;
 static NEXT_EXECUTION_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Allocates the next nonzero execution identity without wrapping.
+///
+/// # Returns
+///
+/// A process-wide nonzero identity that is unique until the `u64` space is
+/// exhausted.
 #[inline]
 fn next_execution_id() -> u64 {
     NEXT_EXECUTION_ID
@@ -31,6 +36,10 @@ fn next_execution_id() -> u64 {
 ///
 /// Runtime-specific executors receive this context from the coordinator and
 /// use it to accept and execute one-shot task tokens.
+///
+/// # Type Parameters
+///
+/// * `E` - Task-specific error type stored in the shared execution outcome.
 pub struct ParallelBatchExecutionContext<E> {
     /// Globally unique identity for this execution context.
     execution_id: u64,

@@ -67,6 +67,14 @@ impl From<TerminalError> for ProgressFailure {
 impl ProgressFailure {
     /// Converts a checked finish failure while discarding the unusable
     /// operation returned with an incomplete finish.
+    ///
+    /// # Parameters
+    ///
+    /// * `error` - Checked finish failure returned by the progress operation.
+    ///
+    /// # Returns
+    ///
+    /// A normalized progress failure retaining the underlying source error.
     pub fn from_finish_error(error: FinishError) -> Self {
         match error {
             FinishError::Incomplete { source, .. } => Self::Completion(source),
@@ -76,6 +84,11 @@ impl ProgressFailure {
 
     /// Returns terminal elapsed time when this failure attempted a terminal
     /// event.
+    ///
+    /// # Returns
+    ///
+    /// The terminal event's elapsed duration, or `None` when no terminal event
+    /// was attempted.
     #[must_use]
     pub fn elapsed(&self) -> Option<std::time::Duration> {
         match self {

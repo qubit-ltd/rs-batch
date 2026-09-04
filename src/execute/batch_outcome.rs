@@ -42,6 +42,10 @@ use crate::BatchTermination;
 /// let builder = BatchOutcomeBuilder::<&'static str>::builder(1);
 /// let _outcome = BatchOutcome::new(builder);
 /// ```
+///
+/// # Type Parameters
+///
+/// * `E` - Task-specific error type stored in failure records.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[must_use = "batch outcomes contain task failures and execution counters"]
 pub struct BatchOutcome<E> {

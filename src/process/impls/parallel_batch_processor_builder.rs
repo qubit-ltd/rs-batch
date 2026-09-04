@@ -34,6 +34,10 @@ use super::ParallelBatchProcessorBuildError;
 /// assert_eq!(processor.thread_count(), 2);
 /// assert_eq!(processor.sequential_threshold(), 0);
 /// ```
+///
+/// # Type Parameters
+///
+/// * `Item` - Item type consumed by the processor being built.
 pub struct ParallelBatchProcessorBuilder<Item> {
     /// Consumer shared by all scoped workers.
     consumer: ArcConsumer<Item>,
