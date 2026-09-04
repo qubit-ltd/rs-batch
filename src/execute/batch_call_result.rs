@@ -14,6 +14,11 @@ use crate::BatchOutcome;
 /// Successful callable outputs are retained sparsely with their original
 /// indexes. This keeps early-stop results bounded by the number of completed
 /// callables instead of the declared task count.
+///
+/// # Type Parameters
+///
+/// * `R` - Callable success value type.
+/// * `E` - Callable error type stored in the execution outcome.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[must_use = "batch call results contain execution failures and returned values"]
 pub struct BatchCallResult<R, E> {
@@ -25,6 +30,15 @@ pub struct BatchCallResult<R, E> {
 
 impl<R, E> BatchCallResult<R, E> {
     /// Creates a new callable batch result from sparse successful outputs.
+    ///
+    /// # Parameters
+    ///
+    /// * `outcome` - Validated execution outcome for the callable batch.
+    /// * `outputs` - Successful outputs sorted by their original indexes.
+    ///
+    /// # Returns
+    ///
+    /// A callable result containing the outcome and sparse outputs.
     ///
     /// # Errors
     ///

@@ -137,6 +137,10 @@ impl ParallelBatchExecutor {
     }
 
     /// Returns the configured task-failure policy.
+    ///
+    /// # Returns
+    ///
+    /// The policy applied after task errors or captured task panics.
     #[inline]
     pub const fn task_failure_policy(&self) -> TaskFailurePolicy {
         self.task_failure_policy

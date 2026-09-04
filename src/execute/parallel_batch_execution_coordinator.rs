@@ -37,6 +37,15 @@ pub struct ParallelBatchExecutionCoordinator {
 
 impl ParallelBatchExecutionCoordinator {
     /// Creates a coordinator instance.
+    ///
+    /// # Parameters
+    ///
+    /// * `reporter` - Reporter receiving lifecycle and running progress events.
+    /// * `report_interval` - Minimum interval between due-based running events.
+    ///
+    /// # Returns
+    ///
+    /// A coordinator configured with the supplied reporter and interval.
     #[inline]
     pub fn new(reporter: Arc<dyn Reporter>, report_interval: Duration) -> Self {
         Self {

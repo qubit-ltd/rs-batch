@@ -405,6 +405,10 @@ impl SequentialBatchExecutor {
     ///
     /// Returns [`BatchExecutionError`] when execution reports progress or
     /// count failures.
+    ///
+    /// # Panics
+    ///
+    /// Propagates panics raised by `action` or synchronous reporter callbacks.
     pub fn for_each<Item, E, I, F>(&self, items: I, action: F) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = Item>,
@@ -432,6 +436,10 @@ impl SequentialBatchExecutor {
     ///
     /// Returns [`BatchExecutionError`] when execution reports progress or the
     /// source count differs from `count`.
+    ///
+    /// # Panics
+    ///
+    /// Propagates panics raised by `action` or synchronous reporter callbacks.
     pub fn for_each_with_count<Item, E, I, F>(
         &self,
         items: I,
