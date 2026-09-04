@@ -22,7 +22,7 @@ use qubit_batch::SequentialBatchProcessor;
 use qubit_function::Runnable;
 
 /// Batch sizes around the default sequential execution threshold.
-const BATCH_SIZES: [usize; 5] = [32, 64, 100, 128, 256];
+const BATCH_SIZES: [usize; 7] = [32, 64, 99, 100, 101, 128, 256];
 
 /// Task that measures executor dispatch overhead without application work.
 #[derive(Clone, Copy)]
@@ -81,6 +81,10 @@ fn benchmark_no_op_execution(criterion: &mut Criterion) {
         .sequential_threshold(0)
         .build()
         .expect("benchmark executor configuration should be valid");
+    let default_parallel = ParallelBatchExecutor::builder()
+        .thread_count(4)
+        .build()
+        .expect("benchmark executor configuration should be valid");
     let mut group = criterion.benchmark_group("batch_executor_no_op");
 
     for task_count in BATCH_SIZES {
@@ -110,6 +114,19 @@ fn benchmark_no_op_execution(criterion: &mut Criterion) {
                 });
             },
         );
+        group.bench_with_input(
+            BenchmarkId::new("default_threshold", task_count),
+            &task_count,
+            |bencher, &task_count| {
+                bencher.iter(|| {
+                    let _ = black_box(
+                        default_parallel
+                            .execute_with_count((0..task_count).map(|_| NoOpTask), task_count)
+                            .expect("no-op batch should succeed"),
+                    );
+                });
+            },
+        );
     }
     group.finish();
 }
@@ -124,6 +141,10 @@ fn benchmark_cpu_execution(criterion: &mut Criterion) {
     let parallel = ParallelBatchExecutor::builder()
         .thread_count(4)
         .sequential_threshold(0)
+        .build()
+        .expect("benchmark executor configuration should be valid");
+    let default_parallel = ParallelBatchExecutor::builder()
+        .thread_count(4)
         .build()
         .expect("benchmark executor configuration should be valid");
     let mut group = criterion.benchmark_group("batch_executor_cpu");
@@ -155,6 +176,19 @@ fn benchmark_cpu_execution(criterion: &mut Criterion) {
                 });
             },
         );
+        group.bench_with_input(
+            BenchmarkId::new("default_threshold", task_count),
+            &task_count,
+            |bencher, &task_count| {
+                bencher.iter(|| {
+                    let _ = black_box(
+                        default_parallel
+                            .execute_with_count((0..task_count).map(|seed| CpuTask { seed: seed as u64 }), task_count)
+                            .expect("CPU batch should succeed"),
+                    );
+                });
+            },
+        );
     }
     group.finish();
 }
@@ -169,6 +203,10 @@ fn benchmark_callable_execution(criterion: &mut Criterion) {
     let parallel = ParallelBatchExecutor::builder()
         .thread_count(4)
         .sequential_threshold(0)
+        .build()
+        .expect("benchmark executor configuration should be valid");
+    let default_parallel = ParallelBatchExecutor::builder()
+        .thread_count(4)
         .build()
         .expect("benchmark executor configuration should be valid");
     let mut group = criterion.benchmark_group("batch_executor_callable");
@@ -198,6 +236,18 @@ fn benchmark_callable_execution(criterion: &mut Criterion) {
                 });
             },
         );
+        group.bench_with_input(
+            BenchmarkId::new("default_threshold", task_count),
+            &task_count,
+            |bencher, &task_count| {
+                bencher.iter(|| {
+                    let result = default_parallel
+                        .call((0..task_count).map(|_| constant_callable))
+                        .expect("callable batch should succeed");
+                    let _ = black_box(result);
+                });
+            },
+        );
     }
     group.finish();
 }
@@ -212,6 +262,10 @@ fn benchmark_item_processing(criterion: &mut Criterion) {
     let mut parallel = ParallelBatchProcessor::builder(|_: &u64| {})
         .thread_count(4)
         .sequential_threshold(0)
+        .build()
+        .expect("benchmark processor configuration should be valid");
+    let mut default_parallel = ParallelBatchProcessor::builder(|_: &u64| {})
+        .thread_count(4)
         .build()
         .expect("benchmark processor configuration should be valid");
     let mut group = criterion.benchmark_group("batch_processor");
@@ -235,6 +289,18 @@ fn benchmark_item_processing(criterion: &mut Criterion) {
             |bencher, &task_count| {
                 bencher.iter(|| {
                     let result = parallel
+                        .process_with_count((0..task_count).map(|value| value as u64), task_count)
+                        .expect("parallel batch should succeed");
+                    let _ = black_box(result);
+                });
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("default_threshold", task_count),
+            &task_count,
+            |bencher, &task_count| {
+                bencher.iter(|| {
+                    let result = default_parallel
                         .process_with_count((0..task_count).map(|value| value as u64), task_count)
                         .expect("parallel batch should succeed");
                     let _ = black_box(result);

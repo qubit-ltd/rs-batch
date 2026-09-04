@@ -34,6 +34,8 @@ use crate::utils::run_scoped_parallel_tasks;
 /// most 100 declared tasks run through [`SequentialBatchExecutor`] to avoid
 /// thread setup overhead. Configure `sequential_threshold(0)` through
 /// [`Self::builder`] when every non-empty batch should use parallel workers.
+/// The default threshold is a fixed heuristic; benchmark representative task
+/// workloads before changing it for a deployment.
 ///
 /// ```rust
 /// use qubit_batch::{
@@ -227,6 +229,9 @@ impl BatchExecutor for ParallelBatchExecutor {
         T: Runnable<E> + Send,
         E: Send,
     {
+        // TODO: replace per-call scoped worker creation with a shared bounded
+        // thread pool. The current implementation intentionally preserves
+        // scoped borrowing semantics until that redesign is scheduled.
         if count <= self.sequential_threshold || self.thread_count <= 1 {
             return self.sequential_executor().execute_with_count(tasks, count);
         }

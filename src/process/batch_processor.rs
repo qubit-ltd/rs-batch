@@ -86,8 +86,9 @@ pub trait BatchProcessor<Item> {
     ///
     /// # Parameters
     ///
-    /// * `items` - Data source for this batch. Its iterator must report the
-    ///   remaining item count exactly.
+    /// * `items` - Data source for this batch. Its iterator must uphold the
+    ///   [`ExactSizeIterator`] contract and report the remaining item count
+    ///   exactly.
     ///
     /// # Returns
     ///
@@ -96,8 +97,10 @@ pub trait BatchProcessor<Item> {
     ///
     /// # Errors
     ///
-    /// Returns [`Self::Error`] if the processor rejects the batch or if the
-    /// iterator violates its exact length contract while being consumed.
+    /// Returns [`Self::Error`] if the processor rejects the batch. The caller
+    /// is responsible for supplying an iterator that upholds its exact-size
+    /// contract; implementations may detect a violation, but the trait does
+    /// not require a universal runtime check.
     fn process<I>(&mut self, items: I) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
@@ -113,7 +116,9 @@ pub trait BatchProcessor<Item> {
     /// # Parameters
     ///
     /// * `items` - Data source for this batch.
-    /// * `count` - Declared number of items expected from `items`.
+    /// * `count` - Exact number of items expected from `items`, not an
+    ///   estimate, capacity hint, or upper bound. The caller is responsible for
+    ///   supplying the correct value.
     ///
     /// # Returns
     ///
@@ -123,6 +128,8 @@ pub trait BatchProcessor<Item> {
     /// # Errors
     ///
     /// Returns [`Self::Error`] when this processor cannot process the batch.
+    /// Implementations may report a count mismatch when `count` is wrong, but
+    /// callers must not rely on every implementation performing that check.
     fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>;
