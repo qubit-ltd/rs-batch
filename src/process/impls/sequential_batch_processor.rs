@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -25,14 +26,15 @@ use crate::process::PROCESS_PROGRESS_METRIC_NAME;
 
 /// Processes batch items sequentially by invoking a [`Consumer`] per item.
 ///
-/// The processor stores the supplied consumer as a [`BoxConsumer`] and invokes
-/// it on the caller thread in input order. Consumer panics are not caught; they
-/// propagate to the caller and no [`BatchProcessResult`] is produced. Progress
-/// updates are emitted only between items.
+/// The processor invokes the supplied consumer on the caller thread in input
+/// order. Consumer panics are not caught; they propagate to the caller and no
+/// [`BatchProcessResult`] is produced. Progress updates are emitted only
+/// between items.
 ///
 /// # Type Parameters
 ///
 /// * `Item` - Item type consumed by the stored consumer.
+/// * `C` - Stored consumer type. The default is [`BoxConsumer<Item>`].
 ///
 /// ```rust
 /// use qubit_batch::{
@@ -50,19 +52,18 @@ use crate::process::PROCESS_PROGRESS_METRIC_NAME;
 ///
 /// assert!(result.is_success());
 /// ```
-pub struct SequentialBatchProcessor<Item> {
+pub struct SequentialBatchProcessor<Item, C = BoxConsumer<Item>> {
     /// Consumer called once for each accepted item.
-    pub(crate) consumer: BoxConsumer<Item>,
+    pub(crate) consumer: C,
     /// Interval between progress callbacks while the batch is running.
     pub(crate) report_interval: Duration,
     /// Reporter receiving batch lifecycle callbacks.
     pub(crate) reporter: Arc<dyn Reporter>,
+    /// Associates the consumed item type without owning an item.
+    pub(crate) item_marker: PhantomData<fn(&Item)>,
 }
 
 impl<Item> SequentialBatchProcessor<Item> {
-    /// Default interval between progress callbacks.
-    pub const DEFAULT_REPORT_INTERVAL: Duration = crate::constants::DEFAULT_REPORT_INTERVAL;
-
     /// Creates a sequential consumer-backed batch processor.
     ///
     /// # Parameters
@@ -98,6 +99,32 @@ impl<Item> SequentialBatchProcessor<Item> {
         SequentialBatchProcessorBuilder::new(consumer)
     }
 
+    /// Creates a sequential processor that stores a consumer directly.
+    ///
+    /// Unlike [`Self::new`], this constructor does not require the consumer to
+    /// be `'static`, so it can borrow caller-owned state for the processor's
+    /// lifetime.
+    ///
+    /// # Parameters
+    ///
+    /// * `consumer` - Consumer invoked once for each input item.
+    ///
+    /// # Returns
+    ///
+    /// A processor that stores `consumer` without boxing it.
+    #[inline]
+    pub fn with_consumer<C>(consumer: C) -> SequentialBatchProcessor<Item, C>
+    where
+        C: Consumer<Item>,
+    {
+        SequentialBatchProcessorBuilder::<Item>::with_consumer(consumer).build()
+    }
+}
+
+impl<Item, C> SequentialBatchProcessor<Item, C> {
+    /// Default interval between progress callbacks.
+    pub const DEFAULT_REPORT_INTERVAL: Duration = crate::constants::DEFAULT_REPORT_INTERVAL;
+
     /// Returns the configured progress-report interval.
     ///
     /// # Returns
@@ -122,9 +149,9 @@ impl<Item> SequentialBatchProcessor<Item> {
     ///
     /// # Returns
     ///
-    /// A shared reference to the boxed consumer.
+    /// A shared reference to the stored consumer.
     #[inline]
-    pub const fn consumer(&self) -> &BoxConsumer<Item> {
+    pub const fn consumer(&self) -> &C {
         &self.consumer
     }
 
@@ -132,14 +159,17 @@ impl<Item> SequentialBatchProcessor<Item> {
     ///
     /// # Returns
     ///
-    /// The boxed consumer used by this processor.
+    /// The consumer used by this processor.
     #[inline]
-    pub fn into_consumer(self) -> BoxConsumer<Item> {
+    pub fn into_consumer(self) -> C {
         self.consumer
     }
 }
 
-impl<Item> BatchProcessor<Item> for SequentialBatchProcessor<Item> {
+impl<Item, C> BatchProcessor<Item> for SequentialBatchProcessor<Item, C>
+where
+    C: Consumer<Item>,
+{
     type Error = BatchProcessError;
 
     /// Processes items sequentially on the caller thread.
