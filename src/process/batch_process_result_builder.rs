@@ -12,8 +12,10 @@ use crate::BatchProcessResultBuildError;
 
 /// Builder carrying validated parts for a [`crate::BatchProcessResult`].
 ///
-/// The builder checks that completed, processed, and chunk counters describe a
-/// consistent processing result before creating the result.
+/// The builder checks that `processed_count <= completed_count <= item_count`
+/// and that the successful chunk count is consistent with completed inputs.
+/// `processed_count` is a successful input count; domain measurements such as
+/// affected database rows must be kept separately.
 ///
 /// ```rust
 /// use std::time::Duration;
@@ -37,9 +39,9 @@ pub struct BatchProcessResultBuilder {
     pub(crate) item_count: usize,
     /// Number of input items whose processing reached a terminal outcome.
     pub(crate) completed_count: usize,
-    /// Number of items reported as successfully processed.
+    /// Number of input items processed successfully.
     pub(crate) processed_count: usize,
-    /// Number of chunks submitted by the processor.
+    /// Number of chunks completed successfully at this processing layer.
     pub(crate) chunk_count: usize,
     /// Total monotonic elapsed duration for the batch.
     pub(crate) elapsed: Duration,
@@ -82,11 +84,12 @@ impl BatchProcessResultBuilder {
         self
     }
 
-    /// Sets the number of items reported as successfully processed.
+    /// Sets the number of input items processed successfully.
     ///
     /// # Parameters
     ///
-    /// * `processed_count` - Number of successfully processed items.
+    /// * `processed_count` - Number of successfully processed input items. It
+    ///   must not contain domain measurements such as affected rows.
     ///
     /// # Returns
     ///
@@ -97,11 +100,13 @@ impl BatchProcessResultBuilder {
         self
     }
 
-    /// Sets the number of chunks submitted by the processor.
+    /// Sets the number of chunks completed successfully at this layer.
     ///
     /// # Parameters
     ///
-    /// * `chunk_count` - Number of submitted chunks.
+    /// * `chunk_count` - Number of successfully completed chunks. Failed
+    ///   attempts and chunks inside a nested delegate are not included in an
+    ///   outer processor's count.
     ///
     /// # Returns
     ///

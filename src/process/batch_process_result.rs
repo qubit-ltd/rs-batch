@@ -13,26 +13,34 @@ use crate::BatchProcessResultBuilder;
 /// Structured result produced by a batch processor.
 ///
 /// The result distinguishes completed input items from successfully processed
-/// items because some processors can report a success count, such as affected
-/// database rows, that differs from the number of input items whose chunk
-/// returned.
+/// input items. Its counters satisfy
+/// `processed_count <= completed_count <= item_count`. Measurements that are
+/// not input counts, such as affected database rows, must be tracked
+/// separately. `chunk_count` counts successfully completed chunks at the
+/// processing layer represented by this result. It does not count failed
+/// submission attempts or automatically include chunks used inside a nested
+/// delegate.
 ///
 /// ```rust
+/// use std::cell::Cell;
 /// use std::time::Duration;
 ///
 /// use qubit_batch::BatchProcessResultBuilder;
 ///
-/// let result = BatchProcessResultBuilder::builder(3)
-///     .completed_count(3)
-///     .processed_count(3)
+/// // These two successful inputs changed three database rows each. Affected
+/// // rows are a domain measurement, so keep them outside the process result.
+/// let affected_rows = Cell::new(6);
+/// let result = BatchProcessResultBuilder::builder(2)
+///     .completed_count(2)
+///     .processed_count(2)
 ///     .chunk_count(1)
 ///     .elapsed(Duration::ZERO)
 ///     .build()
 ///     .expect("process result counters should be consistent");
 ///
 /// assert!(result.is_success());
-/// assert_eq!(result.item_count(), 3);
-/// assert_eq!(result.chunk_count(), 1);
+/// assert_eq!(result.processed_count(), 2);
+/// assert_eq!(affected_rows.get(), 6);
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[must_use]
@@ -41,9 +49,9 @@ pub struct BatchProcessResult {
     item_count: usize,
     /// Number of input items whose processing reached a terminal outcome.
     completed_count: usize,
-    /// Number of items reported as successfully processed.
+    /// Number of input items processed successfully.
     processed_count: usize,
-    /// Number of chunks submitted by the processor.
+    /// Number of chunks completed successfully at this processing layer.
     chunk_count: usize,
     /// Total monotonic elapsed duration.
     elapsed: Duration,
@@ -105,21 +113,23 @@ impl BatchProcessResult {
         self.completed_count
     }
 
-    /// Returns how many items were reported as successfully processed.
+    /// Returns how many input items were processed successfully.
     ///
     /// # Returns
     ///
-    /// The processor-reported success count.
+    /// The successful input count. Domain measurements such as affected rows
+    /// are tracked separately.
     #[inline]
     pub const fn processed_count(&self) -> usize {
         self.processed_count
     }
 
-    /// Returns the number of chunks submitted by the processor.
+    /// Returns the number of chunks completed successfully at this layer.
     ///
     /// # Returns
     ///
-    /// The submitted chunk count.
+    /// The successful chunk count. Failed attempts and nested delegate chunks
+    /// are not included in an outer processor's result.
     #[inline]
     pub const fn chunk_count(&self) -> usize {
         self.chunk_count

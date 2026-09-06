@@ -18,16 +18,22 @@ use super::BatchProcessResult;
 /// Use a processor when the operation owns a stateful consumer and should see
 /// the input as one logical batch. Typical examples are database batch
 /// inserts/updates, remote bulk endpoints, and consumers that need to flush
-/// chunks or report affected-row counts. The processor controls that batching
-/// policy and returns [`BatchProcessResult`] counters rather than one outcome
-/// record per item.
+/// chunks. The processor controls that batching policy and returns
+/// [`BatchProcessResult`] counters rather than one outcome record per item.
 ///
 /// In the original Java implementation, DAO batch methods use this shape to
 /// split collections into database-safe chunks (for example, below a driver's
 /// parameter limit), invoke the DAO operation for each chunk, and aggregate
-/// processed/affected-row counts. [`crate::ChunkedBatchProcessor`] is the
-/// corresponding Rust abstraction when that chunking is part of the domain
-/// contract.
+/// successful input counts. Domain measurements such as affected database rows
+/// are not input counts and should be tracked separately by the processor.
+/// [`crate::ChunkedBatchProcessor`] is the corresponding Rust abstraction when
+/// that chunking is part of the domain contract.
+///
+/// A result's `processed_count` is the number of successfully processed input
+/// items. It must not contain a domain measurement that can exceed the input
+/// count. `chunk_count` describes successfully completed chunks at the layer
+/// that produced the result; a wrapping chunk processor reports its own chunks
+/// rather than summing nested delegate chunk counts.
 ///
 /// Use [`crate::BatchExecutor`] instead when each item is an independent task
 /// or callable and callers need per-item failures, panic capture, stable task
