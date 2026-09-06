@@ -233,9 +233,11 @@ impl BatchExecutor for ParallelBatchExecutor {
         T: Runnable<E> + Send,
         E: Send,
     {
-        // TODO: replace per-call scoped worker creation with a shared bounded
-        // thread pool. The current implementation intentionally preserves
-        // scoped borrowing semantics until that redesign is scheduled.
+        // Workers are intentionally scoped to this call rather than shared
+        // across calls. This preserves borrowed-task semantics and makes the
+        // executor's lifetime boundary explicit; use the sequential fallback
+        // for small batches instead of treating worker creation as reusable
+        // pool state.
         if count <= self.sequential_threshold || self.thread_count <= 1 {
             return self.sequential_executor().execute_with_count(tasks, count);
         }

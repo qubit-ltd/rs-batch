@@ -101,6 +101,61 @@ declared count while consuming the source. When the count is supplied by a
 database query or another external boundary, use the corresponding
 `*_with_count` method and make the count part of that boundary's contract.
 
+### Callable and processor contracts
+
+The concrete callable methods on `SequentialBatchExecutor` accept callable
+values through their `FnMut` behavior. A closure that mutates captured state
+does not need to implement `Fn`. The `BatchExecutor` trait keeps `Send` bounds
+for parallel implementations because accepted tasks and returned values may
+cross scoped worker threads.
+
+For a `BatchProcessor`, `processed_count` counts successful input items and
+must satisfy `processed_count <= completed_count <= item_count`. A domain
+measurement such as affected database rows is separate state owned by the
+processor; it must not be stored in `processed_count` when it can exceed the
+number of inputs.
+
+### Process a large source in explicit chunks
+
+Use the existing callable API when the source is too large for one in-memory
+result. Each iteration below owns an independent outcome, while the outer loop
+decides whether to continue after a failure:
+
+```rust
+use qubit_batch::{BatchExecutor, SequentialBatchExecutor};
+
+let executor = SequentialBatchExecutor::new();
+let mut source = 0..10_000usize;
+let mut offset = 0usize;
+let mut sum = 0usize;
+
+loop {
+    let chunk: Vec<_> = source.by_ref().take(256).collect();
+    if chunk.is_empty() {
+        break;
+    }
+    let chunk_len = chunk.len();
+    let result = executor
+        .call(chunk.into_iter().map(|item| move || Ok::<_, ()>(item)))
+        .expect("chunk length should be exact");
+    assert!(result.outcome().is_success());
+    for output in result.into_outputs() {
+        let global_index = offset + output.index();
+        let _ = global_index;
+        sum += *output.value();
+    }
+    offset += chunk_len;
+}
+
+assert_eq!(sum, (0..10_000usize).sum());
+```
+
+This pattern does not provide a global failure policy, global stable indexes,
+or automatic retry across chunks. Callable indexes are local to each result;
+the `offset` above is the caller-owned mapping to a global index. A failed
+chunk exposes only the successful prefix from preceding chunks, and retrying
+the failed boundary remains an explicit, idempotency-aware caller decision.
+
 ## Advanced Usage
 
 ### Use scoped parallel workers deliberately
@@ -135,7 +190,10 @@ assert!(outcome.is_success());
 
 `sequential_threshold(0)` requests scoped workers for every non-empty batch.
 It does not create a reusable thread pool. For Rayon-backed execution, use the
-companion `qubit-rayon-batch` crate.
+companion `qubit-rayon-batch` crate. Its same-pool nested calls fall back to
+sequential execution on the worker that made the nested call. This avoids
+waiting for the same pool's workers; arbitrary task dependencies or cross-pool
+cycles still require an application-level design.
 
 ### Stop after task failures
 
@@ -158,9 +216,16 @@ Inspect the result in two layers:
    the work already accounted for.
 
 For `call`, `BatchCallError` additionally preserves sparse successful
-`BatchCallOutput` entries collected before the batch-level error. Do not use a
-task failure as a signal to retry the entire batch automatically: the crate
-does not know whether a task's side effects are idempotent.
+`BatchCallOutput` entries collected before the batch-level error. A successful
+`BatchCallResult` retains S successful values and F ordered failures, so its
+validation and retained-result space is O(S + F). Do not use a task failure as
+a signal to retry the entire batch automatically: the crate does not know
+whether a task's side effects are idempotent.
+
+For `ChunkedBatchProcessor`, an error's attached result includes only chunks
+that completed successfully before the failed chunk. The failed chunk may have
+already caused external side effects, so the chunk is the retry boundary and
+the caller must decide whether and how to retry it.
 
 ## Troubleshooting
 

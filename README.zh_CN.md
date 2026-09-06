@@ -64,6 +64,27 @@ assert!(matches!(outcome.failures()[0].error(), BatchTaskError::Failed(_)));
 数组长度与实际来源一致，因此调用正常返回；单项失败保留在 `BatchOutcome` 中供调用方
 检查。
 
+## 行为边界
+
+`ParallelBatchExecutor` 为一次调用创建 scoped worker；声明数量不超过
+`sequential_threshold` 的批次会交给顺序执行器。配套的 Rayon crate 在同一个 Rayon
+线程池中发生嵌套调用时也会回退到顺序执行，因此内层工作不会等待该线程池自己的
+worker。每次嵌套调用仍返回独立的 outcome；失败不会自动合并到外层调用。
+
+具体的顺序 callable API 接收的 callable 天生是 `FnMut`，闭包不需要实现 `Fn`。
+`BatchExecutor` trait 的并行入口仍保留 `Send` 约束，因为已接受的任务可能在 scoped
+worker 上运行。
+
+对于 processor，`processed_count` 表示成功处理的输入项数量，并满足
+`processed_count <= completed_count <= item_count`。数据库受影响行数等业务指标必须单独
+记录。Callable 结果校验按成功数和失败数保存成功值与有序失败记录，空间复杂度为
+O(S + F)，其中 S 是成功数，F 是失败数。
+
+当 chunk delegate 失败时，错误中只保留此前成功完成的 chunk 的结果；失败 chunk 可能已经
+产生外部副作用，因此重试边界和幂等性由调用方负责。处理较大的逻辑输入时，应由外层循环
+决定是否继续或重试各个独立 chunk；这种模式不提供全局 failure policy、全局稳定下标或跨
+chunk 自动重试。如果需要全局下标，请把 chunk 偏移量加到局部输出下标上。
+
 ## 为什么需要它
 
 许多应用只需要完成一次有边界的批量操作，并不需要队列或常驻 worker pool。

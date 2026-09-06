@@ -65,6 +65,36 @@ assert!(matches!(outcome.failures()[0].error(), BatchTaskError::Failed(_)));
 The call succeeds because the source count matches the array length; task
 failures remain in `BatchOutcome` for inspection.
 
+## Behavioral Boundaries
+
+`ParallelBatchExecutor` creates scoped workers for one call and uses the
+sequential executor for batches at or below `sequential_threshold`. The Rayon
+companion also falls back to sequential execution when a batch re-enters the
+same Rayon pool, so nested work does not wait for the pool's own workers. Each
+nested call still returns its own outcome; failures are not merged into the
+outer call automatically.
+
+The concrete sequential callable APIs accept callable values that are
+inherently `FnMut`; a callable closure does not need to implement `Fn`. The
+parallel `BatchExecutor` trait keeps its `Send` bounds because accepted work
+may run on scoped workers.
+
+For processors, `processed_count` is the number of successfully processed
+input items and satisfies `processed_count <= completed_count <= item_count`.
+Business measurements such as affected database rows must be tracked
+separately. Callable result validation stores successful values and ordered
+failures in O(S + F) space, where S is the successful count and F is the
+failure count.
+
+When a chunk delegate fails, its error exposes the result for the preceding
+successful chunks only. The failed chunk may already have produced external
+side effects, so retry boundaries and idempotency remain the caller's
+responsibility. For a large logical input, process independent chunks and
+decide in the outer loop whether to continue or retry; the pattern does not
+provide a global failure policy, global stable indexes, or cross-chunk
+automatic retry. Add the chunk offset to a local output index when a global
+index is required.
+
 ## Why This Project Exists
 
 Many applications need one bounded operation, not a queue or an always-on
