@@ -92,6 +92,55 @@ assert!(matches!(outcome.failures()[0].error(), BatchTaskError::Failed(_)));
 当数量由数据库查询或其他外部边界提供时，再使用对应的 `*_with_count` 方法，并把数量
 视为该边界的一部分契约。
 
+### Callable 与 processor 契约
+
+`SequentialBatchExecutor` 的具体 callable 方法通过 `FnMut` 行为接收 callable 值。
+会修改捕获状态的闭包不需要实现 `Fn`。`BatchExecutor` trait 仍为并行实现保留 `Send`
+约束，因为已接受的任务和返回值可能跨越 scoped worker 线程。
+
+对于 `BatchProcessor`，`processed_count` 统计成功处理的输入项数量，并且必须满足
+`processed_count <= completed_count <= item_count`。数据库受影响行数等业务指标属于
+processor 自己维护的独立状态；当它可能超过输入数量时，不能写入 `processed_count`。
+
+### 显式分块处理较大来源
+
+当单个结果不适合承载完整来源时，可以使用已有 callable API。下面每次循环拥有独立的
+outcome，是否在失败后继续由外层循环决定：
+
+```rust
+use qubit_batch::{BatchExecutor, SequentialBatchExecutor};
+
+let executor = SequentialBatchExecutor::new();
+let mut source = 0..10_000usize;
+let mut offset = 0usize;
+let mut sum = 0usize;
+
+loop {
+    let chunk: Vec<_> = source.by_ref().take(256).collect();
+    if chunk.is_empty() {
+        break;
+    }
+    let chunk_len = chunk.len();
+    let result = executor
+        .call(chunk.into_iter().map(|item| move || Ok::<_, ()>(item)))
+        .expect("chunk length should be exact");
+    assert!(result.outcome().is_success());
+    for output in result.into_outputs() {
+        let global_index = offset + output.index();
+        let _ = global_index;
+        sum += *output.value();
+    }
+    offset += chunk_len;
+}
+
+assert_eq!(sum, (0..10_000usize).sum());
+```
+
+这种模式不提供全局 failure policy、全局稳定下标或跨 chunk 自动重试。Callable 下标
+只在各自的结果内有效；上例中的 `offset` 是调用方映射全局下标的方式。失败 chunk 的
+错误只会暴露失败之前已成功完成的 chunk 的结果；是否重试失败边界以及如何保证幂等性，
+都由调用方明确决定。
+
 ## 进阶用法
 
 ### 有意识地使用 scoped 并行 worker
@@ -123,7 +172,9 @@ assert!(outcome.is_success());
 ```
 
 `sequential_threshold(0)` 表示所有非空批次都使用 scoped worker；它不会创建可复用
-线程池。若需要 Rayon 支持，请使用配套的 `qubit-rayon-batch` crate。
+线程池。若需要 Rayon 支持，请使用配套的 `qubit-rayon-batch` crate。该 crate 在同一个
+线程池中嵌套调用时，会在发起嵌套调用的 worker 上回退到顺序执行，避免等待同一线程池的
+worker；任意任务依赖或跨池循环等待仍需由应用设计处理。
 
 ### 在任务失败后提前停止
 
@@ -143,8 +194,13 @@ assert!(outcome.is_success());
    统计到的工作结果。
 
 对于 `call`，`BatchCallError` 还会保存批次级错误发生前已经成功的、稀疏的
-`BatchCallOutput`。不要把单项任务失败直接当成重试整个批次的信号：本 crate 并不知道
-任务副作用是否幂等。
+`BatchCallOutput`。成功的 `BatchCallResult` 保留 S 个成功值和 F 条有序失败记录，因此
+校验和保留结果的空间复杂度为 O(S + F)。不要把单项任务失败直接当成重试整个批次的信号：
+本 crate 并不知道任务副作用是否幂等。
+
+对于 `ChunkedBatchProcessor`，错误附带的 result 只包含失败 chunk 之前已成功完成的
+chunk。失败 chunk 可能已经产生外部副作用，因此该 chunk 是重试边界；是否以及如何重试，
+必须由调用方决定。
 
 ## 排障
 

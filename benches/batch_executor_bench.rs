@@ -8,17 +8,25 @@
 //! Baseline benchmarks for sequential and scoped-thread batch execution.
 
 use std::hint::black_box;
+use std::rc::Rc;
 
+use criterion::BatchSize;
 use criterion::BenchmarkId;
 use criterion::Criterion;
 use criterion::criterion_group;
 use criterion::criterion_main;
 use qubit_batch::BatchExecutor;
+use qubit_batch::BatchCallOutput;
+use qubit_batch::BatchCallResult;
+use qubit_batch::BatchOutcomeBuilder;
+use qubit_batch::BatchTaskError;
+use qubit_batch::BatchTaskFailure;
 use qubit_batch::BatchProcessor;
 use qubit_batch::ParallelBatchExecutor;
 use qubit_batch::ParallelBatchProcessor;
 use qubit_batch::SequentialBatchExecutor;
 use qubit_batch::SequentialBatchProcessor;
+use qubit_function::Callable;
 use qubit_function::Runnable;
 
 /// Batch sizes around the default sequential execution threshold.
@@ -68,6 +76,36 @@ impl Runnable<()> for CpuTask {
 fn constant_callable() -> Result<u64, ()> {
     Ok(1)
 }
+
+/// Callable that proves the sequential inherent API accepts non-`Send` values.
+struct NonSendCallable {
+    /// Marker that deliberately makes this callable non-`Send`.
+    marker: Rc<()>,
+}
+
+impl Callable<(), ()> for NonSendCallable {
+    /// Completes without moving the non-`Send` marker across a thread.
+    fn call(&mut self) -> Result<(), ()> {
+        let _ = Rc::strong_count(&self.marker);
+        Ok(())
+    }
+}
+
+/// Callable that returns a preconstructed fixed-size value.
+struct LargeValueCallable {
+    /// Value prepared outside the measured benchmark iteration.
+    value: Vec<u8>,
+}
+
+impl Callable<Vec<u8>, ()> for LargeValueCallable {
+    /// Returns the prepared value and leaves an empty vector in the callable.
+    fn call(&mut self) -> Result<Vec<u8>, ()> {
+        Ok(std::mem::take(&mut self.value))
+    }
+}
+
+/// Size of each preconstructed return value in the large-value benchmark.
+const LARGE_VALUE_SIZE: usize = 4 * 1024;
 
 /// Benchmarks executor overhead for no-op tasks near the dispatch threshold.
 ///
@@ -252,6 +290,193 @@ fn benchmark_callable_execution(criterion: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks validation of sparse callable outputs and ordered failures.
+///
+/// Input construction is performed by `iter_batched` setup and is excluded
+/// from the measured validation path.
+///
+/// # Parameters
+///
+/// * `criterion` - Criterion registry receiving benchmark cases.
+fn benchmark_call_validation(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("batch_call_validation");
+
+    for task_count in [1_000usize, 10_000, 100_000] {
+        group.bench_function(BenchmarkId::new("mixed", task_count), |bencher| {
+            bencher.iter_batched(
+                || {
+                    let failures = (1..task_count)
+                        .step_by(2)
+                        .map(|index| BatchTaskFailure::new(index, BatchTaskError::Failed(())))
+                        .collect();
+                    let outcome = BatchOutcomeBuilder::builder(task_count)
+                        .completed_count(task_count)
+                        .succeeded_count(task_count / 2)
+                        .failed_count(task_count / 2)
+                        .failures(failures)
+                        .build()
+                        .expect("mixed outcome should be valid");
+                    let outputs = (0..task_count)
+                        .step_by(2)
+                        .map(|index| BatchCallOutput::new(index, index))
+                        .collect();
+                    (outcome, outputs)
+                },
+                |(outcome, outputs)| {
+                    let _ = black_box(
+                        BatchCallResult::try_new(outcome, outputs)
+                            .expect("mixed result should be valid"),
+                    );
+                },
+                BatchSize::LargeInput,
+            );
+        });
+
+        group.bench_function(BenchmarkId::new("all_success", task_count), |bencher| {
+            bencher.iter_batched(
+                || {
+                    let outcome = BatchOutcomeBuilder::<()>::builder(task_count)
+                        .completed_count(task_count)
+                        .succeeded_count(task_count)
+                        .build()
+                        .expect("all-success outcome should be valid");
+                    let outputs = (0..task_count)
+                        .map(|index| BatchCallOutput::new(index, index))
+                        .collect();
+                    (outcome, outputs)
+                },
+                |(outcome, outputs)| {
+                    let _ = black_box(
+                        BatchCallResult::try_new(outcome, outputs)
+                            .expect("all-success result should be valid"),
+                    );
+                },
+                BatchSize::LargeInput,
+            );
+        });
+    }
+    group.finish();
+}
+
+/// Benchmarks callable collection for non-`Send` and large return values.
+///
+/// Non-`Send` callables use the concrete sequential API. Large return values
+/// are prepared outside the measured iteration; their drop is included when
+/// the result leaves the measured closure.
+///
+/// # Parameters
+///
+/// * `criterion` - Criterion registry receiving benchmark cases.
+fn benchmark_callable_value_shapes(criterion: &mut Criterion) {
+    let sequential = SequentialBatchExecutor::new();
+    let parallel = ParallelBatchExecutor::builder()
+        .thread_count(4)
+        .sequential_threshold(0)
+        .build()
+        .expect("benchmark executor configuration should be valid");
+    let default_parallel = ParallelBatchExecutor::builder()
+        .thread_count(4)
+        .build()
+        .expect("benchmark executor configuration should be valid");
+    let marker = Rc::new(());
+    let mut group = criterion.benchmark_group("batch_executor_callable_values");
+
+    for task_count in BATCH_SIZES {
+        group.bench_with_input(
+            BenchmarkId::new("sequential_non_send", task_count),
+            &task_count,
+            |bencher, &task_count| {
+                bencher.iter_batched(
+                    || {
+                        (0..task_count)
+                            .map(|_| NonSendCallable {
+                                marker: Rc::clone(&marker),
+                            })
+                            .collect::<Vec<_>>()
+                    },
+                    |tasks| {
+                        let result = sequential
+                            .call(tasks)
+                            .expect("non-Send callable batch should succeed");
+                        let _ = black_box(result);
+                    },
+                    BatchSize::LargeInput,
+                );
+            },
+        );
+
+        group.bench_with_input(
+            BenchmarkId::new("sequential_large_value", task_count),
+            &task_count,
+            |bencher, &task_count| {
+                bencher.iter_batched(
+                    || {
+                        (0..task_count)
+                            .map(|_| LargeValueCallable {
+                                value: vec![0xA5; LARGE_VALUE_SIZE],
+                            })
+                            .collect::<Vec<_>>()
+                    },
+                    |tasks| {
+                        let result = sequential
+                            .call(tasks)
+                            .expect("large-value callable batch should succeed");
+                        let _ = black_box(result);
+                    },
+                    BatchSize::LargeInput,
+                );
+            },
+        );
+
+        group.bench_with_input(
+            BenchmarkId::new("scoped_parallel_large_value", task_count),
+            &task_count,
+            |bencher, &task_count| {
+                bencher.iter_batched(
+                    || {
+                        (0..task_count)
+                            .map(|_| LargeValueCallable {
+                                value: vec![0xA5; LARGE_VALUE_SIZE],
+                            })
+                            .collect::<Vec<_>>()
+                    },
+                    |tasks| {
+                        let result = parallel
+                            .call(tasks)
+                            .expect("parallel large-value callable batch should succeed");
+                        let _ = black_box(result);
+                    },
+                    BatchSize::LargeInput,
+                );
+            },
+        );
+
+        group.bench_with_input(
+            BenchmarkId::new("default_threshold_large_value", task_count),
+            &task_count,
+            |bencher, &task_count| {
+                bencher.iter_batched(
+                    || {
+                        (0..task_count)
+                            .map(|_| LargeValueCallable {
+                                value: vec![0xA5; LARGE_VALUE_SIZE],
+                            })
+                            .collect::<Vec<_>>()
+                    },
+                    |tasks| {
+                        let result = default_parallel
+                            .call(tasks)
+                            .expect("default large-value callable batch should succeed");
+                        let _ = black_box(result);
+                    },
+                    BatchSize::LargeInput,
+                );
+            },
+        );
+    }
+    group.finish();
+}
+
 /// Benchmarks direct item processing for sequential and parallel processors.
 ///
 /// # Parameters
@@ -316,6 +541,8 @@ criterion_group!(
     benchmark_no_op_execution,
     benchmark_cpu_execution,
     benchmark_callable_execution,
+    benchmark_call_validation,
+    benchmark_callable_value_shapes,
     benchmark_item_processing,
 );
 criterion_main!(benches);
