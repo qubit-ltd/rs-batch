@@ -77,16 +77,28 @@ fn run_with_watchdog(test_name: &str, scenario: impl FnOnce()) {
 struct ObservedItems {
     next: usize,
     count: usize,
-    observed_sender: mpsc::SyncSender<usize>,
+    observed: Arc<AtomicUsize>,
+    completed: Arc<AtomicUsize>,
+    max_unfinished: usize,
+    window_full_sender: Option<mpsc::SyncSender<()>>,
 }
 
 impl ObservedItems {
-    /// Creates an observed source of `count` indexed items.
-    fn new(count: usize, observed_sender: mpsc::SyncSender<usize>) -> Self {
+    /// Creates an observed source that enforces the unfinished-item bound.
+    fn new(
+        count: usize,
+        observed: Arc<AtomicUsize>,
+        completed: Arc<AtomicUsize>,
+        max_unfinished: usize,
+        window_full_sender: mpsc::SyncSender<()>,
+    ) -> Self {
         Self {
             next: 0,
             count,
-            observed_sender,
+            observed,
+            completed,
+            max_unfinished,
+            window_full_sender: Some(window_full_sender),
         }
     }
 }
@@ -101,9 +113,18 @@ impl Iterator for ObservedItems {
         }
         let item = self.next;
         self.next += 1;
-        self.observed_sender
-            .send(self.next)
-            .expect("observation receiver should remain alive");
+        let observed = self.observed.fetch_add(1, Ordering::AcqRel) + 1;
+        let completed = self.completed.load(Ordering::Acquire);
+        assert!(
+            observed - completed <= self.max_unfinished,
+            "unfinished source observations exceeded {}: observed {observed}, completed {completed}",
+            self.max_unfinished,
+        );
+        if observed - completed == self.max_unfinished
+            && let Some(sender) = self.window_full_sender.take()
+        {
+            sender.send(()).expect("window observer should remain alive");
+        }
         Some(item)
     }
 
@@ -233,44 +254,48 @@ fn test_parallel_executor_bounds_unfinished_admission_window() {
             .build()
             .expect("parallel executor should build");
         let gate = Arc::new((Mutex::new(false), Condvar::new()));
+        let observed = Arc::new(AtomicUsize::new(0));
         let completed = Arc::new(AtomicUsize::new(0));
-        let (observed_sender, observed_receiver) = mpsc::sync_channel(ITEM_COUNT);
+        let (window_full_sender, window_full_receiver) = mpsc::sync_channel(0);
         let (started_sender, started_receiver) = mpsc::sync_channel(ITEM_COUNT);
 
         thread::scope(|scope| {
             let runner = scope.spawn(|| {
                 executor
-                    .for_each_with_count(ObservedItems::new(ITEM_COUNT, observed_sender), ITEM_COUNT, |_| {
-                        started_sender
-                            .send(())
-                            .expect("task-start receiver should remain alive");
-                        let (lock, ready) = gate.as_ref();
-                        let mut released = lock.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-                        while !*released {
-                            released = ready.wait(released).unwrap_or_else(std::sync::PoisonError::into_inner);
-                        }
-                        completed.fetch_add(1, Ordering::AcqRel);
-                        Ok::<(), ()>(())
-                    })
+                    .for_each_with_count(
+                        ObservedItems::new(
+                            ITEM_COUNT,
+                            Arc::clone(&observed),
+                            Arc::clone(&completed),
+                            MAX_UNFINISHED_ADMISSIONS,
+                            window_full_sender,
+                        ),
+                        ITEM_COUNT,
+                        |_| {
+                            started_sender
+                                .send(())
+                                .expect("task-start receiver should remain alive");
+                            let (lock, ready) = gate.as_ref();
+                            let mut released = lock.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                            while !*released {
+                                released = ready.wait(released).unwrap_or_else(std::sync::PoisonError::into_inner);
+                            }
+                            completed.fetch_add(1, Ordering::AcqRel);
+                            Ok::<(), ()>(())
+                        },
+                    )
                     .expect("bounded-window batch should complete")
             });
 
             for _ in 0..WORKER_COUNT {
                 started_receiver
-                    .recv_timeout(Duration::from_secs(1))
+                    .recv()
                     .expect("both workers should start before release");
             }
-            for expected in 1..=MAX_UNFINISHED_ADMISSIONS {
-                assert_eq!(
-                    observed_receiver.recv_timeout(Duration::from_secs(1)),
-                    Ok(expected),
-                    "source observations should remain ordered",
-                );
-            }
-            assert!(
-                observed_receiver.recv_timeout(Duration::from_millis(100)).is_err(),
-                "blocked workers must bound the unfinished admission window to {MAX_UNFINISHED_ADMISSIONS}",
-            );
+            window_full_receiver
+                .recv()
+                .expect("blocked workers should fill the bounded admission window");
+            assert_eq!(observed.load(Ordering::Acquire), MAX_UNFINISHED_ADMISSIONS);
             assert_eq!(completed.load(Ordering::Acquire), 0);
 
             let (lock, ready) = gate.as_ref();
@@ -280,6 +305,7 @@ fn test_parallel_executor_bounds_unfinished_admission_window() {
             let outcome = runner.join().expect("bounded-window runner should join");
             assert_eq!(outcome.completed_count(), ITEM_COUNT);
         });
+        assert_eq!(observed.load(Ordering::Acquire), ITEM_COUNT);
         assert_eq!(completed.load(Ordering::Acquire), ITEM_COUNT);
     });
 }
@@ -323,9 +349,9 @@ fn test_running_reporter_failure_stops_admission_and_drains_accepted_tokens() {
     run_with_watchdog(
         "test_running_reporter_failure_stops_admission_and_drains_accepted_tokens",
         || {
-            // Headroom makes `None` evidence of reporter failure rather than
-            // declared-count exhaustion during the status-publication race.
-            const DECLARED_COUNT: usize = 65_536;
+            // The probe must observe reporter-driven rejection long before a
+            // count-exhaustion rejection can produce the same `None` result.
+            const DECLARED_COUNT: usize = 1_000_000;
 
             let (running_sender, running_receiver) = mpsc::sync_channel(0);
             let (failure_release_sender, failure_release_receiver) = mpsc::sync_channel(0);
@@ -349,6 +375,7 @@ fn test_running_reporter_failure_stops_admission_and_drains_accepted_tokens() {
                         accepted.store(2, Ordering::Release);
                         let (worker_release_sender, worker_release_receiver) = mpsc::sync_channel(0);
                         let (worker_done_sender, worker_done_receiver) = mpsc::sync_channel(0);
+                        let (admission_stopped_sender, admission_stopped_receiver) = mpsc::sync_channel(0);
 
                         thread::scope(|scope| {
                             let worker = scope.spawn(move || {
@@ -369,16 +396,29 @@ fn test_running_reporter_failure_stops_admission_and_drains_accepted_tokens() {
                                 .send(())
                                 .expect("running reporter should await failure release");
 
-                            let mut additionally_accepted = Vec::new();
-                            loop {
-                                let task = CountingTask::new(Arc::clone(&completed));
-                                let Some(task) = context.accept_task(task) else {
-                                    break;
-                                };
-                                accepted.fetch_add(1, Ordering::AcqRel);
-                                additionally_accepted.push(task);
-                                thread::yield_now();
-                            }
+                            let admission_probe = scope.spawn(|| {
+                                let mut probe_accepted = 0;
+                                loop {
+                                    let task = CountingTask::new(Arc::clone(&completed));
+                                    let Some(task) = context.accept_task(task) else {
+                                        admission_stopped_sender
+                                            .send(probe_accepted)
+                                            .expect("scheduler should await the admission-stop acknowledgement");
+                                        return;
+                                    };
+                                    accepted.fetch_add(1, Ordering::AcqRel);
+                                    probe_accepted += 1;
+                                    context.execute_task(task);
+                                }
+                            });
+                            let probe_accepted = admission_stopped_receiver
+                                .recv()
+                                .expect("admission probe should observe published reporter failure");
+                            assert_eq!(accepted.load(Ordering::Acquire), probe_accepted + 2);
+                            assert!(
+                                accepted.load(Ordering::Acquire) < DECLARED_COUNT,
+                                "admission-stop acknowledgement must precede count exhaustion",
+                            );
 
                             worker_release_sender
                                 .send(())
@@ -387,9 +427,7 @@ fn test_running_reporter_failure_stops_admission_and_drains_accepted_tokens() {
                                 .recv()
                                 .expect("accepted worker should finish after reporter failure");
                             worker.join().expect("accepted worker should join");
-                            for task in additionally_accepted {
-                                context.execute_task(task);
-                            }
+                            admission_probe.join().expect("admission probe should join");
                         });
                         assert!(context.accept_task(CountingTask::new(Arc::clone(&completed))).is_none());
                         Ok::<(), std::convert::Infallible>(())
@@ -400,10 +438,6 @@ fn test_running_reporter_failure_stops_admission_and_drains_accepted_tokens() {
             let BatchExecutionError::ProgressReport { outcome, .. } = error else {
                 panic!("running reporter failure should be a progress error");
             };
-            assert!(
-                accepted.load(Ordering::Acquire) < DECLARED_COUNT,
-                "reporter failure must stop admission before the declared count is exhausted",
-            );
             assert_eq!(outcome.completed_count(), accepted.load(Ordering::Acquire));
             assert_eq!(completed.load(Ordering::Acquire), accepted.load(Ordering::Acquire));
             assert!(outcome.completed_count() >= 2);
