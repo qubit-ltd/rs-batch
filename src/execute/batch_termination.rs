@@ -9,7 +9,8 @@
 ///
 /// A [`BatchTermination::StoppedByTaskFailurePolicy`] outcome leaves the
 /// remaining source items unconsumed, so an explicit declared count was not
-/// fully validated.
+/// fully validated. `Finished` means execution was not stopped by this policy;
+/// it does not imply that every task succeeded.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum BatchTermination {

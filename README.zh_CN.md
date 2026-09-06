@@ -144,3 +144,21 @@ Pull Request 前运行 `./align-ci.sh`格式化代码，运行`./ci-check.sh`对
 **Haixing Hu** - *Qubit Co. Ltd.*
 
 仓库地址：[https://github.com/qubit-ltd/rs-batch](https://github.com/qubit-ltd/rs-batch)
+
+## 来源与终止契约
+
+运行时相关的并行调度器应使用
+`ParallelBatchExecutionContext::next_task` 拉取并准入来源项。来源返回
+`None` 会被记录为来源耗尽；在此之前返回 `None` 可能表示进度上报失败或任务失败
+策略已经停止准入。`accept_task` 继续保留给已有自定义调度器，但这类调度器只有在
+自己观察到来源耗尽时才能声称完成了来源校验。
+
+一次执行返回前会排空已经接受的任务 token。失败策略只停止后续准入，不取消已经接受的
+工作。来源已经被观察为耗尽时，会先执行数量不足校验，再处理任务失败策略。`Finished`
+表示来源没有因策略停止消费，并不表示所有任务都成功；请检查
+`BatchOutcome::is_success()` 与 `BatchOutcome::failures()`。
+
+Callable 结果保留成功值和有序失败记录；按下标交叉校验的复杂度是成功数与失败数之和，
+输出收集和失败排序还会产生各自的成本。Processor 结果统计成功处理的输入项，数据库
+受影响行数等业务指标应保存在应用状态中。失败 chunk 可能已经产生外部副作用，因此重试
+和幂等性仍由调用方负责。

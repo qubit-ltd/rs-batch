@@ -183,6 +183,29 @@ worker；任意任务依赖或跨池循环等待仍需由应用设计处理。
 `StopAfterFailures(...)`。此时即使得到 `Ok(BatchOutcome)`，也可能是提前停止；在把
 来源数量视为已完整校验前，应先检查 `outcome.termination()`。
 
+运行时相关的调度器拥有惰性来源时，应使用 `next_task`，这样可以把来源返回
+`None` 与准入停止分别记录：
+
+```rust
+use std::{convert::Infallible, sync::Arc, time::Duration};
+use qubit_batch::{BatchExecutor, TaskFailurePolicy};
+use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
+use qubit_progress::NoopReporter;
+
+let coordinator = ParallelBatchExecutionCoordinator::new(
+    Arc::new(NoopReporter), Duration::ZERO);
+let tasks = [|| Ok::<(), &'static str>(())];
+let outcome = coordinator.execute(tasks, 1, TaskFailurePolicy::Continue,
+    |tasks, context| {
+        let mut source = tasks.into_iter();
+        while let Some(token) = context.next_task(&mut source) {
+            context.execute_task(token);
+        }
+        Ok::<(), Infallible>(())
+    }).unwrap();
+assert!(outcome.is_success());
+```
+
 ## 错误与诊断
 
 应分两层检查结果：

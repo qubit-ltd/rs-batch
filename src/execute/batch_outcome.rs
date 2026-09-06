@@ -188,6 +188,7 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// `true` if the batch has no failures and every declared task completed.
+    /// A `Finished` termination alone does not imply this condition.
     #[inline]
     pub const fn is_success(&self) -> bool {
         self.completed_count == self.task_count && self.failed_count == 0 && self.panicked_count == 0
