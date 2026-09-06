@@ -24,6 +24,7 @@ use crate::BatchTaskFailure;
 use crate::BatchTermination;
 use crate::TaskFailurePolicy;
 use crate::execute::panic_payload_to_error;
+use crate::sync::AtomicBool;
 use crate::sync::AtomicUsize;
 use crate::sync::Ordering;
 
@@ -45,6 +46,8 @@ pub(crate) struct BatchExecutionState<E> {
     task_failure_policy: TaskFailurePolicy,
     /// Number of task failures observed by parallel workers.
     failure_count_atomic: AtomicUsize,
+    /// Whether the task source has been observed to be exhausted.
+    source_exhausted: AtomicBool,
 }
 
 impl<E> BatchExecutionState<E> {
@@ -66,6 +69,7 @@ impl<E> BatchExecutionState<E> {
             failures: Mutex::new(Vec::new()),
             task_failure_policy,
             failure_count_atomic: AtomicUsize::new(0),
+            source_exhausted: AtomicBool::new(false),
         }
     }
 
@@ -204,6 +208,18 @@ impl<E> BatchExecutionState<E> {
     #[inline]
     pub(crate) fn should_stop_accepting(&self) -> bool {
         self.acceptance.should_stop()
+    }
+
+    /// Marks the source iterator as exhausted.
+    #[inline]
+    pub(crate) fn mark_source_exhausted(&self) {
+        self.source_exhausted.store(true, Ordering::Release);
+    }
+
+    /// Returns whether the source iterator has been observed to be exhausted.
+    #[inline]
+    pub(crate) fn source_exhausted(&self) -> bool {
+        self.source_exhausted.load(Ordering::Acquire)
     }
 
     /// Consumes this state and builds a batch outcome.

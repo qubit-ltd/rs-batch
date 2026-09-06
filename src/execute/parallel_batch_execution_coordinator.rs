@@ -227,7 +227,7 @@ impl ParallelBatchExecutionCoordinator {
                 report_error,
             });
         }
-        if state.should_stop_accepting() && completed_count >= accepted_count {
+        if state.should_stop_accepting() && !state.source_exhausted() {
             let elapsed = match progress.fail() {
                 Ok(elapsed) => elapsed,
                 Err(source) => {
