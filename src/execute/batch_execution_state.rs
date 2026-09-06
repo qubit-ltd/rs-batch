@@ -91,8 +91,33 @@ impl<E> BatchExecutionState<E> {
     where
         T: Runnable<E>,
     {
+        self.execute_action(index, || task.run())
+    }
+
+    /// Executes one indexed action and records its terminal outcome.
+    ///
+    /// Action-returned errors and captured panics are stored in this state and
+    /// do not become this method's error.
+    ///
+    /// # Parameters
+    ///
+    /// * `index` - Zero-based index of the action within the declared batch.
+    /// * `action` - Fallible action executed synchronously by this call.
+    ///
+    /// # Returns
+    ///
+    /// The terminal status for this action.
+    ///
+    /// # Errors
+    ///
+    /// Returns a metric error when a progress lifecycle transition is rejected.
+    #[inline]
+    pub(crate) fn execute_action<F>(&self, index: usize, action: F) -> Result<TaskExecutionStatus, MetricError>
+    where
+        F: FnOnce() -> Result<(), E>,
+    {
         self.metric.start(1)?;
-        let status = match catch_unwind(AssertUnwindSafe(|| task.run())) {
+        let status = match catch_unwind(AssertUnwindSafe(action)) {
             Ok(Ok(())) => {
                 self.metric.succeed(1)?;
                 TaskExecutionStatus::Succeeded

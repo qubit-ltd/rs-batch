@@ -264,7 +264,9 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// # Panics
     ///
-    /// Propagates panics raised by `action` or synchronous reporter callbacks.
+    /// Panics from `action` are captured as task failures. Iterator and
+    /// synchronous reporter callback panics are propagated. Automatic reporter
+    /// failures are returned as [`BatchExecutionError::ProgressReport`].
     fn for_each<Item, E, I, F>(
         &self,
         items: I,
@@ -303,7 +305,9 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// # Panics
     ///
-    /// Propagates panics raised by `action` or synchronous reporter callbacks.
+    /// Panics from `action` are captured as task failures. Iterator and
+    /// synchronous reporter callback panics are propagated. Automatic reporter
+    /// failures are returned as [`BatchExecutionError::ProgressReport`].
     fn for_each_with_count<Item, E, I, F>(
         &self,
         items: I,
