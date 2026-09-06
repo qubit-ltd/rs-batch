@@ -351,6 +351,62 @@ fn benchmark_call_validation(criterion: &mut Criterion) {
                 BatchSize::LargeInput,
             );
         });
+
+        group.bench_function(BenchmarkId::new("all_failure", task_count), |bencher| {
+            bencher.iter_batched(
+                || {
+                    let failures = (0..task_count)
+                        .map(|index| BatchTaskFailure::new(index, BatchTaskError::Failed(())))
+                        .collect();
+                    let outcome = BatchOutcomeBuilder::builder(task_count)
+                        .completed_count(task_count)
+                        .failed_count(task_count)
+                        .failures(failures)
+                        .build()
+                        .expect("all-failure outcome should be valid");
+                    (outcome, Vec::<BatchCallOutput<usize>>::new())
+                },
+                |(outcome, outputs)| {
+                    let _ = black_box(BatchCallResult::try_new(outcome, outputs));
+                },
+                BatchSize::LargeInput,
+            );
+        });
+    }
+    group.finish();
+}
+
+/// Benchmarks construction and validation of outcomes with different failure
+/// ratios.
+///
+/// # Parameters
+///
+/// * `criterion` - Criterion registry receiving benchmark cases.
+fn benchmark_outcome_build(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("batch_outcome_build");
+    for count in [1_000usize, 10_000, 100_000] {
+        for percent in [0usize, 50, 100] {
+            let failed = count * percent / 100;
+            group.bench_function(BenchmarkId::new(format!("failure-{percent}"), count), |bencher| {
+                bencher.iter_batched(
+                    || {
+                        let failures = (0..failed)
+                            .rev()
+                            .map(|index| BatchTaskFailure::new(index, BatchTaskError::Failed(())))
+                            .collect();
+                        BatchOutcomeBuilder::builder(count)
+                            .completed_count(count)
+                            .succeeded_count(count - failed)
+                            .failed_count(failed)
+                            .failures(failures)
+                    },
+                    |builder| {
+                        let _ = black_box(builder.build().expect("outcome should be valid"));
+                    },
+                    BatchSize::LargeInput,
+                );
+            });
+        }
     }
     group.finish();
 }
@@ -537,6 +593,7 @@ criterion_group!(
     benchmark_cpu_execution,
     benchmark_callable_execution,
     benchmark_call_validation,
+    benchmark_outcome_build,
     benchmark_callable_value_shapes,
     benchmark_item_processing,
 );
