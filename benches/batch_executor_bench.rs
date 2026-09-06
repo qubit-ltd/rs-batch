@@ -15,13 +15,13 @@ use criterion::BenchmarkId;
 use criterion::Criterion;
 use criterion::criterion_group;
 use criterion::criterion_main;
-use qubit_batch::BatchExecutor;
 use qubit_batch::BatchCallOutput;
 use qubit_batch::BatchCallResult;
+use qubit_batch::BatchExecutor;
 use qubit_batch::BatchOutcomeBuilder;
+use qubit_batch::BatchProcessor;
 use qubit_batch::BatchTaskError;
 use qubit_batch::BatchTaskFailure;
-use qubit_batch::BatchProcessor;
 use qubit_batch::ParallelBatchExecutor;
 use qubit_batch::ParallelBatchProcessor;
 use qubit_batch::SequentialBatchExecutor;
@@ -323,10 +323,8 @@ fn benchmark_call_validation(criterion: &mut Criterion) {
                     (outcome, outputs)
                 },
                 |(outcome, outputs)| {
-                    let _ = black_box(
-                        BatchCallResult::try_new(outcome, outputs)
-                            .expect("mixed result should be valid"),
-                    );
+                    let _ =
+                        black_box(BatchCallResult::try_new(outcome, outputs).expect("mixed result should be valid"));
                 },
                 BatchSize::LargeInput,
             );
@@ -347,8 +345,7 @@ fn benchmark_call_validation(criterion: &mut Criterion) {
                 },
                 |(outcome, outputs)| {
                     let _ = black_box(
-                        BatchCallResult::try_new(outcome, outputs)
-                            .expect("all-success result should be valid"),
+                        BatchCallResult::try_new(outcome, outputs).expect("all-success result should be valid"),
                     );
                 },
                 BatchSize::LargeInput,
@@ -395,9 +392,7 @@ fn benchmark_callable_value_shapes(criterion: &mut Criterion) {
                             .collect::<Vec<_>>()
                     },
                     |tasks| {
-                        let result = sequential
-                            .call(tasks)
-                            .expect("non-Send callable batch should succeed");
+                        let result = sequential.call(tasks).expect("non-Send callable batch should succeed");
                         let _ = black_box(result);
                     },
                     BatchSize::LargeInput,
