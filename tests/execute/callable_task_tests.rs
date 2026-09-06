@@ -19,10 +19,61 @@ use qubit_batch::BatchOutcomeBuilder;
 use qubit_batch::ParallelBatchExecutor;
 use qubit_batch::SequentialBatchExecutor;
 use qubit_batch::TaskFailurePolicy;
+use qubit_function::Callable;
 use qubit_function::Runnable;
 
 use crate::support::TestCallable;
 use crate::support::panic_payload_message;
+
+struct DropPanickingCallable {
+    value: i32,
+    panic_on_drop: bool,
+}
+
+impl Callable<i32, &'static str> for DropPanickingCallable {
+    fn call(&mut self) -> Result<i32, &'static str> {
+        Ok(self.value)
+    }
+}
+
+impl Drop for DropPanickingCallable {
+    fn drop(&mut self) {
+        if self.panic_on_drop {
+            panic!("callable drop panic");
+        }
+    }
+}
+
+fn assert_trait_call_records_drop_panic<E>(executor: &E)
+where
+    E: BatchExecutor,
+{
+    let result = match executor.call([
+        DropPanickingCallable {
+            value: 10,
+            panic_on_drop: true,
+        },
+        DropPanickingCallable {
+            value: 20,
+            panic_on_drop: false,
+        },
+    ]) {
+        Ok(result) => result,
+        Err(_) => panic!("call should return a result with the callable drop panic recorded"),
+    };
+
+    assert_eq!(result.outcome().completed_count(), 2);
+    assert_eq!(result.outcome().succeeded_count(), 1);
+    assert_eq!(result.outcome().panicked_count(), 1);
+    assert_eq!(result.outcome().failures()[0].index(), 0);
+    assert_eq!(
+        result.outcome().failures()[0].error().panic_message(),
+        Some("callable drop panic")
+    );
+    assert_eq!(result.outputs().len(), 1);
+    assert_eq!(result.outputs()[0].index(), 1);
+    assert_eq!(result.outputs()[0].value(), &20);
+}
 
 struct OverconsumingExecutor;
 
@@ -93,6 +144,22 @@ fn test_batch_executor_call_derives_count_from_exact_iterator() {
         result.outputs().iter().map(|o| *o.value()).collect::<Vec<_>>(),
         vec![10, 20]
     );
+}
+
+#[test]
+fn test_batch_executor_call_records_callable_drop_panic_sequential() {
+    assert_trait_call_records_drop_panic(&SequentialBatchExecutor::new());
+}
+
+#[test]
+fn test_batch_executor_call_records_callable_drop_panic_parallel() {
+    let executor = ParallelBatchExecutor::builder()
+        .thread_count(2)
+        .sequential_threshold(0)
+        .build()
+        .expect("parallel executor should build");
+
+    assert_trait_call_records_drop_panic(&executor);
 }
 
 #[test]

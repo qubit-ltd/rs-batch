@@ -60,6 +60,7 @@ where
     fn run(&mut self) -> Result<(), E> {
         let mut callable = self.callable.take().expect("callable task may only run once");
         let value = callable.call()?;
+        drop(callable);
         self.outputs.push((self.index, value));
         Ok(())
     }
