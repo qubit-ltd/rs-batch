@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -35,13 +36,16 @@ use super::SequentialBatchProcessor;
 /// # Type Parameters
 ///
 /// * `Item` - Item type consumed by the processor being built.
-pub struct SequentialBatchProcessorBuilder<Item> {
+/// * `C` - Stored consumer type. The default is [`BoxConsumer<Item>`].
+pub struct SequentialBatchProcessorBuilder<Item, C = BoxConsumer<Item>> {
     /// Consumer called once for each accepted item.
-    consumer: BoxConsumer<Item>,
+    consumer: C,
     /// Minimum interval between progress callbacks.
     report_interval: Duration,
     /// Reporter receiving batch lifecycle callbacks.
     reporter: Arc<dyn Reporter>,
+    /// Associates the consumed item type without owning an item.
+    item_marker: PhantomData<fn(&Item)>,
 }
 
 impl<Item> SequentialBatchProcessorBuilder<Item> {
@@ -63,9 +67,37 @@ impl<Item> SequentialBatchProcessorBuilder<Item> {
             consumer: BoxConsumer::new(consumer),
             report_interval: SequentialBatchProcessor::<Item>::DEFAULT_REPORT_INTERVAL,
             reporter: Arc::new(NoopReporter),
+            item_marker: PhantomData,
         }
     }
 
+    /// Creates a builder that stores a consumer directly.
+    ///
+    /// This constructor accepts borrowed and non-`Send` consumers because the
+    /// sequential processor invokes the consumer only on the caller thread.
+    ///
+    /// # Parameters
+    ///
+    /// * `consumer` - Consumer invoked once for each input item.
+    ///
+    /// # Returns
+    ///
+    /// A builder initialized with default sequential processor settings.
+    #[inline]
+    pub fn with_consumer<C>(consumer: C) -> SequentialBatchProcessorBuilder<Item, C>
+    where
+        C: Consumer<Item>,
+    {
+        SequentialBatchProcessorBuilder {
+            consumer,
+            report_interval: SequentialBatchProcessor::<Item>::DEFAULT_REPORT_INTERVAL,
+            reporter: Arc::new(NoopReporter),
+            item_marker: PhantomData,
+        }
+    }
+}
+
+impl<Item, C> SequentialBatchProcessorBuilder<Item, C> {
     /// Sets the progress-report interval.
     ///
     /// # Parameters
@@ -133,11 +165,12 @@ impl<Item> SequentialBatchProcessorBuilder<Item> {
     ///
     /// A sequential batch processor with this builder's configuration.
     #[inline]
-    pub fn build(self) -> SequentialBatchProcessor<Item> {
+    pub fn build(self) -> SequentialBatchProcessor<Item, C> {
         SequentialBatchProcessor {
             consumer: self.consumer,
             report_interval: self.report_interval,
             reporter: self.reporter,
+            item_marker: PhantomData,
         }
     }
 }
