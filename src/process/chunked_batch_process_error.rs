@@ -18,6 +18,13 @@ use crate::ProgressFailure;
 /// means the delegate returned `Ok`, but the returned `item_count` or
 /// `completed_count` did not match the submitted chunk length.
 ///
+/// For `ChunkFailed` and `InvalidChunkResult`, the attached result describes
+/// only the prefix of chunks that completed successfully before the failing or
+/// invalid chunk. The delegate may already have produced external side effects
+/// while processing that excluded chunk. Consequently, the aggregate result is
+/// not by itself a safe retry boundary; callers must use the delegate's own
+/// transaction or idempotency guarantees.
+///
 /// ```rust
 /// use std::time::Duration;
 ///
@@ -89,6 +96,9 @@ pub enum ChunkedBatchProcessError<E> {
     },
 
     /// The delegate processor failed while processing one chunk.
+    ///
+    /// The attached result ends before this chunk and does not imply that the
+    /// failed chunk produced no external side effects.
     #[error("batch chunk {chunk_index} failed at item {start_index} with {chunk_len} items")]
     ChunkFailed {
         /// Zero-based chunk index.
@@ -99,7 +109,7 @@ pub enum ChunkedBatchProcessError<E> {
         chunk_len: usize,
         /// Error returned by the delegate processor.
         source: E,
-        /// Result accumulated before this chunk failed.
+        /// Successful-prefix result accumulated before this failed chunk.
         result: BatchProcessResult,
         /// Terminal progress-report error, when reporting the failure failed.
         report_error: Option<ProgressFailure>,
@@ -111,7 +121,9 @@ pub enum ChunkedBatchProcessError<E> {
     /// A successful chunk delegate call must report both `item_count` and
     /// `completed_count` equal to `chunk_len`. A lower `processed_count` is
     /// allowed, but partial chunk completion should be represented by delegate
-    /// failure instead of an inconsistent success result.
+    /// failure instead of an inconsistent success result. The attached result
+    /// ends before this chunk and does not imply that the invalid delegate call
+    /// produced no external side effects.
     #[error(
         "batch chunk {chunk_index} returned invalid result at item {start_index}: expected {chunk_len} completed items, got item_count {item_count}, completed_count {completed_count}"
     )]
@@ -126,7 +138,7 @@ pub enum ChunkedBatchProcessError<E> {
         item_count: usize,
         /// Delegate-reported completed item count.
         completed_count: usize,
-        /// Result accumulated before this invalid chunk result was reported.
+        /// Successful-prefix result accumulated before this invalid chunk.
         result: BatchProcessResult,
         /// Terminal progress-report error, when reporting the failure failed.
         report_error: Option<ProgressFailure>,

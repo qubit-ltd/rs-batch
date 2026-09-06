@@ -31,11 +31,17 @@ use crate::process::PROCESS_PROGRESS_METRIC_NAME;
 ///
 /// The delegate must return a result whose `item_count` and `completed_count`
 /// match the submitted chunk length whenever it returns `Ok`. The delegate may
-/// still report a lower `processed_count`, such as when a database reports
-/// fewer affected rows than submitted rows. If the delegate cannot reach a
-/// terminal outcome for every item in the chunk, it should return `Err`;
-/// inconsistent `Ok` results are returned as
+/// still report a lower `processed_count` when some completed input items were
+/// not processed successfully. Domain measurements such as affected database
+/// rows must be tracked separately. If the delegate cannot reach a terminal
+/// outcome for every item in the chunk, it should return `Err`; inconsistent
+/// `Ok` results are returned as
 /// [`ChunkedBatchProcessError::InvalidChunkResult`].
+///
+/// The returned `chunk_count` counts chunks completed successfully by this
+/// wrapper. It does not sum chunk counts reported by a nested delegate and does
+/// not include the chunk whose delegate call failed or returned an invalid
+/// result.
 ///
 /// # Type Parameters
 ///
@@ -221,13 +227,17 @@ where
     ///
     /// # Returns
     ///
-    /// A result aggregating all successfully delegated chunks.
+    /// A result aggregating all chunks completed successfully by this wrapper.
+    /// Its `chunk_count` describes this outer chunking layer.
     ///
     /// # Errors
     ///
     /// Returns [`ChunkedBatchProcessError`] when the source count does not
     /// match `count`, when the delegate fails for one chunk, or when a delegate
-    /// `Ok` result does not describe the submitted chunk.
+    /// `Ok` result does not describe the submitted chunk. For a failed or
+    /// invalid delegate call, the attached result describes only the preceding
+    /// successful chunks and does not prove that the excluded chunk produced no
+    /// external side effects.
     fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
@@ -330,12 +340,16 @@ impl<P> ChunkedBatchProcessor<P> {
     ///
     /// # Returns
     ///
-    /// Returns `Ok(())` after the delegate accepts the chunk.
+    /// Returns the progress run after the delegate accepts the chunk and the
+    /// outer-layer aggregate records one successful chunk.
     ///
     /// # Errors
     ///
     /// Returns [`ChunkedBatchProcessError::ChunkFailed`] when the delegate
-    /// returns an error.
+    /// returns an error, or [`ChunkedBatchProcessError::InvalidChunkResult`]
+    /// when its successful result does not describe the submitted input. In
+    /// either case the attached aggregate stops before the current chunk even
+    /// if the delegate already produced external side effects.
     #[allow(clippy::result_large_err)]
     fn process_chunk<'progress, Item>(
         &mut self,
