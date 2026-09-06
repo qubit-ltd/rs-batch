@@ -66,11 +66,12 @@ impl<R, E> BatchCallResult<R, E> {
                 });
             }
         }
+        let mut output_position = 0;
         for failure in outcome.failures() {
-            if outputs
-                .binary_search_by_key(&failure.index(), BatchCallOutput::index)
-                .is_ok()
-            {
+            while output_position < outputs.len() && outputs[output_position].index() < failure.index() {
+                output_position += 1;
+            }
+            if output_position < outputs.len() && outputs[output_position].index() == failure.index() {
                 return Err(BatchCallResultBuildError::FailureOutputPresent { index: failure.index() });
             }
         }

@@ -214,7 +214,7 @@ impl<E> BatchOutcomeBuilder<E> {
             self.panicked_count,
             &self.failures,
         )?;
-        self.failures.sort_by_key(|failure| failure.index());
+        self.failures.sort_unstable_by_key(|failure| failure.index());
         Ok(self)
     }
 
