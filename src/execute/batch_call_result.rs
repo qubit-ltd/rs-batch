@@ -71,9 +71,7 @@ impl<R, E> BatchCallResult<R, E> {
                 .binary_search_by_key(&failure.index(), BatchCallOutput::index)
                 .is_ok()
             {
-                return Err(BatchCallResultBuildError::FailureOutputPresent {
-                    index: failure.index(),
-                });
+                return Err(BatchCallResultBuildError::FailureOutputPresent { index: failure.index() });
             }
         }
         if outputs.len() != outcome.succeeded_count() {

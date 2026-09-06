@@ -25,16 +25,10 @@ fn test_overlap_error_precedes_output_count_error() {
         .build()
         .expect("outcome should be valid");
 
-    let error = BatchCallResult::try_new(
-        outcome,
-        vec![BatchCallOutput::new(0, 10), BatchCallOutput::new(1, 20)],
-    )
-    .expect_err("a failed task must not have a callable output");
+    let error = BatchCallResult::try_new(outcome, vec![BatchCallOutput::new(0, 10), BatchCallOutput::new(1, 20)])
+        .expect_err("a failed task must not have a callable output");
 
-    assert_eq!(
-        error,
-        BatchCallResultBuildError::FailureOutputPresent { index: 1 }
-    );
+    assert_eq!(error, BatchCallResultBuildError::FailureOutputPresent { index: 1 });
 }
 
 #[test]
@@ -62,10 +56,7 @@ fn test_large_disjoint_outputs_and_failures_are_accepted() {
         .expect("disjoint successful outputs and failures should be accepted");
 
     assert_eq!(result.outputs().len(), SUCCESS_COUNT);
-    assert_eq!(
-        result.outputs().first().map(BatchCallOutput::index),
-        Some(0)
-    );
+    assert_eq!(result.outputs().first().map(BatchCallOutput::index), Some(0));
     assert_eq!(
         result.outputs().last().map(BatchCallOutput::index),
         Some(TASK_COUNT - 2)

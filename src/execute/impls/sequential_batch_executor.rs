@@ -11,6 +11,7 @@ use std::time::Duration;
 use qubit_function::Callable;
 use qubit_function::Runnable;
 use qubit_progress::Metric;
+use qubit_progress::MetricError;
 use qubit_progress::Progress;
 use qubit_progress::Reporter;
 
@@ -160,7 +161,7 @@ impl SequentialBatchExecutor {
     ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = Item>,
-        F: FnMut(&BatchExecutionState<E>, usize, Item) -> Result<TaskExecutionStatus, qubit_progress::MetricError>,
+        F: FnMut(&BatchExecutionState<E>, usize, Item) -> Result<TaskExecutionStatus, MetricError>,
     {
         let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
             .interval(self.report_interval)
