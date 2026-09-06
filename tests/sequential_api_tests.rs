@@ -92,12 +92,13 @@ fn runnable_drop_panic_propagates() {
 #[test]
 fn callable_drop_panic_is_captured() {
     let result = catch_unwind(AssertUnwindSafe(|| {
-        SequentialBatchExecutor::new().call_with_count([DropPanickingCallable], 2)
+        SequentialBatchExecutor::new().call_with_count([DropPanickingCallable], 1)
     }))
     .expect("callable destructor panic should be captured");
-    let error = result.expect_err("declared count should exceed the callable source");
+    let result = result.expect("task panic should remain in the callable result");
 
-    assert_eq!(error.outcome().panicked_count(), 1);
+    assert_eq!(result.outcome().panicked_count(), 1);
+    assert!(result.outputs().is_empty());
 }
 
 struct DropPanickingRunnable;

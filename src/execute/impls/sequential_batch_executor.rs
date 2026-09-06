@@ -414,6 +414,7 @@ impl SequentialBatchExecutor {
             state.execute_action(index, move || {
                 let mut callable = callable;
                 let value = callable.call()?;
+                drop(callable);
                 outputs_ref.push(BatchCallOutput::new(index, value));
                 Ok(())
             })
