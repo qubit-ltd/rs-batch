@@ -98,6 +98,37 @@ impl<E> ParallelBatchExecutionContext<E> {
         Some(ParallelBatchTask::new(self.execution_id, observed_count - 1, task))
     }
 
+    /// Pulls and accepts one task from a single scheduler-owned source.
+    ///
+    /// Returning `None` after the source yields `None` records source
+    /// exhaustion. Returning `None` before that point means admission was
+    /// stopped by progress reporting or the task failure policy.
+    ///
+    /// # Parameters
+    ///
+    /// * `tasks` - Scheduler-owned source iterator.
+    ///
+    /// # Returns
+    ///
+    /// An accepted task token, or `None` when the source or admission gate
+    /// stops execution.
+    #[inline]
+    pub fn next_task<I>(&self, tasks: &mut I) -> Option<ParallelBatchTask<I::Item>>
+    where
+        I: Iterator,
+    {
+        if self.state.source_exhausted() || self.status.is_failed() || self.state.should_stop_accepting() {
+            return None;
+        }
+        match tasks.next() {
+            Some(task) => self.accept_task(task),
+            None => {
+                self.state.mark_source_exhausted();
+                None
+            }
+        }
+    }
+
     /// Runs one accepted token and records its terminal task outcome.
     ///
     /// Task-returned errors and task panics are stored in the batch outcome;
