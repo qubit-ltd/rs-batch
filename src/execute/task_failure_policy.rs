@@ -12,6 +12,8 @@ use std::num::NonZeroUsize;
 /// A failure is either a task-returned error or a task panic captured by the
 /// executor. Progress-reporting and task-source errors are batch-level errors
 /// and do not contribute to this policy.
+/// In parallel execution the policy stops accepting new source items, while
+/// already accepted task tokens are allowed to finish.
 ///
 /// # Author
 ///

@@ -160,3 +160,27 @@ API documentation and tests current, and run `./align-ci.sh` to format code and
 **Haixing Hu** - *Qubit Co. Ltd.*
 
 Repository: [https://github.com/qubit-ltd/rs-batch](https://github.com/qubit-ltd/rs-batch)
+
+## Source and termination contract
+
+Runtime-specific parallel schedulers should use
+`ParallelBatchExecutionContext::next_task` to pull and admit source items. A
+`None` returned by the source is recorded as exhaustion; a `None` returned
+before that can mean that progress reporting or the configured task-failure
+policy stopped admission. `accept_task` remains available for existing custom
+schedulers, but those schedulers cannot claim source exhaustion unless they
+observe it themselves.
+
+Accepted task tokens are drained before an execution returns. A failure policy
+stops future admission and does not cancel already accepted work. A source that
+is observed exhausted still receives count-shortfall validation before a task
+failure policy is used. `Finished` means source consumption was not stopped by
+the policy, and does not mean that every task succeeded; inspect
+`BatchOutcome::is_success()` and `BatchOutcome::failures()`.
+
+Callable results retain successful values and ordered failures. Their indexed
+cross-check is linear in the number of successes and failures, while output
+collection and failure sorting have their own costs. Processor results count
+successful input items; domain measurements such as affected database rows
+belong in application state. A failed chunk may already have produced external
+side effects, so retry and idempotency remain the caller's responsibility.

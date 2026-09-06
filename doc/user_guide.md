@@ -203,6 +203,29 @@ when further source items should not be accepted after the threshold. In this
 case an `Ok(BatchOutcome)` can describe early termination; inspect
 `outcome.termination()` before treating the source count as fully validated.
 
+Runtime-specific schedulers should use `next_task` when they own a lazy source,
+so a source `None` is recorded separately from an admission stop:
+
+```rust
+use std::{convert::Infallible, sync::Arc, time::Duration};
+use qubit_batch::{BatchExecutor, TaskFailurePolicy};
+use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
+use qubit_progress::NoopReporter;
+
+let coordinator = ParallelBatchExecutionCoordinator::new(
+    Arc::new(NoopReporter), Duration::ZERO);
+let tasks = [|| Ok::<(), &'static str>(())];
+let outcome = coordinator.execute(tasks, 1, TaskFailurePolicy::Continue,
+    |tasks, context| {
+        let mut source = tasks.into_iter();
+        while let Some(token) = context.next_task(&mut source) {
+            context.execute_task(token);
+        }
+        Ok::<(), Infallible>(())
+    }).unwrap();
+assert!(outcome.is_success());
+```
+
 ## Errors and Diagnostics
 
 Inspect the result in two layers:
