@@ -89,23 +89,30 @@ impl ParallelBatchAcceptanceState {
 
 #[cfg(all(test, loom))]
 mod loom_tests {
-    use std::sync::Arc;
-
     use loom::model;
+    use loom::sync::Arc;
     use loom::thread;
 
     use super::ParallelBatchAcceptanceState;
 
     #[test]
-    fn loom_failure_stop_is_observable_and_never_reopens_admission() {
+    fn loom_stop_races_with_admission_without_reopening() {
         model(|| {
             let state = Arc::new(ParallelBatchAcceptanceState::new(2));
-            let worker_state = Arc::clone(&state);
-            let handle = thread::spawn(move || {
-                worker_state.stop();
-                worker_state.try_record_observed()
+            let producer_state = Arc::clone(&state);
+            let producer = thread::spawn(move || {
+                let observed = producer_state.try_record_observed();
+                if observed.is_some() {
+                    producer_state.record_accepted();
+                }
+                observed
             });
-            assert!(handle.join().expect("loom worker should join").is_none());
+            let stopper_state = Arc::clone(&state);
+            let stopper = thread::spawn(move || stopper_state.stop());
+            let observed = producer.join().expect("loom producer should join");
+            stopper.join().expect("loom stopper should join");
+            assert_eq!(state.accepted_count(), usize::from(observed.is_some()));
+            assert!(state.try_record_observed().is_none());
             assert!(state.should_stop());
         });
     }
@@ -117,15 +124,21 @@ mod loom_tests {
             let first = Arc::clone(&state);
             let second = Arc::clone(&state);
             let first_handle = thread::spawn(move || {
-                first.record_observed();
+                let observed = first.record_observed();
                 first.record_accepted();
+                observed
             });
             let second_handle = thread::spawn(move || {
-                second.record_observed();
+                let observed = second.record_observed();
                 second.record_accepted();
+                observed
             });
-            first_handle.join().expect("first loom worker should join");
-            second_handle.join().expect("second loom worker should join");
+            let mut observations = [
+                first_handle.join().expect("first loom worker should join"),
+                second_handle.join().expect("second loom worker should join"),
+            ];
+            observations.sort_unstable();
+            assert_eq!(observations, [1, 2]);
             assert_eq!(state.observed_count(), 2);
             assert_eq!(state.accepted_count(), 2);
         });
