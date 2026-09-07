@@ -1,10 +1,1 @@
-{
-  "threshold_exempt_files": {
-    "qubit-batch": [
-      "src/execute/batch_call_result.rs",
-      "src/execute/batch_execution_error.rs",
-      "src/execute/batch_executor.rs",
-      "src/execute/parallel_batch_execution_coordinator.rs"
-    ]
-  }
-}
+{}

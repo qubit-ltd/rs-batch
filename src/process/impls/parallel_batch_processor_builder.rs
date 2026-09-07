@@ -22,6 +22,8 @@ use super::ParallelBatchProcessorBuildError;
 /// Use the builder when the default worker count, sequential fallback
 /// threshold, progress interval, or reporter should be customized.
 ///
+/// # Examples
+///
 /// ```rust
 /// use qubit_batch::ParallelBatchProcessor;
 ///
@@ -38,6 +40,7 @@ use super::ParallelBatchProcessorBuildError;
 /// # Type Parameters
 ///
 /// * `Item` - Item type consumed by the processor being built.
+#[must_use = "configure and build the value before discarding this builder"]
 pub struct ParallelBatchProcessorBuilder<Item> {
     /// Consumer shared by all scoped workers.
     consumer: ArcConsumer<Item>,
@@ -62,6 +65,7 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     ///
     /// A builder initialized with default parallel processor settings.
     #[inline]
+    #[must_use = "use the constructed or borrowed value"]
     pub fn new<C>(consumer: C) -> Self
     where
         C: Consumer<Item> + Send + Sync + 'static,
@@ -84,7 +88,8 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn thread_count(mut self, thread_count: usize) -> Self {
         self.thread_count = thread_count;
         self
@@ -96,12 +101,13 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     ///
     /// * `sequential_threshold` - Maximum declared item count that still runs
     ///   on the caller thread. Use `0` when every non-empty batch should use
-    ///   scoped workers.
+    ///   scoped workers when the configured worker count is greater than one.
     ///
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn sequential_threshold(mut self, sequential_threshold: usize) -> Self {
         self.sequential_threshold = sequential_threshold;
         self
@@ -119,7 +125,8 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn report_interval(mut self, report_interval: Duration) -> Self {
         self.report_interval = report_interval;
         self
@@ -152,7 +159,8 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub fn reporter_arc(mut self, reporter: Arc<dyn Reporter>) -> Self {
         self.reporter = reporter;
         self

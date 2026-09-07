@@ -9,6 +9,8 @@ use thiserror::Error;
 
 /// Error returned when constructing a batch outcome with invalid counters.
 ///
+/// # Examples
+///
 /// ```rust
 /// use qubit_batch::{
 ///     BatchOutcomeBuildError,
@@ -26,6 +28,7 @@ use thiserror::Error;
 ///     BatchOutcomeBuildError::CompletedCountExceeded { .. }
 /// ));
 /// ```
+#[must_use = "errors describe a rejected operation"]
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum BatchOutcomeBuildError {
     /// The completed task count is greater than the declared task count.

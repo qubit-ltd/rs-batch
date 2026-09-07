@@ -48,7 +48,7 @@ fn run_exhausted(expected: usize) -> Result<BatchOutcome<&'static str>, BatchExe
 }
 
 #[test]
-fn exhausted_short_source_is_not_policy_stop() {
+fn test_exhausted_short_source_is_not_policy_stop() {
     match run_exhausted(2).expect_err("short source should report a count error") {
         BatchExecutionError::CountShortfall {
             expected,
@@ -66,7 +66,7 @@ fn exhausted_short_source_is_not_policy_stop() {
 }
 
 #[test]
-fn exhausted_exact_source_finishes_despite_failure_threshold() {
+fn test_exhausted_exact_source_finishes_despite_failure_threshold() {
     let outcome = run_exhausted(1).expect("exact source should return its outcome");
     assert_eq!(outcome.termination(), BatchTermination::Finished);
     assert_eq!(outcome.failed_count(), 1);
@@ -74,7 +74,7 @@ fn exhausted_exact_source_finishes_despite_failure_threshold() {
 }
 
 #[test]
-fn next_task_does_not_pull_after_policy_stop() {
+fn test_next_task_does_not_pull_after_policy_stop() {
     use std::cell::Cell;
     use std::convert::Infallible;
     use std::sync::Arc;

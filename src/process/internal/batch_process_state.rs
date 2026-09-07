@@ -38,11 +38,13 @@ impl BatchProcessState {
     /// # Parameters
     ///
     /// * `item_count` - Declared number of items in the batch.
+    /// * `metric` - Lifecycle metric recording completed and successful items.
     ///
     /// # Returns
     ///
     /// Empty processing state.
     #[inline]
+    #[must_use = "use the constructed or borrowed value"]
     pub(crate) fn new(item_count: usize, metric: MetricHandle) -> Self {
         Self {
             item_count,
@@ -52,24 +54,57 @@ impl BatchProcessState {
         }
     }
 
+    /// Returns the observed item count.
+    ///
+    /// # Returns
+    ///
+    /// The number of items observed from the source.
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
+    pub(crate) fn observed_count(&self) -> usize {
+        self.observed_count.get()
+    }
+
+    /// Returns the completed item count.
+    ///
+    /// # Returns
+    ///
+    /// The number of input items completed so far.
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
+    pub(crate) fn completed_count(&self) -> usize {
+        self.metric.snapshot().completed() as usize
+    }
+
+    /// Returns the completed chunk count.
+    ///
+    /// # Returns
+    ///
+    /// The number of chunks successfully delegated so far.
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
+    pub(crate) fn chunk_count(&self) -> usize {
+        self.chunk_count.get()
+    }
+
     /// Records one observed item.
     ///
     /// # Returns
     ///
     /// The observed item count after this item was recorded.
-    #[inline]
+    #[inline(always)]
     pub(crate) fn record_item_observed(&self) -> usize {
         self.observed_count.inc()
     }
 
     /// Records that one item has started processing.
-    #[inline]
+    #[inline(always)]
     pub(crate) fn record_item_started(&self) -> Result<(), MetricError> {
         self.metric.start(1)
     }
 
     /// Records one successfully processed item.
-    #[inline]
+    #[inline(always)]
     pub(crate) fn record_item_processed(&self) -> Result<(), MetricError> {
         self.metric.succeed(1)
     }
@@ -96,36 +131,6 @@ impl BatchProcessState {
         )?;
         self.chunk_count.inc();
         Ok(())
-    }
-
-    /// Returns the observed item count.
-    ///
-    /// # Returns
-    ///
-    /// The number of items observed from the source.
-    #[inline]
-    pub(crate) fn observed_count(&self) -> usize {
-        self.observed_count.get()
-    }
-
-    /// Returns the completed item count.
-    ///
-    /// # Returns
-    ///
-    /// The number of input items completed so far.
-    #[inline]
-    pub(crate) fn completed_count(&self) -> usize {
-        self.metric.snapshot().completed() as usize
-    }
-
-    /// Returns the completed chunk count.
-    ///
-    /// # Returns
-    ///
-    /// The number of chunks successfully delegated so far.
-    #[inline]
-    pub(crate) fn chunk_count(&self) -> usize {
-        self.chunk_count.get()
     }
 
     /// Converts this state into a direct processor result.

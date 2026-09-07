@@ -60,7 +60,7 @@ impl BatchProcessor<usize> for BulkWriter<'_> {
 }
 
 #[test]
-fn bulk_chunks_respect_driver_limit_and_separate_domain_metrics() {
+fn test_bulk_chunks_respect_driver_limit_and_separate_domain_metrics() {
     let mut store = Store::default();
     let result = {
         let writer = BulkWriter {
@@ -80,7 +80,7 @@ fn bulk_chunks_respect_driver_limit_and_separate_domain_metrics() {
 }
 
 #[test]
-fn failed_bulk_chunk_is_excluded_but_its_effects_are_not_rolled_back() {
+fn test_failed_bulk_chunk_is_excluded_but_its_effects_are_not_rolled_back() {
     let mut store = Store::default();
     let error = {
         let writer = BulkWriter {

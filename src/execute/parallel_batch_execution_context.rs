@@ -40,6 +40,27 @@ fn next_execution_id() -> u64 {
 /// # Type Parameters
 ///
 /// * `E` - Task-specific error type stored in the shared execution outcome.
+///
+/// # Examples
+///
+/// ```rust
+/// use std::convert::Infallible;
+/// use std::sync::Arc;
+/// use std::time::Duration;
+/// use qubit_batch::TaskFailurePolicy;
+/// use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
+/// use qubit_progress::NoopReporter;
+/// let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
+/// let outcome = coordinator.execute([|| Ok::<(), &'static str>(())], 1,
+///     TaskFailurePolicy::Continue, |tasks, context| {
+///         let mut source = tasks.into_iter();
+///         while let Some(token) = context.next_task(&mut source) {
+///             context.execute_task(token);
+///         }
+///         Ok::<(), Infallible>(())
+///     }).expect("all accepted tasks finish before the scheduler returns");
+/// assert!(outcome.is_success());
+/// ```
 pub struct ParallelBatchExecutionContext<E> {
     /// Globally unique identity for this execution context.
     execution_id: u64,
@@ -56,8 +77,9 @@ impl<E> ParallelBatchExecutionContext<E> {
     ///
     /// This constructor is only intended for runtime executors.
     /// Most callers should use
-    /// [`crate::execute::ParallelBatchExecutionCoordinator::execute`].
+    /// [`crate::execute::spi::ParallelBatchExecutionCoordinator::execute`].
     #[inline]
+    #[must_use = "use the constructed or borrowed value"]
     pub(crate) fn new(
         state: Arc<BatchExecutionState<E>>,
         notifier: ProgressNotifier,
@@ -74,7 +96,8 @@ impl<E> ParallelBatchExecutionContext<E> {
     /// Accepts one source task and assigns it a unique in-range token.
     ///
     /// Tasks are rejected after automatic progress reporting fails or after the
-    /// declared task count has been exceeded. A count-exceeding observation is
+    /// declared task count has been exceeded, or after the task failure policy
+    /// stops admission. A count-exceeding observation is
     /// still recorded so the coordinator can return the precise count error.
     ///
     /// # Parameters
@@ -102,7 +125,10 @@ impl<E> ParallelBatchExecutionContext<E> {
     ///
     /// Returning `None` after the source yields `None` records source
     /// exhaustion. Returning `None` before that point means admission was
-    /// stopped by progress reporting or the task failure policy.
+    /// stopped by progress reporting, the task failure policy, or an
+    /// observation beyond the declared count. Inspect the coordinator
+    /// result to distinguish these cases; `None` alone does not identify
+    /// the reason.
     ///
     /// # Parameters
     ///

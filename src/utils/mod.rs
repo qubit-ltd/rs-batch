@@ -7,6 +7,7 @@
 // =============================================================================
 //! Internal utilities shared by execution and processing implementations.
 
+mod internal;
 mod scoped_parallel;
 
 pub(crate) use scoped_parallel::run_scoped_parallel;

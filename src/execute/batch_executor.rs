@@ -15,8 +15,8 @@ use qubit_function::Runnable;
 use super::BatchCallError;
 use super::BatchCallOutput;
 use super::BatchCallResult;
-use super::callable_task::CallableTask;
-use super::for_each_task::ForEachTask;
+use super::internal::CallableTask;
+use super::internal::ForEachTask;
 use crate::BatchExecutionError;
 use crate::BatchOutcome;
 
@@ -54,6 +54,8 @@ use crate::BatchOutcome;
 /// may deliberately batch items, mutate internal state, or expose a domain
 /// error instead of one task failure per item. The two APIs therefore overlap
 /// in mechanics but represent different ownership and result semantics.
+///
+/// # Examples
 ///
 /// ```rust
 /// use qubit_batch::{
@@ -242,7 +244,7 @@ pub trait BatchExecutor: Send + Sync {
         let outputs = collect_call_outputs(outputs);
         match execution {
             Ok(outcome) => Ok(BatchCallResult::try_new(outcome, outputs)
-                .expect("call output collection must return one value slot per declared task")),
+                .expect("call output collection must match successful task indexes and counts")),
             Err(source) => Err(BatchCallError::new(source, outputs)),
         }
     }
@@ -336,6 +338,7 @@ pub trait BatchExecutor: Send + Sync {
 /// # Parameters
 ///
 /// * `outputs` - Shared output queue filled by callable wrappers.
+///
 /// # Returns
 ///
 /// Successful outputs sorted by callable index.

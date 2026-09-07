@@ -17,7 +17,7 @@ use qubit_function::Callable;
 use qubit_function::Runnable;
 
 #[test]
-fn sequential_for_each_borrows_mutable_local_state() {
+fn test_sequential_for_each_borrows_mutable_local_state() {
     let mut values = Vec::new();
     let result = SequentialBatchExecutor::new()
         .for_each([1, 2, 3], |item| {
@@ -30,7 +30,7 @@ fn sequential_for_each_borrows_mutable_local_state() {
 }
 
 #[test]
-fn sequential_action_panic_is_a_task_failure() {
+fn test_sequential_action_panic_is_a_task_failure() {
     let result = SequentialBatchExecutor::new()
         .for_each([0, 1, 2], |item| {
             if item == 1 {
@@ -45,7 +45,7 @@ fn sequential_action_panic_is_a_task_failure() {
 }
 
 #[test]
-fn generic_trait_call_preserves_sparse_outputs() {
+fn test_generic_trait_call_preserves_sparse_outputs() {
     fn run<X: BatchExecutor>(executor: &X) {
         let result = executor
             .call((0..3).map(|index| move || if index == 1 { Err(()) } else { Ok(index) }))
@@ -58,7 +58,7 @@ fn generic_trait_call_preserves_sparse_outputs() {
 }
 
 #[test]
-fn local_callable_result_and_shortfall_are_preserved() {
+fn test_local_callable_result_and_shortfall_are_preserved() {
     let local = Rc::new(String::from("local"));
     let error = SequentialBatchExecutor::new()
         .call_with_count([|| Ok::<_, ()>(Rc::clone(&local))], 2)
@@ -68,7 +68,7 @@ fn local_callable_result_and_shortfall_are_preserved() {
 }
 
 #[test]
-fn iterator_panic_propagates() {
+fn test_iterator_panic_propagates() {
     let items = std::iter::once(0).chain(std::iter::from_fn(|| -> Option<i32> {
         panic!("expected iterator panic");
     }));
@@ -81,7 +81,7 @@ fn iterator_panic_propagates() {
 }
 
 #[test]
-fn runnable_drop_panic_propagates() {
+fn test_runnable_drop_panic_propagates() {
     let result = catch_unwind(AssertUnwindSafe(|| {
         SequentialBatchExecutor::new().execute_with_count([DropPanickingRunnable], 1)
     }));
@@ -90,7 +90,7 @@ fn runnable_drop_panic_propagates() {
 }
 
 #[test]
-fn callable_drop_panic_is_captured() {
+fn test_callable_drop_panic_is_captured() {
     let result = catch_unwind(AssertUnwindSafe(|| {
         SequentialBatchExecutor::new().call_with_count([DropPanickingCallable], 1)
     }))

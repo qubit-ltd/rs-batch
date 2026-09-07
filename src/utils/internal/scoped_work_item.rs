@@ -5,11 +5,10 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Tests for synchronization support.
-
-use qubit_batch::SequentialBatchExecutor;
-
-#[test]
-fn synchronization_support_is_internal() {
-    assert_eq!(SequentialBatchExecutor::DEFAULT_REPORT_INTERVAL.as_secs(), 5);
+/// Indexed work item sent to scoped processor workers.
+pub(in crate::utils) struct ScopedWorkItem<T> {
+    /// Zero-based item index within the declared batch.
+    pub(in crate::utils) index: usize,
+    /// Work item payload owned by the receiving worker.
+    pub(in crate::utils) item: T,
 }

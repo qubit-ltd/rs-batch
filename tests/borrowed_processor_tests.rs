@@ -20,7 +20,7 @@ use qubit_function::BoxConsumer;
 use qubit_function::Consumer;
 
 #[test]
-fn borrowed_consumer_and_legacy_types_coexist() {
+fn test_borrowed_consumer_and_legacy_types_coexist() {
     let prefix = String::from("ok");
     let mut borrowed = SequentialBatchProcessor::with_consumer(|item: &String| {
         assert!(item.starts_with(&prefix));
@@ -65,7 +65,7 @@ fn borrowed_consumer_and_legacy_types_coexist() {
 }
 
 #[test]
-fn borrowed_consumer_remains_compatible_with_chunking() {
+fn test_borrowed_consumer_remains_compatible_with_chunking() {
     let prefix = String::from("item-");
     let borrowed = SequentialBatchProcessor::with_consumer(|item: &String| {
         assert!(item.starts_with(&prefix));
@@ -82,7 +82,7 @@ fn borrowed_consumer_remains_compatible_with_chunking() {
 }
 
 #[test]
-fn sequential_consumer_does_not_require_send() {
+fn test_sequential_consumer_does_not_require_send() {
     let accepted_count = Rc::new(Cell::new(0));
     let accepted_count_by_consumer = Rc::clone(&accepted_count);
     let mut processor = SequentialBatchProcessor::with_consumer(move |_item: &i32| {

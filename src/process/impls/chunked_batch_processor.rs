@@ -47,6 +47,8 @@ use crate::process::PROCESS_PROGRESS_METRIC_NAME;
 ///
 /// * `P` - Delegate processor receiving each chunk.
 ///
+/// # Examples
+///
 /// ```rust
 /// use std::{
 ///     num::NonZeroUsize,
@@ -131,7 +133,8 @@ impl<P> ChunkedBatchProcessor<P> {
     /// [`BatchProcessor::process`]. Therefore, a value can be constructed
     /// with any delegate type, but it can only process items for item types
     /// that the delegate actually supports.
-    #[inline]
+    #[must_use = "use the constructed or borrowed value"]
+    #[inline(always)]
     pub fn new(delegate: P, chunk_size: NonZeroUsize) -> Self {
         Self::builder(delegate, chunk_size).build()
     }
@@ -146,7 +149,8 @@ impl<P> ChunkedBatchProcessor<P> {
     /// # Returns
     ///
     /// A builder initialized with default settings.
-    #[inline]
+    #[must_use = "use the constructed or borrowed value"]
+    #[inline(always)]
     pub fn builder(delegate: P, chunk_size: NonZeroUsize) -> ChunkedBatchProcessorBuilder<P> {
         ChunkedBatchProcessorBuilder::new(delegate, chunk_size)
     }
@@ -156,7 +160,8 @@ impl<P> ChunkedBatchProcessor<P> {
     /// # Returns
     ///
     /// The maximum number of items submitted to the delegate at once.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn chunk_size(&self) -> NonZeroUsize {
         self.chunk_size
     }
@@ -166,7 +171,8 @@ impl<P> ChunkedBatchProcessor<P> {
     /// # Returns
     ///
     /// The minimum time between due-based running progress callbacks.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn report_interval(&self) -> Duration {
         self.report_interval
     }
@@ -176,7 +182,8 @@ impl<P> ChunkedBatchProcessor<P> {
     /// # Returns
     ///
     /// A shared reference to the configured progress reporter.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub fn reporter(&self) -> &Arc<dyn Reporter> {
         &self.reporter
     }
@@ -186,7 +193,8 @@ impl<P> ChunkedBatchProcessor<P> {
     /// # Returns
     ///
     /// The wrapped delegate processor.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn delegate(&self) -> &P {
         &self.delegate
     }
@@ -196,7 +204,8 @@ impl<P> ChunkedBatchProcessor<P> {
     /// # Returns
     ///
     /// The wrapped delegate processor.
-    #[inline]
+    #[must_use]
+    #[inline(always)]
     pub fn delegate_mut(&mut self) -> &mut P {
         &mut self.delegate
     }
@@ -206,7 +215,7 @@ impl<P> ChunkedBatchProcessor<P> {
     /// # Returns
     ///
     /// The wrapped delegate processor.
-    #[inline]
+    #[inline(always)]
     pub fn into_delegate(self) -> P {
         self.delegate
     }
@@ -216,6 +225,8 @@ impl<Item, P> BatchProcessor<Item> for ChunkedBatchProcessor<P>
 where
     P: BatchProcessor<Item>,
 {
+    /// Delegate, count-validation, or progress error with the successful
+    /// prefix.
     type Error = ChunkedBatchProcessError<P::Error>;
 
     /// Processes items by delegating fixed-size chunks.
@@ -271,13 +282,7 @@ where
                 if !chunk.is_empty() {
                     progress = self.process_chunk(&mut chunk, &state, progress)?;
                 }
-                let (elapsed, report_error) = match progress.fail() {
-                    Ok(elapsed) => (elapsed, None),
-                    Err(source) => {
-                        let elapsed = source.elapsed();
-                        (elapsed, Some(ProgressFailure::from(source)))
-                    }
-                };
+                let (elapsed, report_error) = ProgressFailure::fail_operation(progress);
                 let result = state.to_chunked_result(elapsed);
                 return Err(ChunkedBatchProcessError::CountExceeded {
                     expected: count,
@@ -297,13 +302,7 @@ where
         }
 
         if state.observed_count() < count {
-            let (elapsed, report_error) = match progress.fail() {
-                Ok(elapsed) => (elapsed, None),
-                Err(source) => {
-                    let elapsed = source.elapsed();
-                    (elapsed, Some(ProgressFailure::from(source)))
-                }
-            };
+            let (elapsed, report_error) = ProgressFailure::fail_operation(progress);
             let result = state.to_chunked_result(elapsed);
             Err(ChunkedBatchProcessError::CountShortfall {
                 expected: count,
@@ -367,13 +366,7 @@ impl<P> ChunkedBatchProcessor<P> {
         match self.delegate.process_with_count(current_chunk, chunk_len) {
             Ok(chunk_result) => {
                 if chunk_result.item_count() != chunk_len || chunk_result.completed_count() != chunk_len {
-                    let (elapsed, report_error) = match progress.fail() {
-                        Ok(elapsed) => (elapsed, None),
-                        Err(source) => {
-                            let elapsed = source.elapsed();
-                            (elapsed, Some(ProgressFailure::from(source)))
-                        }
-                    };
+                    let (elapsed, report_error) = ProgressFailure::fail_operation(progress);
                     let result = state.to_chunked_result(elapsed);
                     return Err(ChunkedBatchProcessError::InvalidChunkResult {
                         chunk_index,
@@ -397,13 +390,7 @@ impl<P> ChunkedBatchProcessor<P> {
                 Ok(progress)
             }
             Err(source) => {
-                let (elapsed, report_error) = match progress.fail() {
-                    Ok(elapsed) => (elapsed, None),
-                    Err(report_source) => {
-                        let elapsed = report_source.elapsed();
-                        (elapsed, Some(ProgressFailure::from(report_source)))
-                    }
-                };
+                let (elapsed, report_error) = ProgressFailure::fail_operation(progress);
                 let result = state.to_chunked_result(elapsed);
                 Err(ChunkedBatchProcessError::ChunkFailed {
                     chunk_index,

@@ -12,8 +12,5 @@
 
 mod docs;
 mod execute;
-#[cfg(feature = "loom-tests")]
-mod loom_tests;
 mod process;
 mod support;
-mod utils;

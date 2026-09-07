@@ -19,6 +19,8 @@ use crate::ProgressFailure;
 /// this enum. This error reports progress-reporter failures and declared
 /// task-count mismatches, and incomplete parallel schedules.
 ///
+/// # Examples
+///
 /// ```rust
 /// use qubit_batch::{
 ///     BatchExecutionError,
@@ -49,6 +51,7 @@ use crate::ProgressFailure;
 /// * `S` - The runtime scheduler error type. It defaults to
 ///   [`std::convert::Infallible`] for built-in executors.
 #[non_exhaustive]
+#[must_use = "errors describe a rejected operation"]
 #[derive(Debug, Error)]
 pub enum BatchExecutionError<E, S = Infallible> {
     /// Reporting batch progress failed.
@@ -131,24 +134,9 @@ where
     /// # Returns
     ///
     /// A shared reference to the attached batch outcome.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn outcome(&self) -> &BatchOutcome<E> {
-        match self {
-            Self::ProgressReport { outcome, .. }
-            | Self::ScheduleFailed { outcome, .. }
-            | Self::CountShortfall { outcome, .. }
-            | Self::CountExceeded { outcome, .. }
-            | Self::IncompleteSchedule { outcome, .. } => outcome,
-        }
-    }
-
-    /// Consumes this error and returns the attached batch outcome.
-    ///
-    /// # Returns
-    ///
-    /// The batch outcome accumulated before this error was reported.
-    #[inline]
-    pub fn into_outcome(self) -> BatchOutcome<E> {
         match self {
             Self::ProgressReport { outcome, .. }
             | Self::ScheduleFailed { outcome, .. }
@@ -163,7 +151,8 @@ where
     /// # Returns
     ///
     /// `true` if this error is [`Self::CountShortfall`].
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn is_count_shortfall(&self) -> bool {
         matches!(self, Self::CountShortfall { .. })
     }
@@ -173,7 +162,8 @@ where
     /// # Returns
     ///
     /// `true` if this error is [`Self::ScheduleFailed`].
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn is_schedule_failed(&self) -> bool {
         matches!(self, Self::ScheduleFailed { .. })
     }
@@ -183,11 +173,69 @@ where
     /// # Returns
     ///
     /// `Some(error)` for [`Self::ScheduleFailed`], or `None` for other errors.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub fn scheduler_error(&self) -> Option<&S> {
         match self {
             Self::ScheduleFailed { source, .. } => Some(source),
             _ => None,
+        }
+    }
+
+    /// Returns whether this error represents an oversized task source.
+    ///
+    /// # Returns
+    ///
+    /// `true` if this error is [`Self::CountExceeded`].
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
+    pub const fn is_count_exceeded(&self) -> bool {
+        matches!(self, Self::CountExceeded { .. })
+    }
+
+    /// Returns whether this error represents an incomplete parallel schedule.
+    ///
+    /// # Returns
+    ///
+    /// `true` if this error is [`Self::IncompleteSchedule`].
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
+    pub const fn is_incomplete_schedule(&self) -> bool {
+        matches!(self, Self::IncompleteSchedule { .. })
+    }
+
+    /// Returns the progress-reporting error associated with this error.
+    ///
+    /// # Returns
+    ///
+    /// The reporter error for [`Self::ProgressReport`], an additional reporter
+    /// error attached to a primary count/scheduler error, or `None` when
+    /// reporting did not fail.
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
+    pub fn progress_report_error(&self) -> Option<&ProgressFailure> {
+        match self {
+            Self::ProgressReport { source, .. } => Some(source.as_ref()),
+            Self::ScheduleFailed { report_error, .. }
+            | Self::CountShortfall { report_error, .. }
+            | Self::CountExceeded { report_error, .. }
+            | Self::IncompleteSchedule { report_error, .. } => report_error.as_deref(),
+        }
+    }
+
+    /// Consumes this error and returns the attached batch outcome.
+    ///
+    /// # Returns
+    ///
+    /// The batch outcome accumulated before this error was reported.
+    #[inline(always)]
+    pub fn into_outcome(self) -> BatchOutcome<E> {
+        match self {
+            Self::ProgressReport { outcome, .. }
+            | Self::ScheduleFailed { outcome, .. }
+            | Self::CountShortfall { outcome, .. }
+            | Self::CountExceeded { outcome, .. }
+            | Self::IncompleteSchedule { outcome, .. } => outcome,
         }
     }
 
@@ -258,44 +306,6 @@ where
                 outcome,
                 report_error,
             },
-        }
-    }
-
-    /// Returns whether this error represents an oversized task source.
-    ///
-    /// # Returns
-    ///
-    /// `true` if this error is [`Self::CountExceeded`].
-    #[inline]
-    pub const fn is_count_exceeded(&self) -> bool {
-        matches!(self, Self::CountExceeded { .. })
-    }
-
-    /// Returns whether this error represents an incomplete parallel schedule.
-    ///
-    /// # Returns
-    ///
-    /// `true` if this error is [`Self::IncompleteSchedule`].
-    #[inline]
-    pub const fn is_incomplete_schedule(&self) -> bool {
-        matches!(self, Self::IncompleteSchedule { .. })
-    }
-
-    /// Returns the progress-reporting error associated with this error.
-    ///
-    /// # Returns
-    ///
-    /// The reporter error for [`Self::ProgressReport`], an additional reporter
-    /// error attached to a primary count error, or `None` when reporting did
-    /// not fail.
-    #[inline]
-    pub fn progress_report_error(&self) -> Option<&ProgressFailure> {
-        match self {
-            Self::ProgressReport { source, .. } => Some(source.as_ref()),
-            Self::ScheduleFailed { report_error, .. }
-            | Self::CountShortfall { report_error, .. }
-            | Self::CountExceeded { report_error, .. }
-            | Self::IncompleteSchedule { report_error, .. } => report_error.as_deref(),
         }
     }
 }

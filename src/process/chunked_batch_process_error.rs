@@ -25,6 +25,8 @@ use crate::ProgressFailure;
 /// not by itself a safe retry boundary; callers must use the delegate's own
 /// transaction or idempotency guarantees.
 ///
+/// # Examples
+///
 /// ```rust
 /// use std::time::Duration;
 ///
@@ -56,6 +58,7 @@ use crate::ProgressFailure;
 /// # Type Parameters
 ///
 /// * `E` - Error type returned by the delegate processor.
+#[must_use = "errors describe a rejected operation"]
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum ChunkedBatchProcessError<E> {
@@ -151,7 +154,8 @@ impl<E> ChunkedBatchProcessError<E> {
     /// # Returns
     ///
     /// A shared reference to the partial batch process result.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn result(&self) -> &BatchProcessResult {
         match self {
             Self::ProgressReport { result, .. }
@@ -162,28 +166,14 @@ impl<E> ChunkedBatchProcessError<E> {
         }
     }
 
-    /// Consumes this error and returns its partial result.
+    /// Returns the primary or secondary progress-report failure.
     ///
     /// # Returns
     ///
-    /// The partial batch process result.
-    #[inline]
-    pub fn into_result(self) -> BatchProcessResult {
-        match self {
-            Self::ProgressReport { result, .. }
-            | Self::CountShortfall { result, .. }
-            | Self::CountExceeded { result, .. }
-            | Self::ChunkFailed { result, .. }
-            | Self::InvalidChunkResult { result, .. } => result,
-        }
-    }
-
-    /// Returns the terminal progress-report error attached to this error.
-    ///
-    /// # Returns
-    ///
-    /// The report error retained by the primary processing error, if any.
-    #[inline]
+    /// `Some` contains the primary progress error or a secondary terminal
+    /// error; `None` means reporting succeeded.
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub fn progress_report_error(&self) -> Option<&ProgressFailure> {
         match self {
             Self::ProgressReport { source, .. } => Some(source),
@@ -191,6 +181,22 @@ impl<E> ChunkedBatchProcessError<E> {
             | Self::CountExceeded { report_error, .. }
             | Self::ChunkFailed { report_error, .. }
             | Self::InvalidChunkResult { report_error, .. } => report_error.as_ref(),
+        }
+    }
+
+    /// Consumes this error and returns its partial result.
+    ///
+    /// # Returns
+    ///
+    /// The partial batch process result.
+    #[inline(always)]
+    pub fn into_result(self) -> BatchProcessResult {
+        match self {
+            Self::ProgressReport { result, .. }
+            | Self::CountShortfall { result, .. }
+            | Self::CountExceeded { result, .. }
+            | Self::ChunkFailed { result, .. }
+            | Self::InvalidChunkResult { result, .. } => result,
         }
     }
 }

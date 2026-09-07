@@ -17,6 +17,8 @@ use crate::BatchTermination;
 /// Create outcomes through [`BatchOutcomeBuilder::build`] so counters and
 /// failure details are validated before the outcome exists.
 ///
+/// # Examples
+///
 /// ```rust
 /// use qubit_batch::{
 ///     BatchOutcome,
@@ -78,6 +80,7 @@ impl<E> BatchOutcome<E> {
     ///
     /// A fully populated batch outcome.
     #[inline]
+    #[must_use = "use the constructed or borrowed value"]
     pub(crate) fn new(builder: BatchOutcomeBuilder<E>) -> Self {
         Self {
             task_count: builder.task_count,
@@ -96,7 +99,8 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// The expected number of tasks supplied by the caller.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn task_count(&self) -> usize {
         self.task_count
     }
@@ -106,7 +110,8 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// The number of completed tasks.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn completed_count(&self) -> usize {
         self.completed_count
     }
@@ -116,7 +121,8 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// The number of successful tasks.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn succeeded_count(&self) -> usize {
         self.succeeded_count
     }
@@ -126,7 +132,8 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// The number of failed tasks.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn failed_count(&self) -> usize {
         self.failed_count
     }
@@ -136,7 +143,8 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// The number of panicked tasks.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn panicked_count(&self) -> usize {
         self.panicked_count
     }
@@ -146,9 +154,10 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// [`BatchTermination::StoppedByTaskFailurePolicy`] when the configured
-    /// sequential failure policy left source items unconsumed; otherwise
-    /// [`BatchTermination::Finished`].
-    #[inline]
+    /// failure policy stopped admission before source exhaustion was observed;
+    /// otherwise [`BatchTermination::Finished`].
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn termination(&self) -> BatchTermination {
         self.termination
     }
@@ -158,7 +167,8 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// Failed plus panicked task count.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn failure_count(&self) -> usize {
         self.failed_count + self.panicked_count
     }
@@ -168,7 +178,8 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// The elapsed duration for this batch execution.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn elapsed(&self) -> Duration {
         self.elapsed
     }
@@ -178,7 +189,8 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// A shared slice of task failure records.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub fn failures(&self) -> &[BatchTaskFailure<E>] {
         self.failures.as_slice()
     }
@@ -189,7 +201,8 @@ impl<E> BatchOutcome<E> {
     ///
     /// `true` if the batch has no failures and every declared task completed.
     /// A `Finished` termination alone does not imply this condition.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn is_success(&self) -> bool {
         self.completed_count == self.task_count && self.failed_count == 0 && self.panicked_count == 0
     }
@@ -199,7 +212,7 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// The detailed failure records collected during execution.
-    #[inline]
+    #[inline(always)]
     pub fn into_failures(self) -> Vec<BatchTaskFailure<E>> {
         self.failures
     }

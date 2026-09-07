@@ -41,6 +41,8 @@ use super::BatchProcessResult;
 /// `for_each` adapter is intentionally task-oriented; it does not replace a
 /// processor whose consumer owns batch state or chunk semantics.
 ///
+/// # Examples
+///
 /// ```rust
 /// use std::time::Duration;
 ///

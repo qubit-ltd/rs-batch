@@ -21,6 +21,8 @@ use crate::execute::ParallelBatchExecutionCoordinator;
 /// Use the builder when the default worker count, sequential fallback
 /// threshold, progress interval, or reporter should be customized.
 ///
+/// # Examples
+///
 /// ```rust
 /// use qubit_batch::ParallelBatchExecutor;
 ///
@@ -33,6 +35,7 @@ use crate::execute::ParallelBatchExecutionCoordinator;
 /// assert_eq!(executor.thread_count(), 2);
 /// assert_eq!(executor.sequential_threshold(), 0);
 /// ```
+#[must_use = "configure and build the value before discarding this builder"]
 pub struct ParallelBatchExecutorBuilder {
     /// Number of worker threads used for parallel executions.
     thread_count: usize,
@@ -56,7 +59,8 @@ impl ParallelBatchExecutorBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn thread_count(mut self, thread_count: usize) -> Self {
         self.thread_count = thread_count;
         self
@@ -72,7 +76,8 @@ impl ParallelBatchExecutorBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn sequential_threshold(mut self, sequential_threshold: usize) -> Self {
         self.sequential_threshold = sequential_threshold;
         self
@@ -89,7 +94,8 @@ impl ParallelBatchExecutorBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn report_interval(mut self, report_interval: Duration) -> Self {
         self.report_interval = report_interval;
         self
@@ -122,7 +128,8 @@ impl ParallelBatchExecutorBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub fn reporter_arc(mut self, reporter: Arc<dyn Reporter>) -> Self {
         self.reporter = reporter;
         self
@@ -141,7 +148,8 @@ impl ParallelBatchExecutorBuilder {
 
     /// Sets the policy that controls parallel source acceptance after task
     /// errors or captured panics.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn task_failure_policy(mut self, task_failure_policy: TaskFailurePolicy) -> Self {
         self.task_failure_policy = task_failure_policy;
         self

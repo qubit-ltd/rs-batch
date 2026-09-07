@@ -35,6 +35,7 @@ where
     ///
     /// A runnable wrapper that consumes `item` on its first run.
     #[inline]
+    #[must_use = "use the constructed or borrowed value"]
     pub(crate) fn new(item: Item, action: Arc<F>) -> Self {
         Self {
             item: Some(item),

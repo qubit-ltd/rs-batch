@@ -5,8 +5,8 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-mod parallel_batch_executor_build_error_tests;
-mod parallel_batch_executor_builder_tests;
-mod parallel_batch_executor_tests;
-mod sequential_batch_executor_builder_tests;
-mod sequential_batch_executor_tests;
+//! Private work envelopes for scoped scheduling.
+
+mod scoped_work_item;
+
+pub(super) use scoped_work_item::ScopedWorkItem;

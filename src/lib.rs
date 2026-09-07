@@ -49,7 +49,6 @@
 //! emit periodic running events while workers are active, while zero interval
 //! reports on worker completion signals and does not spin in a tight loop.
 
-#![cfg_attr(doctest, doc = include_str!("../README.md"))]
 #![deny(missing_docs)]
 #![deny(unsafe_op_in_unsafe_fn)]
 #![allow(clippy::result_large_err)]
@@ -94,3 +93,22 @@ pub use process::ParallelBatchProcessorBuilder;
 pub use process::SequentialBatchProcessor;
 pub use process::SequentialBatchProcessorBuilder;
 pub use progress_failure::ProgressFailure;
+
+#[cfg(test)]
+mod tests;
+
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+mod readme_examples {}
+
+#[cfg(doctest)]
+#[doc = include_str!("../README.zh_CN.md")]
+mod chinese_readme_examples {}
+
+#[cfg(doctest)]
+#[doc = include_str!("../doc/user_guide.md")]
+mod user_guide_examples {}
+
+#[cfg(doctest)]
+#[doc = include_str!("../doc/user_guide.zh_CN.md")]
+mod chinese_user_guide_examples {}

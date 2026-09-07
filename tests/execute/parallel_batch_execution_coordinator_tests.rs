@@ -7,15 +7,23 @@
 // =============================================================================
 //! Tests for [`ParallelBatchExecutionCoordinator`](qubit_batch::ParallelBatchExecutionCoordinator).
 
+use std::convert::Infallible;
+use std::io;
 use std::panic::AssertUnwindSafe;
 use std::panic::catch_unwind;
 use std::sync::Arc;
 use std::time::Duration;
 
 use qubit_batch::BatchExecutionError;
+use qubit_batch::BatchTermination;
+use qubit_batch::ProgressFailure;
 use qubit_batch::TaskFailurePolicy;
 use qubit_batch::execute::spi::ParallelBatchExecutionContext;
 use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
+use qubit_progress::Event;
+use qubit_progress::Phase;
+use qubit_progress::Reporter;
+use qubit_progress::ReporterError;
 use qubit_progress::reporter::NoopReporter;
 use thiserror::Error;
 
@@ -39,7 +47,7 @@ fn test_parallel_batch_execution_coordinator_records_task_outcomes() {
                     let task = context.accept_task(task).expect("task should be accepted");
                     context.execute_task(task);
                 }
-                Ok::<(), std::convert::Infallible>(())
+                Ok::<(), Infallible>(())
             },
         )
         .expect("coordinator should return an outcome");
@@ -62,7 +70,7 @@ fn test_parallel_batch_execution_coordinator_reports_count_shortfall() {
                     let task = context.accept_task(task).expect("task should be accepted");
                     context.execute_task(task);
                 }
-                Ok::<(), std::convert::Infallible>(())
+                Ok::<(), Infallible>(())
             },
         )
         .expect_err("shortfall should be reported");
@@ -96,7 +104,7 @@ fn test_parallel_batch_execution_coordinator_reports_count_exceeded() {
                         context.execute_task(task);
                     }
                 }
-                Ok::<(), std::convert::Infallible>(())
+                Ok::<(), Infallible>(())
             },
         )
         .expect_err("overflow should be reported");
@@ -132,7 +140,7 @@ fn test_parallel_batch_execution_coordinator_count_exceeded_precedes_failure_sto
                 let second = context.accept_task(tasks.next().expect("second task should exist"));
                 assert!(second.is_none(), "the overflow task must be rejected");
                 context.execute_task(first);
-                Ok::<(), std::convert::Infallible>(())
+                Ok::<(), Infallible>(())
             },
         )
         .expect_err("count overflow must not be masked by the failure policy");
@@ -153,20 +161,20 @@ fn test_parallel_batch_execution_context_rejects_token_from_another_execution() 
                     .accept_task(tasks.into_iter().next().expect("outer task should exist"))
                     .expect("outer task should be accepted");
                 let inner_result = catch_unwind(AssertUnwindSafe(|| {
-                    coordinator
+                    let _ = coordinator
                         .execute(
                             [TestTask::succeed()],
                             1,
                             TaskFailurePolicy::Continue,
                             |_tasks, inner_context: &ParallelBatchExecutionContext<&'static str>| {
                                 inner_context.execute_task(token);
-                                Ok::<(), std::convert::Infallible>(())
+                                Ok::<(), Infallible>(())
                             },
                         )
                         .expect_err("inner execution should be incomplete after rejecting the token");
                 }));
                 assert!(inner_result.is_err(), "cross-context token use must panic");
-                Ok::<(), std::convert::Infallible>(())
+                Ok::<(), Infallible>(())
             },
         )
         .expect_err("outer execution intentionally leaves its token incomplete");
@@ -183,7 +191,7 @@ fn test_parallel_batch_execution_coordinator_reports_start_error_as_progress_rep
             [TestTask::succeed()],
             1,
             TaskFailurePolicy::Continue,
-            |_tasks, _context: &ParallelBatchExecutionContext<&'static str>| Ok::<(), std::convert::Infallible>(()),
+            |_tasks, _context: &ParallelBatchExecutionContext<&'static str>| Ok::<(), Infallible>(()),
         )
         .expect_err("start failures should return progress report errors");
 
@@ -209,7 +217,7 @@ fn test_parallel_batch_execution_coordinator_propagates_scheduler_panic() {
                     panic!("scheduler failure");
                 }
             }
-            Ok::<(), std::convert::Infallible>(())
+            Ok::<(), Infallible>(())
         })
     }))
     .expect_err("scheduler panic should be propagated");
@@ -230,7 +238,7 @@ fn test_parallel_batch_execution_coordinator_uses_context_observed_count() {
                     let task = context.accept_task(task).expect("task should be accepted");
                     context.execute_task(task);
                 }
-                Ok::<(), std::convert::Infallible>(())
+                Ok::<(), Infallible>(())
             },
         )
         .expect_err("context observations should determine count validation");
@@ -250,7 +258,7 @@ fn test_parallel_batch_execution_coordinator_rejects_dropped_accepted_tasks() {
                 for task in tasks {
                     let _dropped = context.accept_task(task).expect("task should be accepted");
                 }
-                Ok::<(), std::convert::Infallible>(())
+                Ok::<(), Infallible>(())
             },
         )
         .expect_err("accepted tasks must be executed before returning");
@@ -284,7 +292,7 @@ fn test_parallel_batch_execution_coordinator_prioritizes_incomplete_schedule_ove
                 if let Some(task) = tasks.into_iter().next() {
                     let _ = context.accept_task(task).expect("task should be accepted");
                 }
-                Ok::<(), std::convert::Infallible>(())
+                Ok::<(), Infallible>(())
             },
         )
         .expect_err("accepted but dropped work must be reported");
@@ -327,4 +335,95 @@ fn test_parallel_batch_execution_coordinator_returns_scheduler_error_directly() 
     assert!(error.is_schedule_failed());
     assert_eq!(error.scheduler_error(), Some(&SchedulerError));
     assert_eq!(error.outcome().completed_count(), 1);
+}
+
+/// Reporter that rejects terminal delivery but accepts start and running
+/// events.
+struct TerminalFailureReporter;
+
+impl Reporter for TerminalFailureReporter {
+    fn report(&self, event: &Event) -> Result<(), ReporterError> {
+        match event.phase() {
+            Phase::Succeeded | Phase::Failed => Err(ReporterError::new(io::Error::other("terminal rejected"))),
+            _ => Ok(()),
+        }
+    }
+}
+
+/// A secondary terminal failure must not overwrite scheduler rejection.
+#[test]
+fn test_scheduler_rejection_preserves_terminal_failure() {
+    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(TerminalFailureReporter), Duration::ZERO);
+    let error = coordinator
+        .execute(
+            [TestTask::succeed()],
+            1,
+            TaskFailurePolicy::Continue,
+            |tasks, context| {
+                let mut tasks = tasks.into_iter();
+                while let Some(token) = context.next_task(&mut tasks) {
+                    context.execute_task(token);
+                }
+                Err(SchedulerError)
+            },
+        )
+        .expect_err("scheduler failure must survive failed terminal delivery");
+    assert_eq!(error.scheduler_error(), Some(&SchedulerError));
+    assert_eq!(error.outcome().completed_count(), 1);
+    assert!(matches!(
+        error.progress_report_error(),
+        Some(ProgressFailure::Terminal(_))
+    ));
+}
+
+/// Terminal delivery failure retains the policy termination and task counters.
+#[test]
+fn test_policy_stop_preserves_termination_on_terminal_failure() {
+    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(TerminalFailureReporter), Duration::ZERO);
+    let error = coordinator
+        .execute(
+            [TestTask::fail("failed"), TestTask::succeed()],
+            2,
+            TaskFailurePolicy::StopOnFirstFailure,
+            |tasks, context| {
+                let mut tasks = tasks.into_iter();
+                while let Some(token) = context.next_task(&mut tasks) {
+                    context.execute_task(token);
+                }
+                Ok::<(), Infallible>(())
+            },
+        )
+        .expect_err("terminal delivery must fail");
+    assert_eq!(
+        error.outcome().termination(),
+        BatchTermination::StoppedByTaskFailurePolicy
+    );
+    assert_eq!(error.outcome().completed_count(), 1);
+    assert_eq!(error.outcome().failed_count(), 1);
+}
+
+/// A completed source keeps counters when terminal success reporting fails.
+#[test]
+fn test_finished_batch_preserves_counts_on_terminal_failure() {
+    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(TerminalFailureReporter), Duration::ZERO);
+    let error = coordinator
+        .execute(
+            [TestTask::succeed()],
+            1,
+            TaskFailurePolicy::Continue,
+            |tasks, context| {
+                let mut tasks = tasks.into_iter();
+                while let Some(token) = context.next_task(&mut tasks) {
+                    context.execute_task(token);
+                }
+                Ok::<(), Infallible>(())
+            },
+        )
+        .expect_err("terminal success reporting must fail");
+    assert_eq!(error.outcome().completed_count(), 1);
+    assert_eq!(error.outcome().succeeded_count(), 1);
+    assert!(matches!(
+        error.progress_report_error(),
+        Some(ProgressFailure::Terminal(_))
+    ));
 }

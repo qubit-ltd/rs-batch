@@ -36,6 +36,8 @@ use crate::process::PROCESS_PROGRESS_METRIC_NAME;
 /// * `Item` - Item type consumed by the stored consumer.
 /// * `C` - Stored consumer type. The default is [`BoxConsumer<Item>`].
 ///
+/// # Examples
+///
 /// ```rust
 /// use qubit_batch::{
 ///     BatchProcessor,
@@ -73,7 +75,8 @@ impl<Item> SequentialBatchProcessor<Item> {
     /// # Returns
     ///
     /// A processor storing `consumer` as a [`BoxConsumer`].
-    #[inline]
+    #[must_use = "use the constructed or borrowed value"]
+    #[inline(always)]
     pub fn new<C>(consumer: C) -> Self
     where
         C: Consumer<Item> + 'static,
@@ -91,7 +94,8 @@ impl<Item> SequentialBatchProcessor<Item> {
     /// # Returns
     ///
     /// A builder initialized with default settings.
-    #[inline]
+    #[must_use = "use the constructed or borrowed value"]
+    #[inline(always)]
     pub fn builder<C>(consumer: C) -> SequentialBatchProcessorBuilder<Item>
     where
         C: Consumer<Item> + 'static,
@@ -112,7 +116,8 @@ impl<Item> SequentialBatchProcessor<Item> {
     /// # Returns
     ///
     /// A processor that stores `consumer` without boxing it.
-    #[inline]
+    #[must_use = "use the constructed or borrowed value"]
+    #[inline(always)]
     pub fn with_consumer<C>(consumer: C) -> SequentialBatchProcessor<Item, C>
     where
         C: Consumer<Item>,
@@ -130,7 +135,8 @@ impl<Item, C> SequentialBatchProcessor<Item, C> {
     /// # Returns
     ///
     /// The minimum time between due-based running progress callbacks.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn report_interval(&self) -> Duration {
         self.report_interval
     }
@@ -140,7 +146,8 @@ impl<Item, C> SequentialBatchProcessor<Item, C> {
     /// # Returns
     ///
     /// A shared reference to the configured progress reporter.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub fn reporter(&self) -> &Arc<dyn Reporter> {
         &self.reporter
     }
@@ -150,7 +157,8 @@ impl<Item, C> SequentialBatchProcessor<Item, C> {
     /// # Returns
     ///
     /// A shared reference to the stored consumer.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn consumer(&self) -> &C {
         &self.consumer
     }
@@ -160,7 +168,7 @@ impl<Item, C> SequentialBatchProcessor<Item, C> {
     /// # Returns
     ///
     /// The consumer used by this processor.
-    #[inline]
+    #[inline(always)]
     pub fn into_consumer(self) -> C {
         self.consumer
     }
@@ -170,6 +178,7 @@ impl<Item, C> BatchProcessor<Item> for SequentialBatchProcessor<Item, C>
 where
     C: Consumer<Item>,
 {
+    /// Count-validation and progress failures preserve the partial result.
     type Error = BatchProcessError;
 
     /// Processes items sequentially on the caller thread.
@@ -223,13 +232,7 @@ where
         for item in items {
             let observed_count = state.record_item_observed();
             if observed_count > count {
-                let (elapsed, report_error) = match progress.fail() {
-                    Ok(elapsed) => (elapsed, None),
-                    Err(source) => {
-                        let elapsed = source.elapsed();
-                        (elapsed, Some(ProgressFailure::from(source)))
-                    }
-                };
+                let (elapsed, report_error) = ProgressFailure::fail_operation(progress);
                 let result = state.to_direct_result(elapsed);
                 return Err(BatchProcessError::CountExceeded {
                     expected: count,
@@ -254,13 +257,7 @@ where
         }
 
         if state.observed_count() < count {
-            let (elapsed, report_error) = match progress.fail() {
-                Ok(elapsed) => (elapsed, None),
-                Err(source) => {
-                    let elapsed = source.elapsed();
-                    (elapsed, Some(ProgressFailure::from(source)))
-                }
-            };
+            let (elapsed, report_error) = ProgressFailure::fail_operation(progress);
             let result = state.to_direct_result(elapsed);
             Err(BatchProcessError::CountShortfall {
                 expected: count,

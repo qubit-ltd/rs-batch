@@ -7,42 +7,11 @@
 // =============================================================================
 //! Tests for batch outcomes and execution state.
 
-use std::error::Error;
-use std::fmt;
 use std::time::Duration;
 
-use qubit_batch::BatchExecutionError;
-use qubit_batch::BatchOutcomeBuildError;
 use qubit_batch::BatchOutcomeBuilder;
 use qubit_batch::BatchTaskError;
 use qubit_batch::BatchTaskFailure;
-
-#[test]
-fn test_batch_outcome_builder_builds_valid_outcome() {
-    let failures = vec![
-        BatchTaskFailure::new(2, BatchTaskError::panicked("panic")),
-        BatchTaskFailure::new(1, BatchTaskError::Failed("failed")),
-    ];
-    let outcome = BatchOutcomeBuilder::builder(3)
-        .completed_count(3)
-        .succeeded_count(1)
-        .failed_count(1)
-        .panicked_count(1)
-        .elapsed(Duration::from_millis(5))
-        .failures(failures)
-        .build()
-        .expect("builder should validate consistent counters");
-
-    assert_eq!(outcome.task_count(), 3);
-    assert_eq!(outcome.completed_count(), 3);
-    assert_eq!(outcome.succeeded_count(), 1);
-    assert_eq!(outcome.failed_count(), 1);
-    assert_eq!(outcome.panicked_count(), 1);
-    assert_eq!(outcome.failure_count(), 2);
-    assert!(!outcome.is_success());
-    assert_eq!(outcome.failures()[0].index(), 1);
-    assert_eq!(outcome.failures()[1].index(), 2);
-}
 
 #[test]
 fn test_batch_outcome_records_all_failures() {
@@ -74,80 +43,6 @@ fn test_batch_outcome_records_all_failures() {
 }
 
 #[test]
-fn test_batch_outcome_rejects_invalid_counters() {
-    let error = BatchOutcomeBuilder::<&'static str>::builder(2)
-        .completed_count(3)
-        .succeeded_count(3)
-        .build()
-        .expect_err("completed count should be invalid");
-
-    assert_eq!(
-        error,
-        BatchOutcomeBuildError::CompletedCountExceeded {
-            task_count: 2,
-            completed_count: 3,
-        }
-    );
-}
-
-#[test]
-fn test_batch_outcome_rejects_failure_detail_mismatches() {
-    let failure = BatchTaskFailure::new(3, BatchTaskError::Failed("failed"));
-    assert!(matches!(
-        BatchOutcomeBuilder::builder(2)
-            .completed_count(1)
-            .failed_count(1)
-            .failures(vec![failure])
-            .build(),
-        Err(BatchOutcomeBuildError::FailureIndexOutOfRange { .. })
-    ));
-
-    let failure: BatchTaskFailure<&'static str> = BatchTaskFailure::new(0, BatchTaskError::panicked("panic"));
-    assert!(matches!(
-        BatchOutcomeBuilder::builder(2)
-            .completed_count(1)
-            .failed_count(1)
-            .failures(vec![failure])
-            .build(),
-        Err(BatchOutcomeBuildError::FailureVariantCountMismatch { .. })
-    ));
-
-    assert!(matches!(
-        BatchOutcomeBuilder::<&'static str>::builder(2)
-            .completed_count(1)
-            .failed_count(usize::MAX)
-            .panicked_count(1)
-            .build(),
-        Err(BatchOutcomeBuildError::FailureCountOverflow { .. })
-    ));
-
-    assert!(matches!(
-        BatchOutcomeBuilder::<&'static str>::builder(usize::MAX)
-            .succeeded_count(usize::MAX)
-            .failed_count(1)
-            .build(),
-        Err(BatchOutcomeBuildError::TerminalCountOverflow { .. })
-    ));
-
-    assert!(matches!(
-        BatchOutcomeBuilder::<&'static str>::builder(2)
-            .completed_count(1)
-            .succeeded_count(1)
-            .failed_count(1)
-            .build(),
-        Err(BatchOutcomeBuildError::TerminalCountMismatch { .. })
-    ));
-
-    assert!(matches!(
-        BatchOutcomeBuilder::<&'static str>::builder(2)
-            .completed_count(1)
-            .failed_count(1)
-            .build(),
-        Err(BatchOutcomeBuildError::FailureDetailCountMismatch { .. })
-    ));
-}
-
-#[test]
 fn test_batch_outcome_into_failures_and_success_state() {
     let outcome = BatchOutcomeBuilder::<&'static str>::builder(1)
         .completed_count(1)
@@ -156,80 +51,4 @@ fn test_batch_outcome_into_failures_and_success_state() {
         .expect("success outcome should be valid");
     assert!(outcome.is_success());
     assert!(outcome.into_failures().is_empty());
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct TestError(&'static str);
-
-impl fmt::Display for TestError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(self.0)
-    }
-}
-
-impl Error for TestError {}
-
-#[test]
-fn test_batch_task_error_helpers_display_and_source() {
-    let failed = BatchTaskError::Failed(TestError("failed"));
-    assert!(failed.is_failed());
-    assert!(!failed.is_panicked());
-    assert_eq!(failed.to_string(), "task failed: failed");
-    assert_eq!(failed.source().expect("source").to_string(), "failed");
-
-    let panicked = BatchTaskError::<TestError>::panicked("panic");
-    assert!(!panicked.is_failed());
-    assert!(panicked.is_panicked());
-    assert_eq!(panicked.panic_message(), Some("panic"));
-    assert_eq!(panicked.to_string(), "task panicked: panic");
-    assert!(panicked.source().is_none());
-
-    let panicked_without_message = BatchTaskError::<TestError>::panicked_without_message();
-    assert_eq!(panicked_without_message.panic_message(), None);
-    assert_eq!(panicked_without_message.to_string(), "task panicked");
-}
-
-#[test]
-fn test_batch_task_failure_into_error() {
-    let failure = BatchTaskFailure::new(4, BatchTaskError::Failed("failed"));
-    assert_eq!(failure.index(), 4);
-    assert_eq!(failure.into_error(), BatchTaskError::Failed("failed"));
-}
-
-#[test]
-fn test_batch_execution_error_accessors() {
-    let outcome = BatchOutcomeBuilder::<&'static str>::builder(2)
-        .completed_count(1)
-        .succeeded_count(1)
-        .build()
-        .expect("outcome should be valid");
-    let shortfall: BatchExecutionError<_, std::convert::Infallible> = BatchExecutionError::CountShortfall {
-        expected: 2,
-        actual: 1,
-        outcome: outcome.clone(),
-        report_error: None,
-    };
-    assert!(shortfall.is_count_shortfall());
-    assert!(!shortfall.is_count_exceeded());
-    assert_eq!(shortfall.outcome().completed_count(), 1);
-    assert_eq!(
-        shortfall.to_string(),
-        "batch task count shortfall: expected 2, actual 1"
-    );
-    assert_eq!(shortfall.into_outcome(), outcome.clone());
-
-    let exceeded: BatchExecutionError<_, std::convert::Infallible> = BatchExecutionError::CountExceeded {
-        expected: 2,
-        observed_at_least: 3,
-        outcome,
-        report_error: None,
-    };
-    assert!(!exceeded.is_count_shortfall());
-    assert!(exceeded.is_count_exceeded());
-    assert_eq!(exceeded.outcome().completed_count(), 1);
-    assert_eq!(
-        exceeded.to_string(),
-        "batch task count exceeded: expected 2, observed at least 3"
-    );
-    assert_eq!(exceeded.into_outcome().completed_count(), 1);
 }

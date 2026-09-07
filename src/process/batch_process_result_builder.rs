@@ -17,6 +17,8 @@ use crate::BatchProcessResultBuildError;
 /// `processed_count` is a successful input count; domain measurements such as
 /// affected database rows must be kept separately.
 ///
+/// # Examples
+///
 /// ```rust
 /// use std::time::Duration;
 ///
@@ -34,6 +36,7 @@ use crate::BatchProcessResultBuildError;
 /// assert_eq!(result.chunk_count(), 1);
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[must_use = "configure and build the value before discarding this builder"]
 pub struct BatchProcessResultBuilder {
     /// Declared item count for the batch.
     pub(crate) item_count: usize,
@@ -57,7 +60,8 @@ impl BatchProcessResultBuilder {
     /// # Returns
     ///
     /// A builder initialized with zero counters and zero elapsed time.
-    #[inline]
+    #[inline(always)]
+    #[must_use = "use the constructed or borrowed value"]
     pub const fn builder(item_count: usize) -> Self {
         Self {
             item_count,
@@ -78,7 +82,8 @@ impl BatchProcessResultBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn completed_count(mut self, completed_count: usize) -> Self {
         self.completed_count = completed_count;
         self
@@ -94,7 +99,8 @@ impl BatchProcessResultBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn processed_count(mut self, processed_count: usize) -> Self {
         self.processed_count = processed_count;
         self
@@ -111,7 +117,8 @@ impl BatchProcessResultBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn chunk_count(mut self, chunk_count: usize) -> Self {
         self.chunk_count = chunk_count;
         self
@@ -126,7 +133,8 @@ impl BatchProcessResultBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn elapsed(mut self, elapsed: Duration) -> Self {
         self.elapsed = elapsed;
         self
@@ -163,7 +171,7 @@ impl BatchProcessResultBuilder {
     ///
     /// Returns [`BatchProcessResultBuildError`] when the counters are
     /// inconsistent.
-    #[inline]
+    #[inline(always)]
     pub fn build(self) -> Result<BatchProcessResult, BatchProcessResultBuildError> {
         self.validate().map(BatchProcessResult::new)
     }

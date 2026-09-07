@@ -14,6 +14,8 @@ use std::fmt;
 /// Use this type to distinguish a task's returned business error from a panic
 /// captured while running that task.
 ///
+/// # Examples
+///
 /// ```rust
 /// use qubit_batch::BatchTaskError;
 ///
@@ -29,10 +31,14 @@ use std::fmt;
 /// # Type Parameters
 ///
 /// * `E` - The task-specific error type.
+#[must_use = "errors describe a rejected operation"]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BatchTaskError<E> {
     /// The task returned its own business error.
-    Failed(E),
+    Failed(
+        /// Original error returned by the task body.
+        E,
+    ),
 
     /// The task panicked while running.
     Panicked {
@@ -91,7 +97,8 @@ impl<E> BatchTaskError<E> {
     /// # Returns
     ///
     /// `true` if this error is [`Self::Failed`].
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn is_failed(&self) -> bool {
         matches!(self, Self::Failed(_))
     }
@@ -101,7 +108,8 @@ impl<E> BatchTaskError<E> {
     /// # Returns
     ///
     /// `true` if this error is [`Self::Panicked`].
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn is_panicked(&self) -> bool {
         matches!(self, Self::Panicked { .. })
     }
@@ -112,7 +120,8 @@ impl<E> BatchTaskError<E> {
     ///
     /// `Some(message)` when the panic payload was a string, or `None` for
     /// business errors and non-string panic payloads.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub fn panic_message(&self) -> Option<&str> {
         match self {
             Self::Failed(_) | Self::Panicked { message: None } => None,
@@ -172,6 +181,7 @@ where
 ///
 /// A panicked task error containing a string message when the payload carries
 /// one.
+#[inline(always)]
 pub(crate) fn panic_payload_to_error<E>(payload: &(dyn Any + Send)) -> BatchTaskError<E> {
     BatchTaskError::from_panic_payload(payload)
 }
@@ -184,7 +194,8 @@ pub(crate) fn panic_payload_to_error<E>(payload: &(dyn Any + Send)) -> BatchTask
 ///
 /// # Returns
 ///
-/// A cloned panic message when `payload` is `&'static str` or `String`.
+/// `Some` contains a cloned message for `&'static str` or `String`; `None`
+/// means the payload has no supported string representation.
 fn panic_payload_message(payload: &(dyn Any + Send)) -> Option<String> {
     if let Some(message) = payload.downcast_ref::<&'static str>() {
         Some((*message).to_owned())

@@ -9,6 +9,8 @@ use thiserror::Error;
 
 /// Error returned when building a [`crate::ParallelBatchExecutor`].
 ///
+/// # Examples
+///
 /// ```rust
 /// use qubit_batch::{
 ///     ParallelBatchExecutor,
@@ -22,6 +24,7 @@ use thiserror::Error;
 ///
 /// assert_eq!(error, ParallelBatchExecutorBuildError::ZeroThreadCount);
 /// ```
+#[must_use = "errors describe a rejected operation"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum ParallelBatchExecutorBuildError {
     /// The configured worker-thread count is zero.

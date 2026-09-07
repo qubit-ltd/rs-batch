@@ -7,7 +7,7 @@
 // =============================================================================
 use std::num::NonZeroUsize;
 
-/// Controls when a sequential batch executor stops after task failures.
+/// Controls when an executor stops admitting source tasks after failures.
 ///
 /// A failure is either a task-returned error or a task panic captured by the
 /// executor. Progress-reporting and task-source errors are batch-level errors
@@ -18,6 +18,16 @@ use std::num::NonZeroUsize;
 /// # Author
 ///
 /// Haixing Hu
+///
+/// # Examples
+///
+/// ```rust
+/// use std::num::NonZeroUsize;
+/// use qubit_batch::TaskFailurePolicy;
+/// let policy = TaskFailurePolicy::StopAfterFailures(NonZeroUsize::new(2).expect("positive limit"));
+/// assert!(!policy.should_stop(1));
+/// assert!(policy.should_stop(2));
+/// ```
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub enum TaskFailurePolicy {
@@ -27,7 +37,10 @@ pub enum TaskFailurePolicy {
     /// Stops after the first task error or captured task panic.
     StopOnFirstFailure,
     /// Stops after the configured number of task failures.
-    StopAfterFailures(NonZeroUsize),
+    StopAfterFailures(
+        /// Positive number of failed or panicked tasks that stops admission.
+        NonZeroUsize,
+    ),
 }
 
 impl TaskFailurePolicy {
@@ -42,6 +55,7 @@ impl TaskFailurePolicy {
     ///
     /// `true` when the policy has reached its stopping condition; otherwise
     /// `false`.
+    #[must_use]
     #[inline]
     pub const fn should_stop(self, failure_count: usize) -> bool {
         match self {

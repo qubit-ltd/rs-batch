@@ -11,13 +11,7 @@ use std::sync::Mutex;
 use std::sync::mpsc;
 use std::thread;
 
-/// Indexed work item sent to scoped workers.
-struct ScopedWorkItem<T> {
-    /// Zero-based item index within the declared batch.
-    index: usize,
-    /// Work item payload.
-    item: T,
-}
+use super::internal::ScopedWorkItem;
 
 /// Runs indexed work items on fixed-width scoped worker threads.
 ///
@@ -37,10 +31,8 @@ struct ScopedWorkItem<T> {
 /// * `should_stop` - Callback checked before accepting or executing work.
 /// * `run_item` - Callback invoked by workers for each accepted item.
 ///
-/// # Returns
-///
-/// The number of items observed from the source. The runner stops after it
-/// observes the first item beyond `declared_count`.
+/// The observer records every pulled item up to the first item beyond
+/// `declared_count`; that extra item is not passed to a worker.
 ///
 /// # Panics
 ///
