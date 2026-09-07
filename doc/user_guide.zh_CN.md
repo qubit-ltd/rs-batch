@@ -3,7 +3,7 @@
 [English user guide](user_guide.md) · [README](../README.zh_CN.md) ·
 [API 文档](https://docs.rs/qubit-batch)
 
-本文适用于 `qubit-batch` 0.10 和 Rust 1.94 及以上版本。面向需要立刻处理一批有限
+本文适用于 `qubit-batch` 0.11 和 Rust 1.94 及以上版本。面向需要立刻处理一批有限
 数据、并希望拿到可审计结果的应用或库作者；它不用于构建常驻队列、调度器或 worker pool。
 
 ## 手册目标与读者
@@ -36,7 +36,7 @@
 
 ```toml
 [dependencies]
-qubit-batch = "0.10"
+qubit-batch = "0.11"
 ```
 
 ### 执行全部校验任务
@@ -88,7 +88,8 @@ assert!(matches!(outcome.failures()[0].error(), BatchTaskError::Failed(_)));
 - `call` 接收 `Callable` 任务，并在 `BatchCallResult` 中按原始下标保存成功返回值。
 - `process` 将数据项直接交给 `BatchProcessor` 实现。
 
-输入实现 `ExactSizeIterator` 时，应优先使用这些默认方法；它们会在消费来源时校验数量。
+输入实现 `ExactSizeIterator` 时，应优先使用这些方法推导声明数量。内置实现会在消费
+来源时校验数量；自定义 `BatchProcessor` 自行定义数量校验行为。
 当数量由数据库查询或其他外部边界提供时，再使用对应的 `*_with_count` 方法，并把数量
 视为该边界的一部分契约。
 
@@ -137,9 +138,10 @@ assert_eq!(sum, (0..10_000usize).sum());
 ```
 
 这种模式不提供全局 failure policy、全局稳定下标或跨 chunk 自动重试。Callable 下标
-只在各自的结果内有效；上例中的 `offset` 是调用方映射全局下标的方式。失败 chunk 的
-错误只会暴露失败之前已成功完成的 chunk 的结果；是否重试失败边界以及如何保证幂等性，
-都由调用方明确决定。
+只在各自的结果内有效；上例中的 `offset` 由调用方维护。每次 `call` 只返回本次
+调用的结果：发生批次级错误时，`BatchCallError` 保存当前块内已成功的输出，不包含
+此前块的结果；此前结果需要应用自行保留。单项任务失败仍可返回 `Ok(BatchCallResult)`，
+必须单独检查 outcome。
 
 ## 进阶用法
 
@@ -171,7 +173,7 @@ let outcome = executor
 assert!(outcome.is_success());
 ```
 
-`sequential_threshold(0)` 表示所有非空批次都使用 scoped worker；它不会创建可复用
+`sequential_threshold(0)` 在配置多个 worker 时让非空批次使用 scoped worker；它不会创建可复用
 线程池。若需要 Rayon 支持，请使用配套的 `qubit-rayon-batch` crate。该 crate 在同一个
 线程池中嵌套调用时，会在发起嵌套调用的 worker 上回退到顺序执行，避免等待同一线程池的
 worker；任意任务依赖或跨池循环等待仍需由应用设计处理。
@@ -206,6 +208,143 @@ let outcome = coordinator.execute(tasks, 1, TaskFailurePolicy::Continue,
 assert!(outcome.is_success());
 ```
 
+### 恢复当前调用的成功输出
+
+假设应用已保存两个输出，下一块却因声明数量不正确而失败。错误会保留本次调用
+已经成功的值；应用负责加上全局偏移量，与此前结果累计。重试前先核实来源数量，
+避免重复执行已经成功且具有副作用的任务。
+
+```rust
+use qubit_batch::SequentialBatchExecutor;
+
+let executor = SequentialBatchExecutor::new();
+let mut saved = vec![(0usize, 10usize), (1, 20)];
+let offset = 2usize;
+let error = executor.call_with_count(
+    [30usize, 40].into_iter().map(|value| move || Ok::<_, &'static str>(value)),
+    3,
+).expect_err("the current source is shorter than declared");
+assert!(error.source().is_count_shortfall());
+assert_eq!(error.outcome().completed_count(), 2);
+for output in error.into_outputs() {
+    let (local_index, value) = output.into_parts();
+    saved.push((offset + local_index, value));
+}
+assert_eq!(saved, [(0, 10), (1, 20), (2, 30), (3, 40)]);
+```
+
+### 设置失败次数上限
+
+下面的顺序执行会在第二次失败后停止。并行模式允许已经接受的任务继续完成，
+因此上限控制的是后续准入，最终失败次数可能超过该值。
+
+```rust
+use std::num::NonZeroUsize;
+use qubit_batch::BatchTermination;
+use qubit_batch::SequentialBatchExecutor;
+use qubit_batch::TaskFailurePolicy;
+
+let executor = SequentialBatchExecutor::builder()
+    .task_failure_policy(TaskFailurePolicy::StopAfterFailures(
+        NonZeroUsize::new(2).expect("failure limit is positive"),
+    ))
+    .build();
+let result = executor.call((0..10).map(|index| move || {
+    if index % 2 == 0 { Ok(index) } else { Err("invalid record") }
+})).expect("policy stops are normal outcomes");
+assert_eq!(result.outcome().termination(), BatchTermination::StoppedByTaskFailurePolicy);
+assert_eq!(result.outcome().failed_count(), 2);
+assert_eq!(result.outputs().len(), 2);
+```
+
+### 记录进度事件
+
+本例以及上面的调度器示例需要额外声明进度库依赖。回调不能等待反过来依赖
+回调完成的任务。并行路径可能合并 running 事件，因此只验证生命周期顺序。
+
+```toml
+[dependencies]
+qubit-batch = "0.11"
+qubit-progress = { version = "0.8", default-features = false }
+```
+
+```rust
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::time::Duration;
+use qubit_batch::SequentialBatchExecutor;
+use qubit_progress::Event;
+use qubit_progress::Phase;
+use qubit_progress::Reporter;
+use qubit_progress::ReporterError;
+
+#[derive(Default)]
+struct AuditReporter(Mutex<Vec<Phase>>);
+impl Reporter for AuditReporter {
+    fn report(&self, event: &Event) -> Result<(), ReporterError> {
+        self.0.lock().expect("audit log lock must be healthy").push(event.phase());
+        Ok(())
+    }
+}
+let reporter = Arc::new(AuditReporter::default());
+let executor = SequentialBatchExecutor::builder()
+    .reporter_arc(reporter.clone())
+    .report_interval(Duration::ZERO)
+    .build();
+let result = executor.call([|| Ok::<_, &'static str>(42)])
+    .expect("the batch and reporter must succeed");
+assert!(result.outcome().is_success());
+let phases = reporter.0.lock().expect("audit log lock must be healthy");
+assert_eq!(phases.first(), Some(&Phase::Started));
+assert_eq!(phases.last(), Some(&Phase::Succeeded));
+```
+
+### 按数据库批次大小委托处理
+
+示例在写入前校验整块数据。实际数据库 delegate 必须自行提供事务或幂等保证：
+即使失败块已写入部分行，外层累计结果也不会计入这一块。
+
+```rust
+use std::num::NonZeroUsize;
+use std::time::Duration;
+use qubit_batch::BatchProcessResult;
+use qubit_batch::BatchProcessor;
+use qubit_batch::ChunkedBatchProcessError;
+use qubit_batch::ChunkedBatchProcessor;
+
+struct InsertRows;
+impl BatchProcessor<u64> for InsertRows {
+    type Error = &'static str;
+    fn process_with_count<I>(&mut self, rows: I, count: usize)
+        -> Result<BatchProcessResult, Self::Error>
+    where I: IntoIterator<Item = u64> {
+        let rows: Vec<_> = rows.into_iter().collect();
+        if rows.len() != count { return Err("wrong row count"); }
+        if rows.contains(&0) { return Err("invalid row"); }
+        BatchProcessResult::builder(count)
+            .completed_count(count).processed_count(count)
+            .chunk_count(usize::from(count > 0)).elapsed(Duration::ZERO)
+            .build().map_err(|_| "invalid result")
+    }
+}
+let mut processor = ChunkedBatchProcessor::builder(
+    InsertRows, NonZeroUsize::new(2).expect("chunk size is positive"),
+).build();
+let error = processor.process([1, 2, 0, 4, 5])
+    .expect_err("the second chunk contains an invalid row");
+match error {
+    ChunkedBatchProcessError::ChunkFailed {
+        chunk_index, start_index, chunk_len, source, result, ..
+    } => {
+        assert_eq!((chunk_index, start_index, chunk_len), (1, 2, 2));
+        assert_eq!(source, "invalid row");
+        assert_eq!(result.processed_count(), 2);
+        assert_eq!(result.chunk_count(), 1);
+    }
+    other => panic!("unexpected chunk failure: {other:?}"),
+}
+```
+
 ## 错误与诊断
 
 应分两层检查结果：
@@ -222,8 +361,8 @@ assert!(outcome.is_success());
 本 crate 并不知道任务副作用是否幂等。
 
 对于 `ChunkedBatchProcessor`，错误附带的 result 只包含失败 chunk 之前已成功完成的
-chunk。失败 chunk 可能已经产生外部副作用，因此该 chunk 是重试边界；是否以及如何重试，
-必须由调用方决定。
+chunk。失败 chunk 可能已经产生外部副作用。块元数据只能定位失败输入，不能证明可安全
+重放；应依据 delegate 的事务或幂等契约决定是否以及如何重试。
 
 ## 排障
 
@@ -244,6 +383,9 @@ chunk。失败 chunk 可能已经产生外部副作用，因此该 chunk 是重�
 - 重试策略应在 crate 外部实现，并针对任务副作用保证安全性。
 
 ## 延伸阅读
+
+- [设计与迁移](design.zh_CN.md)
+- [性能测量](performance.zh_CN.md)
 
 - [README](../README.zh_CN.md)
 - [English user guide](user_guide.md)
