@@ -3,7 +3,7 @@
 [中文用户手册](user_guide.zh_CN.md) · [README](../README.md) ·
 [API documentation](https://docs.rs/qubit-batch)
 
-Applies to `qubit-batch` 0.10 and Rust 1.94 or later. This guide is for an
+Applies to `qubit-batch` 0.11 and Rust 1.94 or later. This guide is for an
 application or library author who has one finite collection to handle now and
 needs an auditable outcome, rather than a persistent queue, scheduler, or
 worker pool.
@@ -42,7 +42,7 @@ attempted rows, two successes, and one failure at index 1.
 
 ```toml
 [dependencies]
-qubit-batch = "0.10"
+qubit-batch = "0.11"
 ```
 
 ### Run every validation task
@@ -96,8 +96,9 @@ Choose the entry point from the input you already own:
   `BatchCallResult` with their original indexes.
 - `process` passes items directly to a `BatchProcessor` implementation.
 
-For an `ExactSizeIterator`, prefer these default methods. They verify the
-declared count while consuming the source. When the count is supplied by a
+For an `ExactSizeIterator`, prefer these methods to derive the declared count.
+Built-in implementations validate it while consuming the source; a custom
+`BatchProcessor` defines its own count-validation behavior. When the count is supplied by a
 database query or another external boundary, use the corresponding
 `*_with_count` method and make the count part of that boundary's contract.
 
@@ -152,9 +153,11 @@ assert_eq!(sum, (0..10_000usize).sum());
 
 This pattern does not provide a global failure policy, global stable indexes,
 or automatic retry across chunks. Callable indexes are local to each result;
-the `offset` above is the caller-owned mapping to a global index. A failed
-chunk exposes only the successful prefix from preceding chunks, and retrying
-the failed boundary remains an explicit, idempotency-aware caller decision.
+the `offset` above is the caller-owned mapping to a global index. Each `call`
+returns only its own outcome. If that call has a batch-level error, its
+`BatchCallError` retains successful outputs from the current chunk, not from
+preceding chunks. Retain earlier results in application state. Task failures
+remain in an `Ok(BatchCallResult)` and must be inspected separately.
 
 ## Advanced Usage
 
@@ -188,7 +191,8 @@ let outcome = executor
 assert!(outcome.is_success());
 ```
 
-`sequential_threshold(0)` requests scoped workers for every non-empty batch.
+`sequential_threshold(0)` requests scoped workers for non-empty batches when
+more than one worker is configured.
 It does not create a reusable thread pool. For Rayon-backed execution, use the
 companion `qubit-rayon-batch` crate. Its same-pool nested calls fall back to
 sequential execution on the worker that made the nested call. This avoids
@@ -226,6 +230,147 @@ let outcome = coordinator.execute(tasks, 1, TaskFailurePolicy::Continue,
 assert!(outcome.is_success());
 ```
 
+### Recover outputs from the current call
+
+The application has already saved two outputs. A count error in the next
+chunk preserves that call's successful values; the application adds its own
+offset and retains the earlier values. Validate the upstream count before
+retrying, and do not replay successful side effects blindly.
+
+```rust
+use qubit_batch::SequentialBatchExecutor;
+
+let executor = SequentialBatchExecutor::new();
+let mut saved = vec![(0usize, 10usize), (1, 20)];
+let offset = 2usize;
+let error = executor.call_with_count(
+    [30usize, 40].into_iter().map(|value| move || Ok::<_, &'static str>(value)),
+    3,
+).expect_err("the current source is shorter than declared");
+assert!(error.source().is_count_shortfall());
+assert_eq!(error.outcome().completed_count(), 2);
+for output in error.into_outputs() {
+    let (local_index, value) = output.into_parts();
+    saved.push((offset + local_index, value));
+}
+assert_eq!(saved, [(0, 10), (1, 20), (2, 30), (3, 40)]);
+```
+
+### Configure a failure limit
+
+This sequential example stops exactly at the second failure. Parallel workers
+may finish additional accepted tasks; the limit controls admission, not the
+final failure count.
+
+```rust
+use std::num::NonZeroUsize;
+use qubit_batch::BatchTermination;
+use qubit_batch::SequentialBatchExecutor;
+use qubit_batch::TaskFailurePolicy;
+
+let executor = SequentialBatchExecutor::builder()
+    .task_failure_policy(TaskFailurePolicy::StopAfterFailures(
+        NonZeroUsize::new(2).expect("failure limit is positive"),
+    ))
+    .build();
+let result = executor.call((0..10).map(|index| move || {
+    if index % 2 == 0 { Ok(index) } else { Err("invalid record") }
+})).expect("policy stops are normal outcomes");
+assert_eq!(result.outcome().termination(), BatchTermination::StoppedByTaskFailurePolicy);
+assert_eq!(result.outcome().failed_count(), 2);
+assert_eq!(result.outputs().len(), 2);
+```
+
+### Record progress events
+
+Add the progress dependency for this reporter and the scheduler example above.
+Callbacks must not wait for work that itself waits for the reporter. Running
+events may be coalesced on parallel paths; only lifecycle ordering is asserted.
+
+```toml
+[dependencies]
+qubit-batch = "0.11"
+qubit-progress = { version = "0.8", default-features = false }
+```
+
+```rust
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::time::Duration;
+use qubit_batch::SequentialBatchExecutor;
+use qubit_progress::Event;
+use qubit_progress::Phase;
+use qubit_progress::Reporter;
+use qubit_progress::ReporterError;
+
+#[derive(Default)]
+struct AuditReporter(Mutex<Vec<Phase>>);
+impl Reporter for AuditReporter {
+    fn report(&self, event: &Event) -> Result<(), ReporterError> {
+        self.0.lock().expect("audit log lock must be healthy").push(event.phase());
+        Ok(())
+    }
+}
+let reporter = Arc::new(AuditReporter::default());
+let executor = SequentialBatchExecutor::builder()
+    .reporter_arc(reporter.clone())
+    .report_interval(Duration::ZERO)
+    .build();
+let result = executor.call([|| Ok::<_, &'static str>(42)])
+    .expect("the batch and reporter must succeed");
+assert!(result.outcome().is_success());
+let phases = reporter.0.lock().expect("audit log lock must be healthy");
+assert_eq!(phases.first(), Some(&Phase::Started));
+assert_eq!(phases.last(), Some(&Phase::Succeeded));
+```
+
+### Delegate bounded database chunks
+
+The example validates each chunk before writing. A real database delegate must
+supply transaction or idempotency guarantees: the aggregate excludes a failed
+chunk even if its delegate has already written some rows.
+
+```rust
+use std::num::NonZeroUsize;
+use std::time::Duration;
+use qubit_batch::BatchProcessResult;
+use qubit_batch::BatchProcessor;
+use qubit_batch::ChunkedBatchProcessError;
+use qubit_batch::ChunkedBatchProcessor;
+
+struct InsertRows;
+impl BatchProcessor<u64> for InsertRows {
+    type Error = &'static str;
+    fn process_with_count<I>(&mut self, rows: I, count: usize)
+        -> Result<BatchProcessResult, Self::Error>
+    where I: IntoIterator<Item = u64> {
+        let rows: Vec<_> = rows.into_iter().collect();
+        if rows.len() != count { return Err("wrong row count"); }
+        if rows.contains(&0) { return Err("invalid row"); }
+        BatchProcessResult::builder(count)
+            .completed_count(count).processed_count(count)
+            .chunk_count(usize::from(count > 0)).elapsed(Duration::ZERO)
+            .build().map_err(|_| "invalid result")
+    }
+}
+let mut processor = ChunkedBatchProcessor::builder(
+    InsertRows, NonZeroUsize::new(2).expect("chunk size is positive"),
+).build();
+let error = processor.process([1, 2, 0, 4, 5])
+    .expect_err("the second chunk contains an invalid row");
+match error {
+    ChunkedBatchProcessError::ChunkFailed {
+        chunk_index, start_index, chunk_len, source, result, ..
+    } => {
+        assert_eq!((chunk_index, start_index, chunk_len), (1, 2, 2));
+        assert_eq!(source, "invalid row");
+        assert_eq!(result.processed_count(), 2);
+        assert_eq!(result.chunk_count(), 1);
+    }
+    other => panic!("unexpected chunk failure: {other:?}"),
+}
+```
+
 ## Errors and Diagnostics
 
 Inspect the result in two layers:
@@ -247,8 +392,9 @@ whether a task's side effects are idempotent.
 
 For `ChunkedBatchProcessor`, an error's attached result includes only chunks
 that completed successfully before the failed chunk. The failed chunk may have
-already caused external side effects, so the chunk is the retry boundary and
-the caller must decide whether and how to retry it.
+already caused external side effects. Chunk metadata locates the failed input,
+but does not prove a safe replay boundary; use the delegate's transaction or
+idempotency contract to decide whether and how to retry.
 
 ## Troubleshooting
 
@@ -273,6 +419,9 @@ the caller must decide whether and how to retry it.
   the task being retried.
 
 ## Further Reading
+
+- [Design and migration](design.md)
+- [Performance measurements](performance.md)
 
 - [README](../README.md)
 - [中文用户手册](user_guide.zh_CN.md)

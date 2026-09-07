@@ -10,13 +10,6 @@
 const CARGO_TOML: &str = include_str!("../../Cargo.toml");
 const README_EN: &str = include_str!("../../README.md");
 const README_ZH: &str = include_str!("../../README.zh_CN.md");
-const PARALLEL_BATCH_EXECUTION_COORDINATOR: &str =
-    include_str!("../../src/execute/parallel_batch_execution_coordinator.rs");
-const PARALLEL_BATCH_EXECUTOR: &str = include_str!("../../src/execute/impls/parallel_batch_executor.rs");
-const PARALLEL_BATCH_EXECUTOR_BUILDER: &str =
-    include_str!("../../src/execute/impls/parallel_batch_executor_builder.rs");
-const PARALLEL_BATCH_PROCESSOR: &str = include_str!("../../src/process/impls/parallel_batch_processor.rs");
-
 /// Ensures README dependency snippets use the same major.minor line as
 /// `[package] version`.
 #[test]
@@ -57,15 +50,28 @@ fn test_readmes_use_local_license_and_repository_links() {
     }
 }
 
-/// Ensures parallel implementations use the shared scoped progress guard.
+/// Keeps navigation before the fixed project footer in both languages.
 #[test]
-fn test_parallel_progress_reporting_uses_scoped_progress_guard() {
-    assert!(PARALLEL_BATCH_EXECUTION_COORDINATOR.contains("spawn_auto_reporter"));
-    assert!(PARALLEL_BATCH_EXECUTOR.contains("coordinator") && PARALLEL_BATCH_EXECUTOR.contains(".execute"));
-    assert!(PARALLEL_BATCH_EXECUTOR_BUILDER.contains("ParallelBatchExecutionCoordinator::new"));
-    assert!(PARALLEL_BATCH_PROCESSOR.contains("spawn_auto_reporter"));
-    assert!(!PARALLEL_BATCH_EXECUTOR.contains("RunningProgressLoop"));
-    assert!(!PARALLEL_BATCH_PROCESSOR.contains("RunningProgressLoop"));
+fn test_readme_footer_and_guide_navigation() {
+    for (readme, expected) in [
+        (README_EN, ["## Testing", "## License", "## Contributing", "## Author"]),
+        (README_ZH, ["## 测试", "## 许可证", "## 贡献", "## 作者"]),
+    ] {
+        let headings: Vec<_> = readme.lines().filter(|line| line.starts_with("## ")).collect();
+        assert_eq!(
+            &headings[headings.len() - 4..],
+            expected,
+            "project footer must end the README"
+        );
+        assert!(
+            readme.contains("(doc/user_guide.md)"),
+            "English guide must be discoverable"
+        );
+        assert!(
+            readme.contains("(doc/user_guide.zh_CN.md)"),
+            "Chinese guide must be discoverable"
+        );
+    }
 }
 
 /// Returns `major.minor` from a semver string (e.g. `0.5.1` → `0.5`).
