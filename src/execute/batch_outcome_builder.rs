@@ -5,7 +5,6 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::collections::HashSet;
 use std::time::Duration;
 
 use crate::BatchOutcomeBuildError;
@@ -18,6 +17,8 @@ use crate::BatchTermination;
 /// The builder checks aggregate counters, failure detail count, duplicate
 /// indexes, and failed-versus-panicked detail counts before creating an
 /// outcome.
+///
+/// # Examples
 ///
 /// ```rust
 /// use qubit_batch::{
@@ -45,6 +46,7 @@ use crate::BatchTermination;
 ///
 /// * `E` - Task-specific error type stored in failure records.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[must_use = "configure and build the value before discarding this builder"]
 pub struct BatchOutcomeBuilder<E> {
     /// Declared task count for the batch.
     pub(crate) task_count: usize,
@@ -60,7 +62,7 @@ pub struct BatchOutcomeBuilder<E> {
     pub(crate) termination: BatchTermination,
     /// Total monotonic elapsed duration for the batch.
     pub(crate) elapsed: Duration,
-    /// Detailed failure records sorted by task index.
+    /// Failure records in caller order until validation sorts them by index.
     pub(crate) failures: Vec<BatchTaskFailure<E>>,
 }
 
@@ -75,7 +77,8 @@ impl<E> BatchOutcomeBuilder<E> {
     ///
     /// A builder initialized with zero counters, zero elapsed time, and no
     /// failures.
-    #[inline]
+    #[inline(always)]
+    #[must_use = "use the constructed or borrowed value"]
     pub fn builder(task_count: usize) -> Self {
         Self {
             task_count,
@@ -98,7 +101,8 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn completed_count(mut self, completed_count: usize) -> Self {
         self.completed_count = completed_count;
         self
@@ -113,7 +117,8 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn succeeded_count(mut self, succeeded_count: usize) -> Self {
         self.succeeded_count = succeeded_count;
         self
@@ -128,7 +133,8 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn failed_count(mut self, failed_count: usize) -> Self {
         self.failed_count = failed_count;
         self
@@ -143,7 +149,8 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn panicked_count(mut self, panicked_count: usize) -> Self {
         self.panicked_count = panicked_count;
         self
@@ -158,7 +165,8 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn termination(mut self, termination: BatchTermination) -> Self {
         self.termination = termination;
         self
@@ -173,7 +181,8 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn elapsed(mut self, elapsed: Duration) -> Self {
         self.elapsed = elapsed;
         self
@@ -188,13 +197,20 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub fn failures(mut self, failures: Vec<BatchTaskFailure<E>>) -> Self {
         self.failures = failures;
         self
     }
 
-    /// Validates this builder and sorts failure records by task index.
+    /// Validates this builder and sorts failure records in place by task index.
+    ///
+    /// Validation uses no auxiliary index collection. With F failures, sorting
+    /// takes O(F log F) worst-case time and does not allocate another buffer.
+    /// Errors are checked in this order: aggregate counters, the first
+    /// out-of-range index in input order, the smallest duplicate index, then
+    /// failed-versus-panicked detail counts.
     ///
     /// # Returns
     ///
@@ -204,7 +220,6 @@ impl<E> BatchOutcomeBuilder<E> {
     ///
     /// Returns [`BatchOutcomeBuildError`] when the counters or failure details
     /// are inconsistent.
-    #[inline]
     pub fn validate(mut self) -> Result<Self, BatchOutcomeBuildError> {
         validate_outcome_invariants(
             self.task_count,
@@ -212,9 +227,8 @@ impl<E> BatchOutcomeBuilder<E> {
             self.succeeded_count,
             self.failed_count,
             self.panicked_count,
-            &self.failures,
+            &mut self.failures,
         )?;
-        self.failures.sort_unstable_by_key(|failure| failure.index());
         Ok(self)
     }
 
@@ -228,7 +242,7 @@ impl<E> BatchOutcomeBuilder<E> {
     ///
     /// Returns [`BatchOutcomeBuildError`] when the counters or failure details
     /// are inconsistent.
-    #[inline]
+    #[inline(always)]
     pub fn build(self) -> Result<crate::BatchOutcome<E>, BatchOutcomeBuildError> {
         self.validate().map(crate::BatchOutcome::new)
     }
@@ -241,7 +255,7 @@ fn validate_outcome_invariants<E>(
     succeeded_count: usize,
     failed_count: usize,
     panicked_count: usize,
-    failures: &[BatchTaskFailure<E>],
+    failures: &mut [BatchTaskFailure<E>],
 ) -> Result<(), BatchOutcomeBuildError> {
     let failure_count =
         failed_count
@@ -287,24 +301,28 @@ fn validate_failure_details<E>(
     task_count: usize,
     failed_count: usize,
     panicked_count: usize,
-    failures: &[BatchTaskFailure<E>],
+    failures: &mut [BatchTaskFailure<E>],
 ) -> Result<(), BatchOutcomeBuildError> {
     let mut observed_failed_count = 0usize;
     let mut observed_panicked_count = 0usize;
-    let mut observed_indexes = HashSet::with_capacity(failures.len());
-    for failure in failures {
+    for failure in failures.iter() {
         if failure.index() >= task_count {
             return Err(BatchOutcomeBuildError::FailureIndexOutOfRange {
                 index: failure.index(),
                 task_count,
             });
         }
-        if !observed_indexes.insert(failure.index()) {
-            return Err(BatchOutcomeBuildError::DuplicateFailureIndex { index: failure.index() });
-        }
         match failure.error() {
             BatchTaskError::Failed(_) => observed_failed_count += 1,
             BatchTaskError::Panicked { .. } => observed_panicked_count += 1,
+        }
+    }
+    failures.sort_unstable_by_key(BatchTaskFailure::index);
+    for adjacent in failures.windows(2) {
+        if adjacent[0].index() == adjacent[1].index() {
+            return Err(BatchOutcomeBuildError::DuplicateFailureIndex {
+                index: adjacent[0].index(),
+            });
         }
     }
     if observed_failed_count != failed_count || observed_panicked_count != panicked_count {
