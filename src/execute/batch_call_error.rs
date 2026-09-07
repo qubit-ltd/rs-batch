@@ -24,12 +24,25 @@ use crate::BatchOutcome;
 /// * `R` - Callable success value type.
 /// * `E` - Callable error type stored in the nested execution outcome.
 /// * `S` - Scheduler error type stored in the nested execution error.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_batch::SequentialBatchExecutor;
+/// let error = SequentialBatchExecutor::new()
+///     .call_with_count([|| Ok::<_, &'static str>(42)], 2)
+///     .expect_err("the declared count exceeds the source length");
+/// assert!(error.source().is_count_shortfall());
+/// assert_eq!(*error.outputs()[0].value(), 42);
+/// ```
 #[must_use = "call errors preserve partial callable values"]
 pub struct BatchCallError<R, E, S = Infallible>
 where
     S: std::error::Error + Send + Sync + 'static,
 {
+    /// Batch-level failure with counters for this call only.
     source: Box<BatchExecutionError<E, S>>,
+    /// Successful outputs from this call, sorted by original input index.
     outputs: Vec<BatchCallOutput<R>>,
 }
 
@@ -64,6 +77,7 @@ where
     ///
     /// A callable error preserving both execution metadata and sparse outputs.
     #[inline]
+    #[must_use = "use the constructed or borrowed value"]
     pub(crate) fn new(source: BatchExecutionError<E, S>, outputs: Vec<BatchCallOutput<R>>) -> Self {
         Self {
             source: Box::new(source),
@@ -76,7 +90,8 @@ where
     /// # Returns
     ///
     /// The batch-level error that stopped execution.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub fn source(&self) -> &BatchExecutionError<E, S> {
         self.source.as_ref()
     }
@@ -86,7 +101,8 @@ where
     /// # Returns
     ///
     /// The outcome accumulated before the batch-level error occurred.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub fn outcome(&self) -> &BatchOutcome<E> {
         self.source.outcome()
     }
@@ -96,7 +112,8 @@ where
     /// # Returns
     ///
     /// Outputs sorted by their original zero-based callable index.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub fn outputs(&self) -> &[BatchCallOutput<R>] {
         &self.outputs
     }
@@ -106,7 +123,7 @@ where
     /// # Returns
     ///
     /// The owned batch-level execution error.
-    #[inline]
+    #[inline(always)]
     pub fn into_source(self) -> BatchExecutionError<E, S> {
         *self.source
     }
@@ -116,7 +133,7 @@ where
     /// # Returns
     ///
     /// Successful outputs sorted by their original zero-based callable index.
-    #[inline]
+    #[inline(always)]
     pub fn into_outputs(self) -> Vec<BatchCallOutput<R>> {
         self.outputs
     }
@@ -126,7 +143,7 @@ where
     /// # Returns
     ///
     /// The nested execution error and its preserved successful outputs.
-    #[inline]
+    #[inline(always)]
     pub fn into_parts(self) -> (BatchExecutionError<E, S>, Vec<BatchCallOutput<R>>) {
         (*self.source, self.outputs)
     }
@@ -137,6 +154,7 @@ where
     S: std::error::Error + Send + Sync + 'static,
 {
     /// Formats the nested batch execution error.
+    #[inline(always)]
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.source.fmt(formatter)
     }
@@ -148,6 +166,7 @@ where
     S: std::error::Error + Send + Sync + 'static,
 {
     /// Returns the nested batch execution error as the source.
+    #[inline(always)]
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         Some(&self.source)
     }

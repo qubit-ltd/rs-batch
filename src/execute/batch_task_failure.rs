@@ -12,6 +12,8 @@ use super::batch_task_error::BatchTaskError;
 /// Each failure keeps the task's stable batch index so callers can map the
 /// failure back to the source task.
 ///
+/// # Examples
+///
 /// ```rust
 /// use qubit_batch::{
 ///     BatchTaskError,
@@ -47,6 +49,7 @@ impl<E> BatchTaskFailure<E> {
     ///
     /// A failure record containing the task index and error.
     #[inline]
+    #[must_use = "use the constructed or borrowed value"]
     pub fn new(index: usize, error: BatchTaskError<E>) -> Self {
         Self { index, error }
     }
@@ -56,7 +59,8 @@ impl<E> BatchTaskFailure<E> {
     /// # Returns
     ///
     /// The task index recorded for this failure.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn index(&self) -> usize {
         self.index
     }
@@ -66,7 +70,8 @@ impl<E> BatchTaskFailure<E> {
     /// # Returns
     ///
     /// A shared reference to the task error.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn error(&self) -> &BatchTaskError<E> {
         &self.error
     }
@@ -76,7 +81,7 @@ impl<E> BatchTaskFailure<E> {
     /// # Returns
     ///
     /// The task error previously stored in this failure record.
-    #[inline]
+    #[inline(always)]
     pub fn into_error(self) -> BatchTaskError<E> {
         self.error
     }

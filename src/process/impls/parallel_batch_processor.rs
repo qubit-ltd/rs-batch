@@ -44,6 +44,8 @@ use crate::utils::run_scoped_parallel;
 ///
 /// * `Item` - Item type consumed by the stored consumer.
 ///
+/// # Examples
+///
 /// ```rust
 /// use std::{
 ///     sync::{
@@ -108,6 +110,7 @@ impl<Item> ParallelBatchProcessor<Item> {
     /// A processor storing `consumer` as an [`ArcConsumer`] and using
     /// [`Self::default_thread_count`] workers.
     #[inline]
+    #[must_use = "use the constructed or borrowed value"]
     pub fn new<C>(consumer: C) -> Self
     where
         C: Consumer<Item> + Send + Sync + 'static,
@@ -126,7 +129,8 @@ impl<Item> ParallelBatchProcessor<Item> {
     /// # Returns
     ///
     /// A builder initialized with default settings.
-    #[inline]
+    #[must_use = "use the constructed or borrowed value"]
+    #[inline(always)]
     pub fn builder<C>(consumer: C) -> ParallelBatchProcessorBuilder<Item>
     where
         C: Consumer<Item> + Send + Sync + 'static,
@@ -139,7 +143,8 @@ impl<Item> ParallelBatchProcessor<Item> {
     /// # Returns
     ///
     /// The available CPU parallelism, or `1` if it cannot be detected.
-    #[inline]
+    #[must_use = "use the constructed or borrowed value"]
+    #[inline(always)]
     pub fn default_thread_count() -> usize {
         thread::available_parallelism().map(usize::from).unwrap_or(1)
     }
@@ -149,7 +154,8 @@ impl<Item> ParallelBatchProcessor<Item> {
     /// # Returns
     ///
     /// The maximum number of scoped worker threads used for one batch.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn thread_count(&self) -> usize {
         self.thread_count.get()
     }
@@ -159,7 +165,8 @@ impl<Item> ParallelBatchProcessor<Item> {
     /// # Returns
     ///
     /// The maximum item count that still runs sequentially.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn sequential_threshold(&self) -> usize {
         self.sequential_threshold
     }
@@ -169,7 +176,8 @@ impl<Item> ParallelBatchProcessor<Item> {
     /// # Returns
     ///
     /// The minimum time between due-based running progress callbacks.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn report_interval(&self) -> Duration {
         self.report_interval
     }
@@ -179,7 +187,8 @@ impl<Item> ParallelBatchProcessor<Item> {
     /// # Returns
     ///
     /// A shared reference to the configured progress reporter.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub fn reporter(&self) -> &Arc<dyn Reporter> {
         &self.reporter
     }
@@ -189,7 +198,8 @@ impl<Item> ParallelBatchProcessor<Item> {
     /// # Returns
     ///
     /// A shared reference to the arc-backed consumer.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn consumer(&self) -> &ArcConsumer<Item> {
         &self.consumer
     }
@@ -199,7 +209,7 @@ impl<Item> ParallelBatchProcessor<Item> {
     /// # Returns
     ///
     /// The arc-backed consumer used by this processor.
-    #[inline]
+    #[inline(always)]
     pub fn into_consumer(self) -> ArcConsumer<Item> {
         self.consumer
     }
@@ -209,6 +219,7 @@ impl<Item> BatchProcessor<Item> for ParallelBatchProcessor<Item>
 where
     Item: Send,
 {
+    /// Count-validation and progress failures preserve the partial result.
     type Error = BatchProcessError;
 
     /// Processes items sequentially for small batches or on scoped workers.
@@ -282,13 +293,7 @@ where
         }
 
         if state.observed_count() < count {
-            let (elapsed, report_error) = match progress.fail() {
-                Ok(elapsed) => (elapsed, None),
-                Err(source) => {
-                    let elapsed = source.elapsed();
-                    (elapsed, Some(ProgressFailure::from(source)))
-                }
-            };
+            let (elapsed, report_error) = ProgressFailure::fail_operation(progress);
             let result = state.to_direct_result(elapsed);
             Err(BatchProcessError::CountShortfall {
                 expected: count,
@@ -297,13 +302,7 @@ where
                 report_error,
             })
         } else if state.observed_count() > count {
-            let (elapsed, report_error) = match progress.fail() {
-                Ok(elapsed) => (elapsed, None),
-                Err(source) => {
-                    let elapsed = source.elapsed();
-                    (elapsed, Some(ProgressFailure::from(source)))
-                }
-            };
+            let (elapsed, report_error) = ProgressFailure::fail_operation(progress);
             let result = state.to_direct_result(elapsed);
             Err(BatchProcessError::CountExceeded {
                 expected: count,

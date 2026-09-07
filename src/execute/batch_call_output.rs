@@ -5,15 +5,24 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-/// One successful callable output retained by a batch-level error.
+/// One successful callable value paired with its original source index.
 ///
-/// Unlike [`crate::BatchCallResult`], which uses a dense vector after the task
-/// count has been validated, this type keeps only successful outputs and their
-/// original callable indexes.
+/// Both [`crate::BatchCallResult`] and [`crate::BatchCallError`] retain sparse
+/// vectors of these outputs. Failed, panicked, and unexecuted callables have no
+/// entry; indexes need not be contiguous.
 ///
 /// # Type Parameters
 ///
 /// * `R` - Callable success value type.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_batch::BatchCallOutput;
+/// let output = BatchCallOutput::new(3, "accepted");
+/// assert_eq!(output.index(), 3);
+/// assert_eq!(output.into_parts(), (3, "accepted"));
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BatchCallOutput<R> {
     /// Zero-based callable index that produced `value`.
@@ -34,6 +43,7 @@ impl<R> BatchCallOutput<R> {
     ///
     /// An indexed callable output.
     #[inline]
+    #[must_use = "use the constructed or borrowed value"]
     pub const fn new(index: usize, value: R) -> Self {
         Self { index, value }
     }
@@ -43,7 +53,8 @@ impl<R> BatchCallOutput<R> {
     /// # Returns
     ///
     /// The original position of the successful callable.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn index(&self) -> usize {
         self.index
     }
@@ -53,7 +64,8 @@ impl<R> BatchCallOutput<R> {
     /// # Returns
     ///
     /// The value produced by the callable.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn value(&self) -> &R {
         &self.value
     }
@@ -63,7 +75,7 @@ impl<R> BatchCallOutput<R> {
     /// # Returns
     ///
     /// The callable value without its index.
-    #[inline]
+    #[inline(always)]
     pub fn into_value(self) -> R {
         self.value
     }
@@ -73,7 +85,7 @@ impl<R> BatchCallOutput<R> {
     /// # Returns
     ///
     /// A tuple containing the original index and successful value.
-    #[inline]
+    #[inline(always)]
     pub fn into_parts(self) -> (usize, R) {
         (self.index, self.value)
     }

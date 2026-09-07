@@ -15,6 +15,27 @@
 /// # Type Parameters
 ///
 /// * `T` - Task payload that implements `Runnable<E>` for the target execution.
+///
+/// # Examples
+///
+/// ```rust
+/// use std::convert::Infallible;
+/// use std::sync::Arc;
+/// use std::time::Duration;
+/// use qubit_batch::TaskFailurePolicy;
+/// use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
+/// use qubit_progress::NoopReporter;
+/// let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
+/// let outcome = coordinator.execute([|| Ok::<(), &'static str>(())], 1,
+///     TaskFailurePolicy::Continue, |tasks, context| {
+///         let mut source = tasks.into_iter();
+///         while let Some(token) = context.next_task(&mut source) {
+///             context.execute_task(token);
+///         }
+///         Ok::<(), Infallible>(())
+///     }).expect("all accepted tasks finish before the scheduler returns");
+/// assert!(outcome.is_success());
+/// ```
 #[must_use = "accepted parallel batch tasks must be executed"]
 pub struct ParallelBatchTask<T> {
     /// Globally unique execution-context identity.
@@ -30,6 +51,8 @@ impl<T> ParallelBatchTask<T> {
     ///
     /// # Parameters
     ///
+    /// * `execution_id` - Identity of the coordinator run that accepted the
+    ///   task.
     /// * `index` - Validated zero-based task index.
     /// * `task` - Runnable task payload.
     ///
@@ -37,6 +60,7 @@ impl<T> ParallelBatchTask<T> {
     ///
     /// An execution token owned by the scheduler.
     #[inline]
+    #[must_use = "use the constructed or borrowed value"]
     pub(crate) const fn new(execution_id: u64, index: usize, task: T) -> Self {
         Self {
             execution_id,
@@ -44,15 +68,14 @@ impl<T> ParallelBatchTask<T> {
             task,
         }
     }
-}
 
-impl<T> ParallelBatchTask<T> {
     /// Consumes this token and returns its validated execution parts.
     ///
     /// # Returns
     ///
-    /// The context-assigned task index and runnable payload.
-    #[inline]
+    /// The execution identity, context-assigned task index, and runnable
+    /// payload.
+    #[inline(always)]
     pub(crate) fn into_parts(self) -> (u64, usize, T) {
         (self.execution_id, self.index, self.task)
     }

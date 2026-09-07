@@ -36,6 +36,8 @@ use crate::execute::TaskExecutionStatus;
 /// Progress updates are emitted only between tasks. A long-running single task
 /// therefore does not produce intermediate sequential progress callbacks.
 ///
+/// # Examples
+///
 /// ```rust
 /// use qubit_batch::{
 ///     BatchExecutor,
@@ -70,7 +72,8 @@ impl SequentialBatchExecutor {
     /// # Returns
     ///
     /// A sequential batch executor using no-op progress reporting.
-    #[inline]
+    #[must_use = "use the constructed or borrowed value"]
+    #[inline(always)]
     pub fn new() -> Self {
         Self::default()
     }
@@ -80,7 +83,8 @@ impl SequentialBatchExecutor {
     /// # Returns
     ///
     /// A builder initialized with default settings.
-    #[inline]
+    #[must_use = "use the constructed or borrowed value"]
+    #[inline(always)]
     pub fn builder() -> SequentialBatchExecutorBuilder {
         SequentialBatchExecutorBuilder::default()
     }
@@ -90,7 +94,8 @@ impl SequentialBatchExecutor {
     /// # Returns
     ///
     /// The minimum time between due-based running progress callbacks.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn report_interval(&self) -> Duration {
         self.report_interval
     }
@@ -100,7 +105,8 @@ impl SequentialBatchExecutor {
     /// # Returns
     ///
     /// A shared reference to the configured progress reporter.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub fn reporter(&self) -> &Arc<dyn Reporter> {
         &self.reporter
     }
@@ -111,7 +117,8 @@ impl SequentialBatchExecutor {
     ///
     /// The policy that controls whether sequential execution stops after task
     /// errors or captured task panics.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn task_failure_policy(&self) -> TaskFailurePolicy {
         self.task_failure_policy
     }
@@ -123,186 +130,13 @@ impl Default for SequentialBatchExecutor {
     /// # Returns
     ///
     /// A sequential batch executor using no-op progress reporting.
-    #[inline]
+    #[inline(always)]
     fn default() -> Self {
         Self::builder().build()
     }
 }
 
 impl SequentialBatchExecutor {
-    /// Executes items sequentially on the caller thread.
-    ///
-    /// # Parameters
-    ///
-    /// * `items` - Item source for the batch.
-    /// * `count` - Declared item count expected from `items`.
-    /// * `run_item` - Callback that executes one indexed item.
-    ///
-    /// # Returns
-    ///
-    /// A structured batch result when the declared task count matches, or a
-    /// batch-count mismatch error with the attached partial result.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`BatchExecutionError::ProgressReport`] when progress reporting
-    /// fails, or a count-mismatch error when `items` yields fewer or more items
-    /// than `count`.
-    ///
-    /// # Panics
-    ///
-    /// Panics from `run_item` may be captured by the callback itself. Iterator
-    /// and synchronous progress reporter panics are propagated to the caller.
-    fn execute_items_inner<Item, E, I, F>(
-        &self,
-        items: I,
-        count: usize,
-        mut run_item: F,
-    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
-    where
-        I: IntoIterator<Item = Item>,
-        F: FnMut(&BatchExecutionState<E>, usize, Item) -> Result<TaskExecutionStatus, MetricError>,
-    {
-        let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
-            .interval(self.report_interval)
-            .metric(Metric::new(EXECUTION_PROGRESS_METRIC_ID, EXECUTION_PROGRESS_METRIC_NAME).total(count as u64))
-            .start()
-        {
-            Ok(progress) => progress,
-            Err(source) => {
-                return Err(BatchExecutionError::ProgressReport {
-                    source: Box::new(ProgressFailure::from(source)),
-                    outcome: BatchOutcomeBuilder::builder(count)
-                        .elapsed(Duration::ZERO)
-                        .build()
-                        .expect("empty batch outcome must be valid"),
-                });
-            }
-        };
-        let metric = progress
-            .metric(EXECUTION_PROGRESS_METRIC_ID)
-            .expect("configured execution metric must exist");
-        let state = BatchExecutionState::new(count, metric, self.task_failure_policy);
-        let mut actual_count = 0;
-        let mut stopped_by_task_failure_policy = false;
-        let mut failure_count = 0usize;
-        for item in items {
-            actual_count = state.record_task_observed();
-            if actual_count > count {
-                let (elapsed, report_error) = match progress.fail() {
-                    Ok(elapsed) => (elapsed, None),
-                    Err(source) => (source.elapsed(), Some(Box::new(ProgressFailure::from(source)))),
-                };
-                let outcome = state.into_outcome(elapsed);
-                return Err(BatchExecutionError::CountExceeded {
-                    expected: count,
-                    observed_at_least: actual_count,
-                    outcome,
-                    report_error,
-                });
-            }
-            // Execute the task and update the state.
-            match run_item(&state, actual_count - 1, item)
-                .expect("observed task index must be within the declared count")
-            {
-                TaskExecutionStatus::Succeeded => {}
-                TaskExecutionStatus::Failed => failure_count += 1,
-            }
-            if self.task_failure_policy.should_stop(failure_count) {
-                stopped_by_task_failure_policy = true;
-                break;
-            }
-            // Update the actual task count and report progress if due.
-            if let Err(source) = progress.report_if_due() {
-                let elapsed = progress.elapsed();
-                return Err(BatchExecutionError::ProgressReport {
-                    source: Box::new(ProgressFailure::from(source)),
-                    outcome: state.into_outcome(elapsed),
-                });
-            }
-        }
-
-        if stopped_by_task_failure_policy {
-            let elapsed = match progress.fail() {
-                Ok(elapsed) => elapsed,
-                Err(source) => {
-                    let elapsed = source.elapsed();
-                    return Err(BatchExecutionError::ProgressReport {
-                        source: Box::new(ProgressFailure::from(source)),
-                        outcome: state
-                            .into_outcome_with_termination(elapsed, BatchTermination::StoppedByTaskFailurePolicy),
-                    });
-                }
-            };
-            Ok(state.into_outcome_with_termination(elapsed, BatchTermination::StoppedByTaskFailurePolicy))
-        } else if actual_count < count {
-            let (elapsed, report_error) = match progress.fail() {
-                Ok(elapsed) => (elapsed, None),
-                Err(source) => (source.elapsed(), Some(Box::new(ProgressFailure::from(source)))),
-            };
-            Err(BatchExecutionError::CountShortfall {
-                expected: count,
-                actual: actual_count,
-                outcome: state.into_outcome(elapsed),
-                report_error,
-            })
-        } else if failure_count > 0 {
-            let elapsed = match progress.fail() {
-                Ok(elapsed) => elapsed,
-                Err(source) => {
-                    let elapsed = source.elapsed();
-                    return Err(BatchExecutionError::ProgressReport {
-                        source: Box::new(ProgressFailure::from(source)),
-                        outcome: state.into_outcome(elapsed),
-                    });
-                }
-            };
-            Ok(state.into_outcome(elapsed))
-        } else {
-            let elapsed = match progress.finish() {
-                Ok(elapsed) => elapsed,
-                Err(source) => {
-                    let elapsed = source.elapsed();
-                    let failure = ProgressFailure::from_finish_error(source);
-                    return Err(BatchExecutionError::ProgressReport {
-                        source: Box::new(failure),
-                        outcome: state.into_outcome(elapsed),
-                    });
-                }
-            };
-            Ok(state.into_outcome(elapsed))
-        }
-    }
-
-    /// Executes the batch sequentially on the caller thread.
-    ///
-    /// # Parameters
-    ///
-    /// * `tasks` - Task source for the batch.
-    /// * `count` - Declared task count expected from `tasks`.
-    ///
-    /// # Returns
-    ///
-    /// A structured batch result when the declared task count matches, or a
-    /// batch-count mismatch error with the attached partial result.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`BatchExecutionError`] when progress reporting fails or
-    /// `tasks` yields fewer or more tasks than `count`.
-    ///
-    /// # Panics
-    ///
-    /// Panics from tasks are captured in the result. Iterator, task destructor,
-    /// and synchronous progress reporter panics are propagated to the caller.
-    fn execute_inner<T, E, I>(&self, tasks: I, count: usize) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
-    where
-        I: IntoIterator<Item = T>,
-        T: Runnable<E>,
-    {
-        self.execute_items_inner(tasks, count, |state, index, task| state.execute_task(index, task))
-    }
-
     /// Executes tasks sequentially using the exact count reported by `tasks`.
     ///
     /// This concrete API accepts non-`Send` tasks because execution remains on
@@ -349,6 +183,7 @@ impl SequentialBatchExecutor {
     ///
     /// Returns [`BatchExecutionError`] when progress reporting fails or the
     /// source count differs from `count`.
+    #[inline(always)]
     pub fn execute_with_count<T, E, I>(&self, tasks: I, count: usize) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = T>,
@@ -496,11 +331,187 @@ impl SequentialBatchExecutor {
             state.execute_action(index, || action(item))
         })
     }
+
+    /// Executes items sequentially on the caller thread.
+    ///
+    /// # Parameters
+    ///
+    /// * `items` - Item source for the batch.
+    /// * `count` - Declared item count expected from `items`.
+    /// * `run_item` - Callback that executes one indexed item.
+    ///
+    /// # Returns
+    ///
+    /// A structured batch result when the declared task count matches, or a
+    /// batch-count mismatch error with the attached partial result.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BatchExecutionError::ProgressReport`] when progress reporting
+    /// fails, or a count-mismatch error when `items` yields fewer or more items
+    /// than `count`.
+    ///
+    /// # Panics
+    ///
+    /// Panics from `run_item` may be captured by the callback itself. Iterator
+    /// and synchronous progress reporter panics are propagated to the caller.
+    fn execute_items_inner<Item, E, I, F>(
+        &self,
+        items: I,
+        count: usize,
+        mut run_item: F,
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    where
+        I: IntoIterator<Item = Item>,
+        F: FnMut(&BatchExecutionState<E>, usize, Item) -> Result<TaskExecutionStatus, MetricError>,
+    {
+        let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
+            .interval(self.report_interval)
+            .metric(Metric::new(EXECUTION_PROGRESS_METRIC_ID, EXECUTION_PROGRESS_METRIC_NAME).total(count as u64))
+            .start()
+        {
+            Ok(progress) => progress,
+            Err(source) => {
+                return Err(BatchExecutionError::ProgressReport {
+                    source: Box::new(ProgressFailure::from(source)),
+                    outcome: BatchOutcomeBuilder::builder(count)
+                        .elapsed(Duration::ZERO)
+                        .build()
+                        .expect("empty batch outcome must be valid"),
+                });
+            }
+        };
+        let metric = progress
+            .metric(EXECUTION_PROGRESS_METRIC_ID)
+            .expect("configured execution metric must exist");
+        let state = BatchExecutionState::new(count, metric, self.task_failure_policy);
+        let mut actual_count = 0;
+        let mut stopped_by_task_failure_policy = false;
+        let mut failure_count = 0usize;
+        for item in items {
+            actual_count = state.record_task_observed();
+            if actual_count > count {
+                let (elapsed, report_error) = {
+                    let (elapsed, report_error) = ProgressFailure::fail_operation(progress);
+                    (elapsed, report_error.map(Box::new))
+                };
+                let outcome = state.into_outcome(elapsed);
+                return Err(BatchExecutionError::CountExceeded {
+                    expected: count,
+                    observed_at_least: actual_count,
+                    outcome,
+                    report_error,
+                });
+            }
+            // Execute the task and update the state.
+            match run_item(&state, actual_count - 1, item)
+                .expect("observed task index must be within the declared count")
+            {
+                TaskExecutionStatus::Succeeded => {}
+                TaskExecutionStatus::Failed => failure_count += 1,
+            }
+            if self.task_failure_policy.should_stop(failure_count) {
+                stopped_by_task_failure_policy = true;
+                break;
+            }
+            // Update the actual task count and report progress if due.
+            if let Err(source) = progress.report_if_due() {
+                let elapsed = progress.elapsed();
+                return Err(BatchExecutionError::ProgressReport {
+                    source: Box::new(ProgressFailure::from(source)),
+                    outcome: state.into_outcome(elapsed),
+                });
+            }
+        }
+
+        if stopped_by_task_failure_policy {
+            let elapsed = match progress.fail() {
+                Ok(elapsed) => elapsed,
+                Err(source) => {
+                    let elapsed = source.elapsed();
+                    return Err(BatchExecutionError::ProgressReport {
+                        source: Box::new(ProgressFailure::from(source)),
+                        outcome: state
+                            .into_outcome_with_termination(elapsed, BatchTermination::StoppedByTaskFailurePolicy),
+                    });
+                }
+            };
+            Ok(state.into_outcome_with_termination(elapsed, BatchTermination::StoppedByTaskFailurePolicy))
+        } else if actual_count < count {
+            let (elapsed, report_error) = {
+                let (elapsed, report_error) = ProgressFailure::fail_operation(progress);
+                (elapsed, report_error.map(Box::new))
+            };
+            Err(BatchExecutionError::CountShortfall {
+                expected: count,
+                actual: actual_count,
+                outcome: state.into_outcome(elapsed),
+                report_error,
+            })
+        } else if failure_count > 0 {
+            let elapsed = match progress.fail() {
+                Ok(elapsed) => elapsed,
+                Err(source) => {
+                    let elapsed = source.elapsed();
+                    return Err(BatchExecutionError::ProgressReport {
+                        source: Box::new(ProgressFailure::from(source)),
+                        outcome: state.into_outcome(elapsed),
+                    });
+                }
+            };
+            Ok(state.into_outcome(elapsed))
+        } else {
+            let elapsed = match progress.finish() {
+                Ok(elapsed) => elapsed,
+                Err(source) => {
+                    let elapsed = source.elapsed();
+                    let failure = ProgressFailure::from_finish_error(source);
+                    return Err(BatchExecutionError::ProgressReport {
+                        source: Box::new(failure),
+                        outcome: state.into_outcome(elapsed),
+                    });
+                }
+            };
+            Ok(state.into_outcome(elapsed))
+        }
+    }
+
+    /// Executes the batch sequentially on the caller thread.
+    ///
+    /// # Parameters
+    ///
+    /// * `tasks` - Task source for the batch.
+    /// * `count` - Declared task count expected from `tasks`.
+    ///
+    /// # Returns
+    ///
+    /// A structured batch result when the declared task count matches, or a
+    /// batch-count mismatch error with the attached partial result.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BatchExecutionError`] when progress reporting fails or
+    /// `tasks` yields fewer or more tasks than `count`.
+    ///
+    /// # Panics
+    ///
+    /// Panics from tasks are captured in the result. Iterator, task destructor,
+    /// and synchronous progress reporter panics are propagated to the caller.
+    #[inline(always)]
+    fn execute_inner<T, E, I>(&self, tasks: I, count: usize) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    where
+        I: IntoIterator<Item = T>,
+        T: Runnable<E>,
+    {
+        self.execute_items_inner(tasks, count, |state, index, task| state.execute_task(index, task))
+    }
 }
 
 impl BatchExecutor for SequentialBatchExecutor {
+    /// Caller-thread execution cannot reject a runtime submission.
     type SchedulerError = std::convert::Infallible;
     /// Executes the batch sequentially on the caller thread.
+    #[inline(always)]
     fn execute_with_count<T, E, I>(
         &self,
         tasks: I,
@@ -515,6 +526,7 @@ impl BatchExecutor for SequentialBatchExecutor {
     }
 
     /// Executes callables through the direct sequential collection path.
+    #[inline(always)]
     fn call_with_count<C, R, E, I>(
         &self,
         tasks: I,

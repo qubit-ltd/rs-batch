@@ -62,3 +62,24 @@ fn test_large_disjoint_outputs_and_failures_are_accepted() {
         Some(TASK_COUNT - 2)
     );
 }
+
+#[test]
+fn test_sparse_successes_and_failures_keep_original_indexes() {
+    let outcome = BatchOutcomeBuilder::builder(1_000_000)
+        .completed_count(4)
+        .succeeded_count(2)
+        .failed_count(2)
+        .failures(vec![
+            BatchTaskFailure::new(999_999, BatchTaskError::Failed("last")),
+            BatchTaskFailure::new(1, BatchTaskError::Failed("first")),
+        ])
+        .build()
+        .expect("outcome should be valid");
+    let result = BatchCallResult::try_new(
+        outcome,
+        vec![BatchCallOutput::new(0, "a"), BatchCallOutput::new(900_000, "b")],
+    )
+    .expect("sparse outputs should be valid");
+    assert_eq!(result.outputs()[1].index(), 900_000);
+    assert_eq!(result.outcome().failures()[0].index(), 1);
+}

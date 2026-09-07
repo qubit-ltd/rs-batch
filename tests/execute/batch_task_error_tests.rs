@@ -6,6 +6,8 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+use std::error::Error;
+use std::fmt;
 use std::panic::AssertUnwindSafe;
 use std::panic::catch_unwind;
 use std::panic::panic_any;
@@ -52,4 +54,35 @@ fn test_batch_task_error_builds_from_non_string_panic_payloads() {
     let error = BatchTaskError::<&'static str>::from_panic_payload(payload.as_ref());
     assert!(error.is_panicked());
     assert_eq!(error.panic_message(), None);
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TestError(&'static str);
+
+impl fmt::Display for TestError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.0)
+    }
+}
+
+impl Error for TestError {}
+
+#[test]
+fn test_batch_task_error_helpers_display_and_source() {
+    let failed = BatchTaskError::Failed(TestError("failed"));
+    assert!(failed.is_failed());
+    assert!(!failed.is_panicked());
+    assert_eq!(failed.to_string(), "task failed: failed");
+    assert_eq!(failed.source().expect("source").to_string(), "failed");
+
+    let panicked = BatchTaskError::<TestError>::panicked("panic");
+    assert!(!panicked.is_failed());
+    assert!(panicked.is_panicked());
+    assert_eq!(panicked.panic_message(), Some("panic"));
+    assert_eq!(panicked.to_string(), "task panicked: panic");
+    assert!(panicked.source().is_none());
+
+    let panicked_without_message = BatchTaskError::<TestError>::panicked_without_message();
+    assert_eq!(panicked_without_message.panic_message(), None);
+    assert_eq!(panicked_without_message.to_string(), "task panicked");
 }

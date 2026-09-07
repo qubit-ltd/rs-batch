@@ -21,6 +21,8 @@ use super::SequentialBatchProcessor;
 /// Use the builder when the default progress interval or reporter should be
 /// customized.
 ///
+/// # Examples
+///
 /// ```rust
 /// use std::time::Duration;
 ///
@@ -37,6 +39,7 @@ use super::SequentialBatchProcessor;
 ///
 /// * `Item` - Item type consumed by the processor being built.
 /// * `C` - Stored consumer type. The default is [`BoxConsumer<Item>`].
+#[must_use = "configure and build the value before discarding this builder"]
 pub struct SequentialBatchProcessorBuilder<Item, C = BoxConsumer<Item>> {
     /// Consumer called once for each accepted item.
     consumer: C,
@@ -59,6 +62,7 @@ impl<Item> SequentialBatchProcessorBuilder<Item> {
     ///
     /// A builder initialized with default sequential processor settings.
     #[inline]
+    #[must_use = "use the constructed or borrowed value"]
     pub fn new<C>(consumer: C) -> Self
     where
         C: Consumer<Item> + 'static,
@@ -84,6 +88,7 @@ impl<Item> SequentialBatchProcessorBuilder<Item> {
     ///
     /// A builder initialized with default sequential processor settings.
     #[inline]
+    #[must_use = "use the constructed or borrowed value"]
     pub fn with_consumer<C>(consumer: C) -> SequentialBatchProcessorBuilder<Item, C>
     where
         C: Consumer<Item>,
@@ -109,7 +114,8 @@ impl<Item, C> SequentialBatchProcessorBuilder<Item, C> {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn report_interval(mut self, report_interval: Duration) -> Self {
         self.report_interval = report_interval;
         self
@@ -142,7 +148,8 @@ impl<Item, C> SequentialBatchProcessorBuilder<Item, C> {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub fn reporter_arc(mut self, reporter: Arc<dyn Reporter>) -> Self {
         self.reporter = reporter;
         self

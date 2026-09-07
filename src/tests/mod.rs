@@ -5,5 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-mod batch_state_counts_tests;
-mod scoped_parallel_tests;
+//! Tests for crate-internal contracts unavailable through public APIs.
+
+#[cfg(loom)]
+mod execute;

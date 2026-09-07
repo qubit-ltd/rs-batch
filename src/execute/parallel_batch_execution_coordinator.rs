@@ -27,6 +27,27 @@ use crate::ProgressFailure;
 ///
 /// The coordinator owns progress setup and finalization, state construction,
 /// scheduler execution, and count/termination validation.
+///
+/// # Examples
+///
+/// ```rust
+/// use std::convert::Infallible;
+/// use std::sync::Arc;
+/// use std::time::Duration;
+/// use qubit_batch::TaskFailurePolicy;
+/// use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
+/// use qubit_progress::NoopReporter;
+/// let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
+/// let outcome = coordinator.execute([|| Ok::<(), &'static str>(())], 1,
+///     TaskFailurePolicy::Continue, |tasks, context| {
+///         let mut source = tasks.into_iter();
+///         while let Some(token) = context.next_task(&mut source) {
+///             context.execute_task(token);
+///         }
+///         Ok::<(), Infallible>(())
+///     }).expect("all accepted tasks finish before the scheduler returns");
+/// assert!(outcome.is_success());
+/// ```
 #[derive(Clone)]
 pub struct ParallelBatchExecutionCoordinator {
     /// Progress reporter used by this execution.
@@ -47,6 +68,7 @@ impl ParallelBatchExecutionCoordinator {
     ///
     /// A coordinator configured with the supplied reporter and interval.
     #[inline]
+    #[must_use = "use the constructed or borrowed value"]
     pub fn new(reporter: Arc<dyn Reporter>, report_interval: Duration) -> Self {
         Self {
             reporter,
@@ -59,7 +81,8 @@ impl ParallelBatchExecutionCoordinator {
     /// # Returns
     ///
     /// The minimum interval between due-based running progress events.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn report_interval(&self) -> Duration {
         self.report_interval
     }
@@ -69,7 +92,8 @@ impl ParallelBatchExecutionCoordinator {
     /// # Returns
     ///
     /// A shared reference to the configured progress reporter.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn reporter(&self) -> &Arc<dyn Reporter> {
         &self.reporter
     }
@@ -84,8 +108,9 @@ impl ParallelBatchExecutionCoordinator {
     ///   after the configured number of task failures while allowing accepted
     ///   tokens to finish.
     /// * `schedule` - Runtime-specific scheduler that consumes tasks and uses
-    ///   [`ParallelBatchExecutionContext::accept_task`] before dispatching each
-    ///   accepted token. Every accepted token must be passed to
+    ///   [`ParallelBatchExecutionContext::next_task`] to observe source
+    ///   exhaustion and admit each task before dispatching its token. Each
+    ///   accepted token must be passed to
     ///   [`ParallelBatchExecutionContext::execute_task`] exactly once before
     ///   the scheduler returns. The closure returns its runtime-specific
     ///   scheduler error directly; it must not silently drop a rejected
@@ -277,9 +302,7 @@ impl ParallelBatchExecutionCoordinator {
     /// Reports a failed terminal phase and returns elapsed with secondary
     /// error.
     fn fail_progress(progress: Progress<'_>) -> (Duration, Option<Box<ProgressFailure>>) {
-        match progress.fail() {
-            Ok(elapsed) => (elapsed, None),
-            Err(source) => (source.elapsed(), Some(Box::new(ProgressFailure::from(source)))),
-        }
+        let (elapsed, report_error) = ProgressFailure::fail_operation(progress);
+        (elapsed, report_error.map(Box::new))
     }
 }

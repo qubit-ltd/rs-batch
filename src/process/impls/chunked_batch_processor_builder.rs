@@ -19,6 +19,8 @@ use super::ChunkedBatchProcessor;
 /// Use the builder when the default progress interval or reporter should be
 /// customized.
 ///
+/// # Examples
+///
 /// ```rust
 /// use std::{
 ///     num::NonZeroUsize,
@@ -45,6 +47,7 @@ use super::ChunkedBatchProcessor;
 /// # Type Parameters
 ///
 /// * `P` - Processor that receives each collected chunk.
+#[must_use = "configure and build the value before discarding this builder"]
 pub struct ChunkedBatchProcessorBuilder<P> {
     /// Delegate processor receiving each chunk.
     delegate: P,
@@ -68,6 +71,7 @@ impl<P> ChunkedBatchProcessorBuilder<P> {
     ///
     /// A builder initialized with default chunked processor settings.
     #[inline]
+    #[must_use = "use the constructed or borrowed value"]
     pub fn new(delegate: P, chunk_size: NonZeroUsize) -> Self {
         Self {
             delegate,
@@ -88,7 +92,8 @@ impl<P> ChunkedBatchProcessorBuilder<P> {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn report_interval(mut self, report_interval: Duration) -> Self {
         self.report_interval = report_interval;
         self
@@ -121,7 +126,8 @@ impl<P> ChunkedBatchProcessorBuilder<P> {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub fn reporter_arc(mut self, reporter: Arc<dyn Reporter>) -> Self {
         self.reporter = reporter;
         self

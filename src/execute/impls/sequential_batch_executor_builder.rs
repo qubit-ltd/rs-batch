@@ -19,6 +19,8 @@ use crate::TaskFailurePolicy;
 /// Use the builder when the default progress interval or reporter should be
 /// customized.
 ///
+/// # Examples
+///
 /// ```rust
 /// use std::time::Duration;
 ///
@@ -30,6 +32,7 @@ use crate::TaskFailurePolicy;
 ///
 /// assert_eq!(executor.report_interval(), Duration::ZERO);
 /// ```
+#[must_use = "configure and build the value before discarding this builder"]
 pub struct SequentialBatchExecutorBuilder {
     /// Minimum interval between progress callbacks.
     report_interval: Duration,
@@ -51,7 +54,8 @@ impl SequentialBatchExecutorBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn report_interval(mut self, report_interval: Duration) -> Self {
         self.report_interval = report_interval;
         self
@@ -67,7 +71,8 @@ impl SequentialBatchExecutorBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn task_failure_policy(mut self, task_failure_policy: TaskFailurePolicy) -> Self {
         self.task_failure_policy = task_failure_policy;
         self
@@ -100,7 +105,8 @@ impl SequentialBatchExecutorBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub fn reporter_arc(mut self, reporter: Arc<dyn Reporter>) -> Self {
         self.reporter = reporter;
         self

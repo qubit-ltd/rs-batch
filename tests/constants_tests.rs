@@ -10,6 +10,6 @@
 use qubit_batch::ParallelBatchExecutor;
 
 #[test]
-fn default_threshold_is_stable() {
+fn test_default_threshold_is_stable() {
     assert_eq!(ParallelBatchExecutor::DEFAULT_SEQUENTIAL_THRESHOLD, 100);
 }

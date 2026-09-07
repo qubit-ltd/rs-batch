@@ -33,9 +33,12 @@ use crate::utils::run_scoped_parallel_tasks;
 /// [`Default`] uses [`Self::DEFAULT_SEQUENTIAL_THRESHOLD`], so batches with at
 /// most 100 declared tasks run through [`SequentialBatchExecutor`] to avoid
 /// thread setup overhead. Configure `sequential_threshold(0)` through
-/// [`Self::builder`] when every non-empty batch should use parallel workers.
+/// [`Self::builder`] with more than one worker when every non-empty batch
+/// should use the parallel path.
 /// The default threshold is a fixed heuristic; benchmark representative task
 /// workloads before changing it for a deployment.
+///
+/// # Examples
 ///
 /// ```rust
 /// use qubit_batch::{
@@ -77,22 +80,13 @@ impl ParallelBatchExecutor {
     /// Default maximum batch size that still uses sequential execution.
     pub const DEFAULT_SEQUENTIAL_THRESHOLD: usize = crate::constants::DEFAULT_SEQUENTIAL_THRESHOLD;
 
-    /// Returns the default worker-thread count.
-    ///
-    /// # Returns
-    ///
-    /// The available CPU parallelism, or `1` if it cannot be detected.
-    #[inline]
-    pub fn default_thread_count() -> usize {
-        thread::available_parallelism().map(usize::from).unwrap_or(1)
-    }
-
     /// Creates a builder for configuring a parallel batch executor.
     ///
     /// # Returns
     ///
     /// A builder initialized with default settings.
-    #[inline]
+    #[must_use = "use the constructed or borrowed value"]
+    #[inline(always)]
     pub fn builder() -> ParallelBatchExecutorBuilder {
         ParallelBatchExecutorBuilder::default()
     }
@@ -111,9 +105,21 @@ impl ParallelBatchExecutor {
     ///
     /// Returns [`ParallelBatchExecutorBuildError::ZeroThreadCount`] when
     /// `thread_count` is zero.
-    #[inline]
+    #[must_use = "use the constructed or borrowed value"]
+    #[inline(always)]
     pub fn new(thread_count: usize) -> Result<Self, ParallelBatchExecutorBuildError> {
         Self::builder().thread_count(thread_count).build()
+    }
+
+    /// Returns the default worker-thread count.
+    ///
+    /// # Returns
+    ///
+    /// The available CPU parallelism, or `1` if it cannot be detected.
+    #[must_use = "use the constructed or borrowed value"]
+    #[inline(always)]
+    pub fn default_thread_count() -> usize {
+        thread::available_parallelism().map(usize::from).unwrap_or(1)
     }
 
     /// Returns the configured worker-thread count.
@@ -121,7 +127,8 @@ impl ParallelBatchExecutor {
     /// # Returns
     ///
     /// The maximum number of scoped worker threads used for one batch.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn thread_count(&self) -> usize {
         self.thread_count
     }
@@ -131,7 +138,8 @@ impl ParallelBatchExecutor {
     /// # Returns
     ///
     /// The maximum task count that still runs sequentially.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn sequential_threshold(&self) -> usize {
         self.sequential_threshold
     }
@@ -141,7 +149,8 @@ impl ParallelBatchExecutor {
     /// # Returns
     ///
     /// The policy applied after task errors or captured task panics.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn task_failure_policy(&self) -> TaskFailurePolicy {
         self.task_failure_policy
     }
@@ -151,7 +160,8 @@ impl ParallelBatchExecutor {
     /// # Returns
     ///
     /// The minimum interval between due-based running progress callbacks.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn report_interval(&self) -> Duration {
         self.coordinator.report_interval()
     }
@@ -161,7 +171,8 @@ impl ParallelBatchExecutor {
     /// # Returns
     ///
     /// A shared reference to the configured progress reporter.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub fn reporter(&self) -> &Arc<dyn Reporter> {
         self.coordinator.reporter()
     }
@@ -198,6 +209,7 @@ impl Default for ParallelBatchExecutor {
 }
 
 impl BatchExecutor for ParallelBatchExecutor {
+    /// Standard scoped scheduling has no recoverable submission error.
     type SchedulerError = Infallible;
     /// Executes the batch on scoped standard threads when the batch is large
     /// enough.

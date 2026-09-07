@@ -10,6 +10,8 @@ use thiserror::Error;
 /// Error returned when constructing a batch process result with invalid
 /// counters.
 ///
+/// # Examples
+///
 /// ```rust
 /// use qubit_batch::{
 ///     BatchProcessResultBuildError,
@@ -28,6 +30,7 @@ use thiserror::Error;
 ///     BatchProcessResultBuildError::CompletedCountExceeded { .. }
 /// ));
 /// ```
+#[must_use = "errors describe a rejected operation"]
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum BatchProcessResultBuildError {
     /// The completed item count is greater than the declared item count.

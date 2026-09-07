@@ -19,6 +19,20 @@ use crate::BatchOutcome;
 ///
 /// * `R` - Callable success value type.
 /// * `E` - Callable error type stored in the execution outcome.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_batch::SequentialBatchExecutor;
+/// let result = SequentialBatchExecutor::new()
+///     .call([true, false].into_iter().map(|valid| move || {
+///         if valid { Ok(42) } else { Err("invalid record") }
+///     }))
+///     .expect("task failures remain in a normal callable result");
+/// assert_eq!(result.outcome().failed_count(), 1);
+/// assert_eq!(result.outputs()[0].index(), 0);
+/// assert_eq!(*result.outputs()[0].value(), 42);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[must_use = "batch call results contain execution failures and returned values"]
 pub struct BatchCallResult<R, E> {
@@ -85,31 +99,33 @@ impl<R, E> BatchCallResult<R, E> {
     }
 
     /// Returns the execution outcome for the callable batch.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn outcome(&self) -> &BatchOutcome<E> {
         &self.outcome
     }
 
     /// Returns sparse successful outputs sorted by callable position.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub fn outputs(&self) -> &[BatchCallOutput<R>] {
         &self.outputs
     }
 
     /// Consumes this result and returns the execution outcome.
-    #[inline]
+    #[inline(always)]
     pub fn into_outcome(self) -> BatchOutcome<E> {
         self.outcome
     }
 
     /// Consumes this result and returns sparse successful outputs.
-    #[inline]
+    #[inline(always)]
     pub fn into_outputs(self) -> Vec<BatchCallOutput<R>> {
         self.outputs
     }
 
     /// Consumes this result and returns both stored parts.
-    #[inline]
+    #[inline(always)]
     pub fn into_parts(self) -> (BatchOutcome<E>, Vec<BatchCallOutput<R>>) {
         (self.outcome, self.outputs)
     }

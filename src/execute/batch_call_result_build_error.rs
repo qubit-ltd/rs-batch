@@ -9,6 +9,20 @@ use thiserror::Error;
 
 /// Error returned when sparse callable outputs do not match their execution
 /// outcome.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_batch::BatchCallResult;
+/// use qubit_batch::BatchCallResultBuildError;
+/// use qubit_batch::BatchOutcomeBuilder;
+/// let outcome = BatchOutcomeBuilder::<()>::builder(1)
+///     .completed_count(1).succeeded_count(1).build().expect("valid counters");
+/// let error = BatchCallResult::<usize, ()>::try_new(outcome, vec![])
+///     .expect_err("a successful task requires an output");
+/// assert!(matches!(error, BatchCallResultBuildError::SucceededOutputCountMismatch { .. }));
+/// ```
+#[must_use = "errors describe a rejected operation"]
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum BatchCallResultBuildError {
     /// The number of sparse outputs differs from the successful task count.

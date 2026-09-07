@@ -21,6 +21,8 @@ use crate::BatchProcessResultBuilder;
 /// submission attempts or automatically include chunks used inside a nested
 /// delegate.
 ///
+/// # Examples
+///
 /// ```rust
 /// use std::cell::Cell;
 /// use std::time::Duration;
@@ -43,7 +45,7 @@ use crate::BatchProcessResultBuilder;
 /// assert_eq!(affected_rows.get(), 6);
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[must_use]
+#[must_use = "inspect the returned value"]
 pub struct BatchProcessResult {
     /// Declared item count for the batch.
     item_count: usize,
@@ -67,7 +69,8 @@ impl BatchProcessResult {
     /// # Returns
     ///
     /// A result builder initialized with zero counters and zero elapsed time.
-    #[inline]
+    #[must_use = "use the constructed or borrowed value"]
+    #[inline(always)]
     pub const fn builder(item_count: usize) -> BatchProcessResultBuilder {
         BatchProcessResultBuilder::builder(item_count)
     }
@@ -83,6 +86,7 @@ impl BatchProcessResult {
     ///
     /// A fully populated batch process result.
     #[inline]
+    #[must_use = "use the constructed or borrowed value"]
     pub(crate) const fn new(builder: BatchProcessResultBuilder) -> Self {
         Self {
             item_count: builder.item_count,
@@ -98,7 +102,8 @@ impl BatchProcessResult {
     /// # Returns
     ///
     /// The expected number of input items.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn item_count(&self) -> usize {
         self.item_count
     }
@@ -108,7 +113,8 @@ impl BatchProcessResult {
     /// # Returns
     ///
     /// The number of completed input items.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn completed_count(&self) -> usize {
         self.completed_count
     }
@@ -119,7 +125,8 @@ impl BatchProcessResult {
     ///
     /// The successful input count. Domain measurements such as affected rows
     /// are tracked separately.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn processed_count(&self) -> usize {
         self.processed_count
     }
@@ -130,7 +137,8 @@ impl BatchProcessResult {
     ///
     /// The successful chunk count. Failed attempts and nested delegate chunks
     /// are not included in an outer processor's result.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn chunk_count(&self) -> usize {
         self.chunk_count
     }
@@ -140,7 +148,8 @@ impl BatchProcessResult {
     /// # Returns
     ///
     /// The elapsed duration for this batch processing attempt.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn elapsed(&self) -> Duration {
         self.elapsed
     }
@@ -150,7 +159,8 @@ impl BatchProcessResult {
     /// # Returns
     ///
     /// `true` when every declared item completed and was reported as processed.
-    #[inline]
+    #[must_use = "inspect the returned value"]
+    #[inline(always)]
     pub const fn is_success(&self) -> bool {
         self.completed_count == self.item_count && self.processed_count == self.item_count
     }

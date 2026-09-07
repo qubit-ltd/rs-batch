@@ -450,3 +450,32 @@ impl Runnable<&'static str> for BorrowingTask<'_> {
         Ok(())
     }
 }
+
+#[test]
+fn test_parallel_batch_executor_records_original_failure_indexes() {
+    let executor = ParallelBatchExecutor::builder()
+        .thread_count(2)
+        .sequential_threshold(1)
+        .build()
+        .expect("parallel executor should build");
+    let tasks = vec![
+        TestTask::succeed(),
+        TestTask::fail("first failure"),
+        TestTask::succeed(),
+        TestTask::fail("second failure"),
+    ];
+
+    let outcome = executor
+        .execute_with_count(tasks, 4)
+        .expect("task failures should stay in the batch outcome");
+    let failure_indexes = outcome
+        .failures()
+        .iter()
+        .map(|failure| failure.index())
+        .collect::<Vec<_>>();
+
+    assert_eq!(outcome.completed_count(), 4);
+    assert_eq!(outcome.succeeded_count(), 2);
+    assert_eq!(outcome.failed_count(), 2);
+    assert_eq!(failure_indexes, vec![1, 3]);
+}

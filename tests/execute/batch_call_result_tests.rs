@@ -1,3 +1,12 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+//! Validates sparse callable output indexes against completed outcomes.
+
 use qubit_batch::BatchCallOutput;
 use qubit_batch::BatchCallResult;
 use qubit_batch::BatchCallResultBuildError;
@@ -28,7 +37,7 @@ fn test_batch_call_result_accessors_and_parts() {
 }
 
 #[test]
-fn test_batch_call_result_rejects_output_for_uncompleted_task() {
+fn test_batch_call_result_rejects_out_of_range_output_index() {
     let outcome = BatchOutcomeBuilder::<&'static str>::builder(3)
         .completed_count(1)
         .succeeded_count(1)

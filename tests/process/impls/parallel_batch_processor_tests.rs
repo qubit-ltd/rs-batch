@@ -416,14 +416,14 @@ fn test_parallel_batch_processor_propagates_consumer_panic() {
 }
 
 #[test]
-fn test_parallel_batch_processor_propagates_worker_panic_after_channel_backpressure() {
+fn test_parallel_batch_processor_propagates_worker_panic_with_large_source() {
     const PANIC_MESSAGE: &str = "parallel processor backpressure panic";
     let mut processor = ParallelBatchProcessor::builder(|item: &i32| {
         if *item == 0 {
             panic!("{PANIC_MESSAGE}");
         }
     })
-    .thread_count(1)
+    .thread_count(2)
     .sequential_threshold(0)
     .build()
     .expect("parallel processor should build");
@@ -440,4 +440,33 @@ fn test_parallel_batch_processor_propagates_worker_panic_after_channel_backpress
 struct BorrowedItem<'a> {
     /// Counter incremented by the processor consumer.
     counter: &'a AtomicCount,
+}
+
+#[test]
+fn test_parallel_batch_processor_preserves_items_on_scoped_workers() {
+    let accepted = Arc::new(Mutex::new(Vec::new()));
+    let accepted_by_consumer = Arc::clone(&accepted);
+    let mut processor = ParallelBatchProcessor::builder(move |item: &i32| {
+        accepted_by_consumer
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(*item);
+    })
+    .thread_count(2)
+    .sequential_threshold(0)
+    .build()
+    .expect("parallel processor should build");
+
+    let result = processor
+        .process_with_count(vec![1, 2, 3, 4], 4)
+        .expect("parallel processing should succeed");
+    let mut accepted = accepted
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clone();
+    accepted.sort_unstable();
+
+    assert_eq!(result.completed_count(), 4);
+    assert_eq!(result.processed_count(), 4);
+    assert_eq!(accepted, vec![1, 2, 3, 4]);
 }
