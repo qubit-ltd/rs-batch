@@ -37,8 +37,8 @@ doctest = true
 crossbeam-queue = "0.3"
 thiserror = "2.0"
 loom = { version = "0.7", optional = true }
-qubit-atomic = "0.13"
-qubit-function = "0.16"
+qubit-atomic = "0.17"
+qubit-function = "0.18"
 qubit-progress = { version = "0.8", default-features = false }
 
 [features]
