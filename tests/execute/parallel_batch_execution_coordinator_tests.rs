@@ -15,6 +15,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use qubit_batch::BatchExecutionError;
+use qubit_batch::BatchTaskError;
 use qubit_batch::BatchTermination;
 use qubit_batch::ProgressFailure;
 use qubit_batch::TaskFailurePolicy;
@@ -426,4 +427,51 @@ fn test_finished_batch_preserves_counts_on_terminal_failure() {
         error.progress_report_error(),
         Some(ProgressFailure::Terminal(_))
     ));
+}
+
+/// A failed terminal report must retain every task result after Continue drains
+/// the source.
+#[test]
+fn test_finished_failed_batch_preserves_task_failures_on_terminal_failure() {
+    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(TerminalFailureReporter), Duration::ZERO);
+    let error = coordinator
+        .execute(
+            [
+                TestTask::fail("invalid row"),
+                TestTask::succeed(),
+                TestTask::panic("task panic"),
+            ],
+            3,
+            TaskFailurePolicy::Continue,
+            |tasks, context| {
+                let mut tasks = tasks.into_iter();
+                while let Some(token) = context.next_task(&mut tasks) {
+                    context.execute_task(token);
+                }
+                Ok::<(), Infallible>(())
+            },
+        )
+        .expect_err("failed terminal delivery must retain the completed batch");
+
+    let BatchExecutionError::ProgressReport { source, outcome } = error else {
+        panic!("terminal delivery must be the batch-level error");
+    };
+    let ProgressFailure::Terminal(terminal) = source.as_ref() else {
+        panic!("the progress error must identify terminal delivery");
+    };
+    assert_eq!(outcome.termination(), BatchTermination::Finished);
+    assert_eq!(outcome.task_count(), 3);
+    assert_eq!(outcome.completed_count(), 3);
+    assert_eq!(outcome.succeeded_count(), 1);
+    assert_eq!(outcome.failed_count(), 1);
+    assert_eq!(outcome.panicked_count(), 1);
+    assert_eq!(outcome.elapsed(), terminal.elapsed());
+    assert_eq!(outcome.failures().len(), 2);
+    assert_eq!(outcome.failures()[0].index(), 0);
+    assert!(matches!(
+        outcome.failures()[0].error(),
+        BatchTaskError::Failed("invalid row")
+    ));
+    assert_eq!(outcome.failures()[1].index(), 2);
+    assert!(matches!(outcome.failures()[1].error(), BatchTaskError::Panicked { .. }));
 }
