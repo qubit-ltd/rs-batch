@@ -373,6 +373,8 @@ checksum = "59f10e916324739b811520fbfb24746f4822ad9ea1adb53c79fc04b7c090e5ed"
 [[package]]
 name = "qubit-progress"
 version = "0.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c44919d57ed57837eac506b4f20ee0177974e6411212c2bf6ae81cf84c711b3"
 dependencies = [
  "qubit-fast-cas",
 ]
