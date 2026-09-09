@@ -103,6 +103,47 @@ assert!(matches!(outcome.failures()[0].error(), BatchTaskError::Failed(_)));
 `processed_count <= completed_count <= item_count`。数据库受影响行数等业务指标属于
 processor 自己维护的独立状态；当它可能超过输入数量时，不能写入 `processed_count`。
 
+### 直接使用 Processor
+
+如果批次操作由有状态 consumer 负责，并且应在调用线程中执行，可以使用
+`SequentialBatchProcessor`。`with_consumer` 会直接保存 consumer，因此 consumer
+可以借用调用方状态，也不要求实现 `Send`：
+
+```rust
+use qubit_batch::{BatchProcessor, SequentialBatchProcessor};
+
+let prefix = String::from("ok");
+let mut processor = SequentialBatchProcessor::with_consumer(|item: &String| {
+    assert!(item.starts_with(&prefix));
+});
+let result = processor
+    .process([String::from("okay"), String::from("ok")])
+    .expect("array length should be exact");
+assert!(result.is_success());
+```
+
+如果 consumer 满足 `Send + Sync`，并且需要让多个 scoped worker 共享处理，可以使用
+`ParallelBatchProcessor`。它默认会让小批次走顺序路径；调整 `thread_count` 和
+`sequential_threshold` 前，应先测量真实负载：
+
+```rust
+use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+use qubit_batch::{BatchProcessor, ParallelBatchProcessor};
+
+let total = Arc::new(AtomicUsize::new(0));
+let consumer_total = Arc::clone(&total);
+let mut processor = ParallelBatchProcessor::builder(move |item: &usize| {
+    consumer_total.fetch_add(*item, Ordering::Relaxed);
+})
+.thread_count(2)
+.sequential_threshold(0)
+.build()
+.expect("parallel processor configuration should be valid");
+let result = processor.process([1, 2, 3]).expect("array length should be exact");
+assert!(result.is_success());
+assert_eq!(total.load(Ordering::Relaxed), 6);
+```
+
 ### 显式分块处理较大来源
 
 当单个结果不适合承载完整来源时，可以使用已有 callable API。下面每次循环拥有独立的
