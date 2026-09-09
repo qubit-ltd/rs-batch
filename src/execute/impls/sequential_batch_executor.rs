@@ -374,6 +374,13 @@ impl SequentialBatchExecutor {
 
     /// Executes items sequentially on the caller thread.
     ///
+    /// # Type Parameters
+    ///
+    /// * `Item` - Input item type.
+    /// * `E` - Task error type.
+    /// * `I` - Item source type.
+    /// * `F` - Indexed item runner type.
+    ///
     /// # Parameters
     ///
     /// * `items` - Item source for the batch.
@@ -518,6 +525,12 @@ impl SequentialBatchExecutor {
 
     /// Executes the batch sequentially on the caller thread.
     ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Runnable task type.
+    /// * `E` - Task error type.
+    /// * `I` - Task source type.
+    ///
     /// # Parameters
     ///
     /// * `tasks` - Task source for the batch.
@@ -551,6 +564,13 @@ impl BatchExecutor for SequentialBatchExecutor {
     /// Caller-thread execution cannot reject a runtime submission.
     type SchedulerError = std::convert::Infallible;
     /// Executes the batch sequentially on the caller thread.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Runnable task type.
+    /// * `E` - Task error type.
+    /// * `I` - Task source type.
+    ///
     #[inline(always)]
     fn execute_with_count<T, E, I>(
         &self,
@@ -566,6 +586,14 @@ impl BatchExecutor for SequentialBatchExecutor {
     }
 
     /// Executes callables through the direct sequential collection path.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Callable task type.
+    /// * `R` - Callable success value type.
+    /// * `E` - Callable error type.
+    /// * `I` - Callable source type.
+    ///
     #[inline(always)]
     fn call_with_count<C, R, E, I>(
         &self,
