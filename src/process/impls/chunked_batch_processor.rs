@@ -231,6 +231,10 @@ where
 
     /// Processes items by delegating fixed-size chunks.
     ///
+    /// # Type Parameters
+    ///
+    /// * `I` - Item source type.
+    ///
     /// # Parameters
     ///
     /// * `items` - Item source for the logical batch.

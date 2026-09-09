@@ -77,6 +77,12 @@ pub trait BatchExecutor: Send + Sync {
     /// Executes a batch of runnable tasks whose iterator exposes an exact
     /// length.
     ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Runnable task type.
+    /// * `E` - Task-specific error type.
+    /// * `I` - Exact-size task source type.
+    ///
     /// # Parameters
     ///
     /// * `tasks` - Task source for the batch. Its iterator must report the
@@ -116,6 +122,12 @@ pub trait BatchExecutor: Send + Sync {
 
     /// Executes a batch of runnable tasks with an explicit declared count.
     ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Runnable task type.
+    /// * `E` - Task-specific error type.
+    /// * `I` - Task source type.
+    ///
     /// # Parameters
     ///
     /// * `tasks` - Task source for the batch. It may be eager or lazy.
@@ -154,6 +166,13 @@ pub trait BatchExecutor: Send + Sync {
         E: Send;
 
     /// Executes callable tasks whose iterator exposes an exact length.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Callable task type.
+    /// * `R` - Callable success value type.
+    /// * `E` - Callable error type.
+    /// * `I` - Exact-size callable source type.
     ///
     /// # Parameters
     ///
@@ -196,6 +215,13 @@ pub trait BatchExecutor: Send + Sync {
     /// Executes callable tasks with an explicit declared count and collects
     /// success values by index.
     ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Callable task type.
+    /// * `R` - Callable success value type.
+    /// * `E` - Callable error type.
+    /// * `I` - Callable source type.
+    ///
     /// # Parameters
     ///
     /// * `tasks` - Callable task source for the batch.
@@ -236,6 +262,13 @@ pub trait BatchExecutor: Send + Sync {
 
     /// Applies `action` to every item whose iterator exposes an exact length.
     ///
+    /// # Type Parameters
+    ///
+    /// * `Item` - Input item type.
+    /// * `E` - Action error type.
+    /// * `I` - Exact-size item source type.
+    /// * `F` - Fallible item-action type.
+    ///
     /// # Parameters
     ///
     /// * `items` - Item source to transform into runnable tasks.
@@ -275,6 +308,13 @@ pub trait BatchExecutor: Send + Sync {
     }
 
     /// Applies `action` to every item using an explicit declared count.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `Item` - Input item type.
+    /// * `E` - Action error type.
+    /// * `I` - Item source type.
+    /// * `F` - Fallible item-action type.
     ///
     /// # Parameters
     ///
@@ -323,6 +363,10 @@ pub trait BatchExecutor: Send + Sync {
 /// # Parameters
 ///
 /// * `outputs` - Shared output queue filled by callable wrappers.
+///
+/// # Type Parameters
+///
+/// * `R` - Callable success value type.
 ///
 /// # Returns
 ///

@@ -249,6 +249,10 @@ impl<E> BatchOutcomeBuilder<E> {
 }
 
 /// Validates all counters and failure details for a batch outcome.
+///
+/// # Type Parameters
+///
+/// * `E` - Task-specific error type stored in failure records.
 fn validate_outcome_invariants<E>(
     task_count: usize,
     completed_count: usize,
@@ -297,6 +301,10 @@ fn validate_outcome_invariants<E>(
 }
 
 /// Validates detailed failure records against aggregate counters.
+///
+/// # Type Parameters
+///
+/// * `E` - Task-specific error type stored in failure records.
 fn validate_failure_details<E>(
     task_count: usize,
     failed_count: usize,

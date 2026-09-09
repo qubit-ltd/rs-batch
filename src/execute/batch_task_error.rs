@@ -177,6 +177,10 @@ where
 ///
 /// * `payload` - Panic payload captured by `catch_unwind`.
 ///
+/// # Type Parameters
+///
+/// * `E` - Task-specific error type used by the returned enum.
+///
 /// # Returns
 ///
 /// A panicked task error containing a string message when the payload carries

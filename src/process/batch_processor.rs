@@ -7,7 +7,7 @@
 // =============================================================================
 use super::BatchProcessResult;
 
-/// Processes a batch of data items.
+    /// Processes a batch of data items.
 ///
 /// This trait models processors that receive data items directly. A processor
 /// may insert records into a database, send them to a remote service, or apply
@@ -92,6 +92,10 @@ pub trait BatchProcessor<Item> {
 
     /// Processes `items` as one batch using its exact iterator length.
     ///
+    /// # Type Parameters
+    ///
+    /// * `I` - Exact-size item source type.
+    ///
     /// # Parameters
     ///
     /// * `items` - Data source for this batch. Its iterator must uphold the
@@ -120,6 +124,10 @@ pub trait BatchProcessor<Item> {
     }
 
     /// Processes `items` as one batch with an explicit declared count.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `I` - Item source type.
     ///
     /// # Parameters
     ///

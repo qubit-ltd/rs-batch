@@ -104,6 +104,10 @@ impl<E> ParallelBatchExecutionContext<E> {
     ///
     /// * `task` - Runnable task yielded by the scheduler's source.
     ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Runnable task type.
+    ///
     /// # Returns
     ///
     /// `Some(token)` when the task is accepted, or `None` when execution must
@@ -134,6 +138,10 @@ impl<E> ParallelBatchExecutionContext<E> {
     ///
     /// * `tasks` - Scheduler-owned source iterator.
     ///
+    /// # Type Parameters
+    ///
+    /// * `I` - Scheduler-owned source iterator type.
+    ///
     /// # Returns
     ///
     /// An accepted task token, or `None` when the source or admission gate
@@ -163,6 +171,10 @@ impl<E> ParallelBatchExecutionContext<E> {
     /// # Parameters
     ///
     /// * `task` - Token accepted by [`Self::accept_task`].
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Runnable task type stored in the accepted token.
     ///
     /// # Panics
     ///

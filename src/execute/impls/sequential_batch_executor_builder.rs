@@ -80,6 +80,10 @@ impl SequentialBatchExecutorBuilder {
 
     /// Sets the progress reporter used by built executors.
     ///
+    /// # Type Parameters
+    ///
+    /// * `R` - Concrete reporter type stored behind the shared reporter trait object.
+    ///
     /// # Parameters
     ///
     /// * `reporter` - Progress reporter used for later executions.

@@ -102,6 +102,11 @@ where
     ///
     /// Propagates a panic raised by `map`.
     ///
+    /// # Type Parameters
+    ///
+    /// * `S2` - Replacement scheduler error type.
+    /// * `F` - One-shot conversion function from `S` to `S2`.
+    ///
     /// # Examples
     ///
     /// ```rust

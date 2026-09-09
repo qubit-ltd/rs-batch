@@ -54,6 +54,10 @@ pub struct SequentialBatchProcessorBuilder<Item, C = BoxConsumer<Item>> {
 impl<Item> SequentialBatchProcessorBuilder<Item> {
     /// Creates a builder from a consumer.
     ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Consumer type stored by the builder.
+    ///
     /// # Parameters
     ///
     /// * `consumer` - Consumer invoked once for each input item.
@@ -83,6 +87,10 @@ impl<Item> SequentialBatchProcessorBuilder<Item> {
     /// # Parameters
     ///
     /// * `consumer` - Consumer invoked once for each input item.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Consumer type stored by the builder.
     ///
     /// # Returns
     ///
@@ -122,6 +130,10 @@ impl<Item, C> SequentialBatchProcessorBuilder<Item, C> {
     }
 
     /// Sets the progress reporter used by built processors.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `R` - Concrete reporter type stored behind the shared reporter trait object.
     ///
     /// # Parameters
     ///

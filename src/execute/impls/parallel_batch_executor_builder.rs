@@ -103,6 +103,10 @@ impl ParallelBatchExecutorBuilder {
 
     /// Sets the progress reporter used by built executors.
     ///
+    /// # Type Parameters
+    ///
+    /// * `R` - Concrete reporter type stored behind the shared reporter trait object.
+    ///
     /// # Parameters
     ///
     /// * `reporter` - Reporter receiving batch lifecycle callbacks.

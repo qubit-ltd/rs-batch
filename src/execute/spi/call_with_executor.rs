@@ -32,6 +32,14 @@ use crate::execute::internal::CallableTask;
 ///   Send.
 /// * `count` - Exact declared callable count, not a capacity hint.
 ///
+/// # Type Parameters
+///
+/// * `X` - Batch executor type.
+/// * `C` - Callable task type.
+/// * `R` - Callable success value type.
+/// * `E` - Callable error type.
+/// * `I` - Callable source type.
+///
 /// # Returns
 ///
 /// Successful values sorted by source index with their execution outcome.

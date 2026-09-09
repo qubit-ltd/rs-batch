@@ -139,6 +139,12 @@ impl Default for SequentialBatchExecutor {
 impl SequentialBatchExecutor {
     /// Executes tasks sequentially using the exact count reported by `tasks`.
     ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Runnable task type.
+    /// * `E` - Task-specific error type.
+    /// * `I` - Exact-size task source type.
+    ///
     /// This concrete API accepts non-`Send` tasks because execution remains on
     /// the caller thread.
     ///
@@ -167,6 +173,12 @@ impl SequentialBatchExecutor {
 
     /// Executes tasks sequentially with an explicit declared count.
     ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Runnable task type.
+    /// * `E` - Task-specific error type.
+    /// * `I` - Task source type.
+    ///
     /// Unlike [`BatchExecutor::execute_with_count`], this concrete method does
     /// not require task or error types to be `Send`.
     ///
@@ -193,6 +205,13 @@ impl SequentialBatchExecutor {
     }
 
     /// Executes callable tasks sequentially using their exact iterator count.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Callable task type.
+    /// * `R` - Callable success value type.
+    /// * `E` - Callable error type.
+    /// * `I` - Exact-size callable source type.
     ///
     /// # Parameters
     ///
@@ -221,6 +240,13 @@ impl SequentialBatchExecutor {
     ///
     /// The concrete sequential API accepts non-`Send` callables, values, and
     /// errors because no worker thread is created.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Callable task type.
+    /// * `R` - Callable success value type.
+    /// * `E` - Callable error type.
+    /// * `I` - Callable source type.
     ///
     /// # Parameters
     ///
@@ -265,6 +291,13 @@ impl SequentialBatchExecutor {
 
     /// Applies a fallible action sequentially using the exact item count.
     ///
+    /// # Type Parameters
+    ///
+    /// * `Item` - Input item type.
+    /// * `E` - Action error type.
+    /// * `I` - Exact-size item source type.
+    /// * `F` - Fallible item-action type.
+    ///
     /// # Parameters
     ///
     /// * `items` - Exact-size item source.
@@ -296,6 +329,13 @@ impl SequentialBatchExecutor {
     }
 
     /// Applies a fallible action sequentially with an explicit item count.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `Item` - Input item type.
+    /// * `E` - Action error type.
+    /// * `I` - Item source type.
+    /// * `F` - Fallible item-action type.
     ///
     /// # Parameters
     ///
