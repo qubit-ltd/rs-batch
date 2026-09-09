@@ -133,6 +133,7 @@ impl SequentialBatchExecutorBuilder {
     /// # Returns
     ///
     /// A sequential batch executor with this builder's configuration.
+    #[must_use = "use the constructed or borrowed value"]
     #[inline]
     pub fn build(self) -> SequentialBatchExecutor {
         SequentialBatchExecutor {
