@@ -116,6 +116,48 @@ measurement such as affected database rows is separate state owned by the
 processor; it must not be stored in `processed_count` when it can exceed the
 number of inputs.
 
+### Use a processor directly
+
+Use `SequentialBatchProcessor` when a stateful consumer owns the batch
+operation and should run on the caller thread. `with_consumer` stores a
+consumer directly, so it can borrow caller-owned state and need not be `Send`:
+
+```rust
+use qubit_batch::{BatchProcessor, SequentialBatchProcessor};
+
+let prefix = String::from("ok");
+let mut processor = SequentialBatchProcessor::with_consumer(|item: &String| {
+    assert!(item.starts_with(&prefix));
+});
+let result = processor
+    .process([String::from("okay"), String::from("ok")])
+    .expect("array length should be exact");
+assert!(result.is_success());
+```
+
+Use `ParallelBatchProcessor` when the consumer is `Send + Sync` and the work
+should be shared by scoped workers. It uses sequential execution for small
+batches by default; configure `thread_count` and `sequential_threshold` after
+measuring the workload:
+
+```rust
+use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+use qubit_batch::{BatchProcessor, ParallelBatchProcessor};
+
+let total = Arc::new(AtomicUsize::new(0));
+let consumer_total = Arc::clone(&total);
+let mut processor = ParallelBatchProcessor::builder(move |item: &usize| {
+    consumer_total.fetch_add(*item, Ordering::Relaxed);
+})
+.thread_count(2)
+.sequential_threshold(0)
+.build()
+.expect("parallel processor configuration should be valid");
+let result = processor.process([1, 2, 3]).expect("array length should be exact");
+assert!(result.is_success());
+assert_eq!(total.load(Ordering::Relaxed), 6);
+```
+
 ### Process a large source in explicit chunks
 
 Use the existing callable API when the source is too large for one in-memory

@@ -248,15 +248,19 @@ where
     ///
     /// # Errors
     ///
-    /// Returns [`BatchProcessError::CountShortfall`] when the source ends
+    /// Returns [`BatchProcessError::ProgressReport`] when progress delivery
+    /// fails, [`BatchProcessError::CountShortfall`] when the source ends
     /// before `count`, or [`BatchProcessError::CountExceeded`] when the
     /// source yields an extra item. Extra items are observed but not passed
-    /// to the consumer.
+    /// to the consumer. The attached result preserves work completed before
+    /// the batch-level error.
     ///
     /// # Panics
     ///
-    /// Propagates any panic raised by the stored consumer from the caller
-    /// thread or a worker thread, or by the configured progress reporter.
+    /// Propagates a panic raised by the stored consumer or by a synchronous
+    /// progress callback. Panics from the automatic parallel progress
+    /// reporter are converted to [`crate::ProgressFailure`] and returned as
+    /// [`BatchProcessError::ProgressReport`].
     fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
