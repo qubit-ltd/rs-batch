@@ -137,3 +137,24 @@ caller threads but include request/result channel handoff. Performance results
 must name the workload and environment; no universal speedup is promised.
 
 [Performance measurements](performance.md)
+
+## Callable fallback and chunk storage
+
+`execute::spi::call_with_executor` owns the generic sparse-output adapter and
+calls `execute_with_count`, not the overridden callable method. A single outer
+iterator defers user `into_iter` until executor admission starts. Standard and
+Rayon callable overrides use direct sequential Vec collection for fallback;
+Rayon briefly releases its path-selection guard before the helper re-enters
+`execute_with_count`, with no user code executed in that interval.
+`BatchCallError::map_scheduler_error` preserves owned outputs and secondary
+reporter errors without Clone bounds.
+
+Chunk delegation uses `Vec::drain(..)` so the wrapper retains buffer capacity.
+Dropping a partially consumed Drain releases its remaining items. Delegate error
+and invalid-success aggregates still exclude the current chunk; no source
+consumption audit or destruction-order guarantee is added.
+
+Policy-stop labels reflect source observation, not completion count. A final
+failed task can leave all declared tasks complete without a source None; a
+parallel source can instead exhaust before that failure. Tests deliberately
+exercise both orders using explicit channel handshakes.
