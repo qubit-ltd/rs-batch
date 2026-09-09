@@ -103,7 +103,8 @@ impl<P> ChunkedBatchProcessorBuilder<P> {
     ///
     /// # Type Parameters
     ///
-    /// * `R` - Concrete reporter type stored behind the shared reporter trait object.
+    /// * `R` - Concrete reporter type stored behind the shared reporter trait
+    ///   object.
     ///
     /// # Parameters
     ///
