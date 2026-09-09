@@ -65,36 +65,6 @@ assert!(matches!(outcome.failures()[0].error(), BatchTaskError::Failed(_)));
 The call succeeds because the source count matches the array length; task
 failures remain in `BatchOutcome` for inspection.
 
-## Behavioral Boundaries
-
-`ParallelBatchExecutor` creates scoped workers for one call and uses the
-sequential executor for batches at or below `sequential_threshold`. The Rayon
-companion also falls back to sequential execution when a batch re-enters the
-same Rayon pool, so nested work does not wait for the pool's own workers. Each
-nested call still returns its own outcome; failures are not merged into the
-outer call automatically.
-
-The concrete sequential callable APIs accept callable values that are
-inherently `FnMut`; a callable closure does not need to implement `Fn`. The
-parallel `BatchExecutor` trait keeps its `Send` bounds because accepted work
-may run on scoped workers.
-
-For processors, `processed_count` is the number of successfully processed
-input items and satisfies `processed_count <= completed_count <= item_count`.
-Business measurements such as affected database rows must be tracked
-separately. Callable result validation stores successful values and ordered
-failures in O(S + F) space, where S is the successful count and F is the
-failure count.
-
-When a chunk delegate fails, its error exposes the result for the preceding
-successful chunks only. The failed chunk may already have produced external
-side effects, so retry boundaries and idempotency remain the caller's
-responsibility. For a large logical input, process independent chunks and
-decide in the outer loop whether to continue or retry; the pattern does not
-provide a global failure policy, global stable indexes, or cross-chunk
-automatic retry. Add the chunk offset to a local output index when a global
-index is required.
-
 ## Why This Project Exists
 
 Many applications need one bounded operation, not a queue or an always-on
@@ -129,37 +99,6 @@ workloads before changing the default sequential fallback threshold.
 - [API documentation](https://docs.rs/qubit-batch)
 - [Crate package](https://crates.io/crates/qubit-batch)
 - [中文 README](README.zh_CN.md)
-
-## Source and termination contract
-
-Runtime-specific parallel schedulers should use
-`ParallelBatchExecutionContext::next_task` to pull and admit source items. A
-`None` returned by the source is recorded as exhaustion; a `None` returned
-before that can mean progress failure, a task-failure-policy stop, or an
-observation beyond the declared count. Inspect the coordinator result to
-distinguish them. `accept_task` is a lower-level adapter and does not record
-source exhaustion; prefer `next_task` so the coordinator can distinguish an
-exhausted source from a policy stop.
-
-Accepted task tokens are drained before an execution returns. A failure policy
-stops future admission and does not cancel already accepted work. A source that
-is observed exhausted still receives count-shortfall validation before a task
-failure policy is used. `Finished` means source consumption was not stopped by
-the policy, and does not mean that every task succeeded; inspect
-`BatchOutcome::is_success()` and `BatchOutcome::failures()`.
-
-Callable results retain successful values and ordered failures. Their indexed
-cross-check is linear in the number of successes and failures, while output
-collection and failure sorting have their own costs. Processor results count
-successful input items; domain measurements such as affected database rows
-belong in application state. A failed chunk may already have produced external
-side effects, so retry and idempotency remain the caller's responsibility.
-
-Callable small-batch and single-worker fallbacks collect outputs directly on
-the caller thread; Rayon same-pool reentry uses that path too. A policy stop can
-still have `completed_count == task_count`, while `Finished` can include task
-failures. Use counters and failure indexes alongside termination when deciding
-what to retry; see the [user guide](doc/user_guide.md).
 
 ## Testing
 
