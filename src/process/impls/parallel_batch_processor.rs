@@ -353,6 +353,10 @@ where
     /// * `state` - Processing state updated by this method.
     /// * `progress` - Progress run used for between-item running callbacks.
     ///
+    /// # Type Parameters
+    ///
+    /// * `I` - Item source type.
+    ///
     /// # Panics
     ///
     /// Propagates any panic raised while invoking the stored consumer.
@@ -391,6 +395,10 @@ where
     /// * `count` - Declared item count.
     /// * `state` - Shared processing state updated by producer and workers.
     /// * `progress` - Progress run used to spawn the running reporter.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `I` - Item source type.
     ///
     /// # Panics
     ///
