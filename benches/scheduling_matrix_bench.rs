@@ -40,7 +40,7 @@ fn register_executor<E: BatchExecutor>(criterion: &mut Criterion, label: &str, e
     group.sample_size(30);
     group.warm_up_time(Duration::from_secs(1));
     group.measurement_time(Duration::from_secs(2));
-    for count in [32usize, 100, 101, 1024] {
+    for count in [32usize, 100, 101, 1024, 65536] {
         for rounds in [0usize, 64, 4096] {
             for skewed in [false, true] {
                 let id = BenchmarkId::new(format!("rounds-{rounds}-skew-{skewed}"), count);
@@ -174,7 +174,10 @@ fn benchmarks(criterion: &mut Criterion) {
     register_executor(criterion, "sequential", &sequential);
     register_concurrent(criterion, "sequential", &sequential);
     register_steady_callers(criterion, "sequential", &sequential);
-    for threads in [2usize, 4] {
+    for threads in [1usize, 2, 4]
+        .into_iter()
+        .filter(|threads| *threads <= std::thread::available_parallelism().map(usize::from).unwrap_or(1))
+    {
         let executor = ParallelBatchExecutor::builder()
             .thread_count(threads)
             .sequential_threshold(0)
@@ -183,7 +186,43 @@ fn benchmarks(criterion: &mut Criterion) {
         register_executor(criterion, &format!("scoped-{threads}"), &executor);
         register_concurrent(criterion, &format!("scoped-{threads}"), &executor);
         register_steady_callers(criterion, &format!("scoped-{threads}"), &executor);
+        register_gate(criterion, &format!("scoped-{threads}"), &executor);
     }
+}
+
+/// Selected gate workloads include a slow producer and skewed worker costs.
+fn register_gate<E: BatchExecutor>(c: &mut Criterion, label: &str, executor: &E) {
+    let mut group = c.benchmark_group(format!("gate-{label}"));
+    group.sample_size(30);
+    group.warm_up_time(Duration::from_millis(200));
+    group.measurement_time(Duration::from_millis(500));
+    for (name, rounds, skewed, slow_source) in [
+        ("fine", 64usize, false, false),
+        ("noop", 0, false, false),
+        ("heavy", 4096, false, false),
+        ("skew", 4096, true, false),
+        ("slow-source", 64, false, true),
+    ] {
+        let run = || {
+            executor
+                .for_each_with_count(
+                    (0..1024).inspect(|index| {
+                        if slow_source && index % 16 == 0 {
+                            work(*index, 4096, false);
+                        }
+                    }),
+                    1024,
+                    |index| {
+                        work(index, rounds, skewed);
+                        Ok::<(), ()>(())
+                    },
+                )
+                .expect("gate batch")
+        };
+        assert_eq!(run().completed_count(), 1024);
+        group.bench_function(name, |b| b.iter(|| black_box(run())));
+    }
+    group.finish();
 }
 
 criterion_group!(benches, benchmarks);

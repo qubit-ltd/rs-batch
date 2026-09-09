@@ -57,3 +57,11 @@ harness = false
 [[bench]]
 name = "scheduling_matrix_bench"
 harness = false
+
+[[bench]]
+name = "call_fallback_bench"
+harness = false
+
+[[bench]]
+name = "chunk_buffer_bench"
+harness = false
