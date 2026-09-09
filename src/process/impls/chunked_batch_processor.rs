@@ -362,8 +362,9 @@ impl<P> ChunkedBatchProcessor<P> {
         let chunk_len = chunk.len();
         let start_index = state.completed_count();
         let chunk_index = state.chunk_count();
-        let current_chunk = std::mem::take(chunk);
-        match self.delegate.process_with_count(current_chunk, chunk_len) {
+        // Drain releases unconsumed items while retaining the buffer allocation
+        // for the next chunk, including when the delegate returns early.
+        match self.delegate.process_with_count(chunk.drain(..), chunk_len) {
             Ok(chunk_result) => {
                 if chunk_result.item_count() != chunk_len || chunk_result.completed_count() != chunk_len {
                     let (elapsed, report_error) = ProgressFailure::fail_operation(progress);
