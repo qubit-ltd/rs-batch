@@ -19,7 +19,8 @@ qubit-batch = "0.11"
 ```
 
 需要 Rust 1.94 或更高版本。只有直接实现 `Runnable`、`Callable` 或 `Consumer`
-时才需加入 `qubit-function`；只有实现自定义进度上报器时才需加入 `qubit-progress`。
+时才需加入 `qubit-function = "0.18"`；只有实现自定义进度上报器时才需加入
+`qubit-progress = "0.8"`。
 
 ## 快速开始
 
