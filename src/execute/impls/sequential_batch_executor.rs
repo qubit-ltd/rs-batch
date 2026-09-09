@@ -570,7 +570,6 @@ impl BatchExecutor for SequentialBatchExecutor {
     /// * `T` - Runnable task type.
     /// * `E` - Task error type.
     /// * `I` - Task source type.
-    ///
     #[inline(always)]
     fn execute_with_count<T, E, I>(
         &self,
@@ -593,7 +592,6 @@ impl BatchExecutor for SequentialBatchExecutor {
     /// * `R` - Callable success value type.
     /// * `E` - Callable error type.
     /// * `I` - Callable source type.
-    ///
     #[inline(always)]
     fn call_with_count<C, R, E, I>(
         &self,
