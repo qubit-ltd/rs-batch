@@ -140,7 +140,8 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     ///
     /// # Type Parameters
     ///
-    /// * `R` - Concrete reporter type stored behind the shared reporter trait object.
+    /// * `R` - Concrete reporter type stored behind the shared reporter trait
+    ///   object.
     ///
     /// # Parameters
     ///
