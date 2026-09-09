@@ -12,6 +12,15 @@
 /// count has not been fully validated. `Finished` means execution was not
 /// stopped by this policy; it does not imply that every task succeeded.
 ///
+/// A policy stop can have `completed_count == task_count`: the final declared
+/// task may fail before the source is probed for exhaustion. Do not pull
+/// another item merely to change this termination label. Parallel workers may
+/// instead fail after the producer already observed exhaustion, producing
+/// `Finished` for the same input. Neither label alone identifies which items
+/// need retry. On a batch-level error, the attached outcome is partial
+/// accounting; inspect the enclosing error as well as the completion counters
+/// and failure indexes.
+///
 /// # Examples
 ///
 /// ```rust
