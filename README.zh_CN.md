@@ -64,27 +64,6 @@ assert!(matches!(outcome.failures()[0].error(), BatchTaskError::Failed(_)));
 数组长度与实际来源一致，因此调用正常返回；单项失败保留在 `BatchOutcome` 中供调用方
 检查。
 
-## 行为边界
-
-`ParallelBatchExecutor` 为一次调用创建 scoped worker；声明数量不超过
-`sequential_threshold` 的批次会交给顺序执行器。配套的 Rayon crate 在同一个 Rayon
-线程池中发生嵌套调用时也会回退到顺序执行，因此内层工作不会等待该线程池自己的
-worker。每次嵌套调用仍返回独立的 outcome；失败不会自动合并到外层调用。
-
-具体的顺序 callable API 接收的 callable 天生是 `FnMut`，闭包不需要实现 `Fn`。
-`BatchExecutor` trait 的并行入口仍保留 `Send` 约束，因为已接受的任务可能在 scoped
-worker 上运行。
-
-对于 processor，`processed_count` 表示成功处理的输入项数量，并满足
-`processed_count <= completed_count <= item_count`。数据库受影响行数等业务指标必须单独
-记录。Callable 结果校验按成功数和失败数保存成功值与有序失败记录，空间复杂度为
-O(S + F)，其中 S 是成功数，F 是失败数。
-
-当 chunk delegate 失败时，错误中只保留此前成功完成的 chunk 的结果；失败 chunk 可能已经
-产生外部副作用，因此重试边界和幂等性由调用方负责。处理较大的逻辑输入时，应由外层循环
-决定是否继续或重试各个独立 chunk；这种模式不提供全局 failure policy、全局稳定下标或跨
-chunk 自动重试。如果需要全局下标，请把 chunk 偏移量加到局部输出下标上。
-
 ## 为什么需要它
 
 许多应用只需要完成一次有边界的批量操作，并不需要队列或常驻 worker pool。
@@ -114,29 +93,6 @@ chunk 自动重试。如果需要全局下标，请把 chunk 偏移量加到局�
 - [API 文档](https://docs.rs/qubit-batch)
 - [Crate 发布页](https://crates.io/crates/qubit-batch)
 - [English README](README.md)
-
-## 来源与终止契约
-
-运行时相关的并行调度器应使用
-`ParallelBatchExecutionContext::next_task` 拉取并准入来源项。来源返回
-`None` 会被记录为来源耗尽；在此之前返回 `None` 可能表示进度上报失败、任务失败
-策略停止准入，或观察到了超出声明数量的项。应检查 coordinator 结果区分原因。
-`accept_task` 是较低层的适配入口，不记录来源耗尽；优先使用 `next_task`，让
-coordinator 区分来源耗尽与策略停止。
-
-一次执行返回前会排空已经接受的任务 token。失败策略只停止后续准入，不取消已经接受的
-工作。来源已经被观察为耗尽时，会先执行数量不足校验，再处理任务失败策略。`Finished`
-表示来源没有因策略停止消费，并不表示所有任务都成功；请检查
-`BatchOutcome::is_success()` 与 `BatchOutcome::failures()`。
-
-Callable 结果保留成功值和有序失败记录；按下标交叉校验的复杂度是成功数与失败数之和，
-输出收集和失败排序还会产生各自的成本。Processor 结果统计成功处理的输入项，数据库
-受影响行数等业务指标应保存在应用状态中。失败 chunk 可能已经产生外部副作用，因此重试
-和幂等性仍由调用方负责。
-
-小批次和单 worker 的 callable 调用直接在调用线程收集输出，Rayon 同池重入也采用该路径。
-策略停止时，完成数可能已经等于声明数；`Finished` 也可能包含失败任务。判断重试范围时，
-应同时检查完成计数、失败下标和终止原因，详见[用户手册](doc/user_guide.zh_CN.md)。
 
 ## 测试
 
