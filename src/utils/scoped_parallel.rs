@@ -31,6 +31,14 @@ use super::internal::ScopedWorkItem;
 /// * `should_stop` - Callback checked before accepting or executing work.
 /// * `run_item` - Callback invoked by workers for each accepted item.
 ///
+/// # Type Parameters
+///
+/// * `I` - Source iterator type.
+/// * `T` - Source item type.
+/// * `O` - Observation callback type.
+/// * `S` - Stop predicate type.
+/// * `F` - Worker callback type.
+///
 /// The observer records every pulled item up to the first item beyond
 /// `declared_count`; that extra item is not passed to a worker.
 ///
@@ -107,6 +115,14 @@ pub(crate) fn run_scoped_parallel<I, T, O, S, F>(
 /// * `accept_item` - Converts an item into an accepted work token, or returns
 ///   `None` to stop consuming the source.
 /// * `run_item` - Executes one accepted work token on a worker.
+///
+/// # Type Parameters
+///
+/// * `I` - Source iterator type.
+/// * `T` - Source item type.
+/// * `W` - Accepted work token type.
+/// * `A` - Admission callback type.
+/// * `F` - Worker callback type.
 pub(crate) fn run_scoped_parallel_tasks<I, T, W, A, F>(items: I, worker_count: usize, accept_item: A, run_item: F)
 where
     I: IntoIterator<Item = T>,
@@ -154,6 +170,12 @@ where
 /// * `work_receiver` - Shared receiver protected because standard receivers are
 ///   not `Sync`.
 /// * `run_item` - Callback invoked for each accepted work item.
+///
+/// # Type Parameters
+///
+/// * `T` - Work item payload type.
+/// * `S` - Stop predicate type.
+/// * `F` - Worker callback type.
 fn run_scoped_worker<T, S, F>(
     work_receiver: Arc<Mutex<mpsc::Receiver<ScopedWorkItem<T>>>>,
     should_stop: &S,
@@ -179,6 +201,11 @@ fn run_scoped_worker<T, S, F>(
 }
 
 /// Runs accepted work until the token channel closes.
+///
+/// # Type Parameters
+///
+/// * `W` - Accepted work token type.
+/// * `F` - Worker callback type.
 fn run_scoped_task_worker<W, F>(work_receiver: Arc<Mutex<mpsc::Receiver<W>>>, run_item: &F)
 where
     F: Fn(W),

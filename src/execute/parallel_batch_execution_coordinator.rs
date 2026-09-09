@@ -219,6 +219,10 @@ impl ParallelBatchExecutionCoordinator {
     }
 
     /// Returns a zero-completion outcome for immediate setup failures.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Task-specific error type stored in the outcome.
     #[inline]
     fn empty_outcome<E>(count: usize) -> BatchOutcome<E> {
         BatchOutcomeBuilder::builder(count)
@@ -228,6 +232,11 @@ impl ParallelBatchExecutionCoordinator {
     }
 
     /// Finalizes completion, reports terminal progress, and maps count errors.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Task-specific error type stored in the outcome.
+    /// * `S` - Scheduler error type used by the enclosing operation.
     fn finish<E, S>(
         progress: Progress<'_>,
         state: BatchExecutionState<E>,

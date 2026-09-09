@@ -217,6 +217,13 @@ impl BatchExecutor for ParallelBatchExecutor {
 
     /// Collects small or single-worker calls directly on the caller thread.
     ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Callable task type.
+    /// * `R` - Callable success value type.
+    /// * `E` - Callable error type.
+    /// * `I` - Callable source type.
+    ///
     /// # Parameters
     ///
     /// * `tasks` - Callable source, consumed once during execution.
@@ -254,6 +261,12 @@ impl BatchExecutor for ParallelBatchExecutor {
 
     /// Executes the batch on scoped standard threads when the batch is large
     /// enough.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Runnable task type.
+    /// * `E` - Task-specific error type.
+    /// * `I` - Task source type.
     ///
     /// # Parameters
     ///

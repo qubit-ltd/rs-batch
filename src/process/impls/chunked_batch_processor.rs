@@ -341,6 +341,10 @@ impl<P> ChunkedBatchProcessor<P> {
     /// * `state` - Aggregate counters updated after successful delegation.
     /// * `progress` - Progress run used for lifecycle and periodic callbacks.
     ///
+    /// # Type Parameters
+    ///
+    /// * `Item` - Item type contained in the chunk.
+    ///
     /// # Returns
     ///
     /// Returns the progress run after the delegate accepts the chunk and the

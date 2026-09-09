@@ -138,6 +138,10 @@ impl<E> BatchExecutionState<E> {
     /// * `index` - Zero-based index of `task` within the declared batch.
     /// * `task` - Runnable task executed synchronously by this call.
     ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Runnable task type.
+    ///
     /// # Returns
     ///
     /// The terminal status for this task.
@@ -162,6 +166,10 @@ impl<E> BatchExecutionState<E> {
     ///
     /// * `index` - Zero-based index of the action within the declared batch.
     /// * `action` - Fallible action executed synchronously by this call.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `F` - Fallible action type.
     ///
     /// # Returns
     ///
