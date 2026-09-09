@@ -7,6 +7,10 @@
 // =============================================================================
 //! Runtime integration types for custom parallel batch executors.
 
+mod call_with_executor;
+
+pub use call_with_executor::call_with_executor;
+
 pub use super::parallel_batch_execution_context::ParallelBatchExecutionContext;
 pub use super::parallel_batch_execution_coordinator::ParallelBatchExecutionCoordinator;
 pub use super::parallel_batch_task::ParallelBatchTask;

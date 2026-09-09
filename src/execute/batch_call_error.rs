@@ -85,6 +85,42 @@ where
         }
     }
 
+    /// Converts only the scheduler error, preserving all partial callable
+    /// outputs.
+    ///
+    /// # Parameters
+    ///
+    /// * `map` - Conversion invoked once for ScheduleFailed, never for other
+    ///   errors.
+    ///
+    /// # Returns
+    ///
+    /// An equivalent error owning the original outputs, outcome and secondary
+    /// progress error. Neither successful values nor task errors are cloned.
+    ///
+    /// # Panics
+    ///
+    /// Propagates a panic raised by `map`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use qubit_batch::SequentialBatchExecutor;
+    /// let error = SequentialBatchExecutor::new()
+    ///     .call_with_count([|| Ok::<_, ()>(42)], 2).expect_err("short source");
+    /// let mapped = error.map_scheduler_error::<std::io::Error, _>(|never| match never {});
+    /// assert_eq!(*mapped.outputs()[0].value(), 42);
+    /// assert!(mapped.source().is_count_shortfall());
+    /// ```
+    pub fn map_scheduler_error<S2, F>(self, map: F) -> BatchCallError<R, E, S2>
+    where
+        S2: std::error::Error + Send + Sync + 'static,
+        F: FnOnce(S) -> S2,
+    {
+        let (source, outputs) = self.into_parts();
+        BatchCallError::new(source.map_scheduler_error(map), outputs)
+    }
+
     /// Returns the nested batch execution error.
     ///
     /// # Returns

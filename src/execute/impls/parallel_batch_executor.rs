@@ -10,11 +10,14 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
+use qubit_function::Callable;
 use qubit_function::Runnable;
 use qubit_progress::Reporter;
 
 use super::ParallelBatchExecutorBuildError;
 use super::ParallelBatchExecutorBuilder;
+use crate::BatchCallError;
+use crate::BatchCallResult;
 use crate::BatchExecutionError;
 use crate::BatchOutcome;
 use crate::TaskFailurePolicy;
@@ -211,6 +214,44 @@ impl Default for ParallelBatchExecutor {
 impl BatchExecutor for ParallelBatchExecutor {
     /// Standard scoped scheduling has no recoverable submission error.
     type SchedulerError = Infallible;
+
+    /// Collects small or single-worker calls directly on the caller thread.
+    ///
+    /// # Parameters
+    ///
+    /// * `tasks` - Callable source, consumed once during execution.
+    /// * `count` - Exact declared count used for fallback and validation.
+    ///
+    /// # Returns
+    ///
+    /// Indexed successful values with the final or policy-stopped outcome.
+    ///
+    /// # Errors
+    ///
+    /// Returns batch count, progress or scheduling failures with partial
+    /// values.
+    ///
+    /// # Panics
+    ///
+    /// Task panics are captured; source and synchronous reporter panics
+    /// propagate.
+    fn call_with_count<C, R, E, I>(
+        &self,
+        tasks: I,
+        count: usize,
+    ) -> Result<BatchCallResult<R, E>, BatchCallError<R, E, Self::SchedulerError>>
+    where
+        I: IntoIterator<Item = C>,
+        C: Callable<R, E> + Send,
+        R: Send,
+        E: Send,
+    {
+        if count <= self.sequential_threshold || self.thread_count <= 1 {
+            return self.sequential_executor().call_with_count(tasks, count);
+        }
+        crate::execute::spi::call_with_executor(self, tasks, count)
+    }
+
     /// Executes the batch on scoped standard threads when the batch is large
     /// enough.
     ///

@@ -15,7 +15,6 @@ use qubit_function::Runnable;
 use super::BatchCallError;
 use super::BatchCallOutput;
 use super::BatchCallResult;
-use super::internal::CallableTask;
 use super::internal::ForEachTask;
 use crate::BatchExecutionError;
 use crate::BatchOutcome;
@@ -232,21 +231,7 @@ pub trait BatchExecutor: Send + Sync {
         R: Send,
         E: Send,
     {
-        let outputs = Arc::new(SegQueue::new());
-        // This adapter is lazy: callables are wrapped as runnable tasks only
-        // when the executor consumes the iterator. The callables themselves are
-        // still executed later by `CallableTask::run`.
-        let runnable_tasks = tasks.into_iter().enumerate().map({
-            let outputs = Arc::clone(&outputs);
-            move |(index, callable)| CallableTask::new(callable, index, Arc::clone(&outputs))
-        });
-        let execution = self.execute_with_count(runnable_tasks, count);
-        let outputs = collect_call_outputs(outputs);
-        match execution {
-            Ok(outcome) => Ok(BatchCallResult::try_new(outcome, outputs)
-                .expect("call output collection must match successful task indexes and counts")),
-            Err(source) => Err(BatchCallError::new(source, outputs)),
-        }
+        crate::execute::spi::call_with_executor(self, tasks, count)
     }
 
     /// Applies `action` to every item whose iterator exposes an exact length.
