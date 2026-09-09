@@ -57,6 +57,10 @@ pub struct ParallelBatchProcessorBuilder<Item> {
 impl<Item> ParallelBatchProcessorBuilder<Item> {
     /// Creates a builder from a thread-safe consumer.
     ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Consumer type.
+    ///
     /// # Parameters
     ///
     /// * `consumer` - Thread-safe consumer invoked once for each accepted item.
@@ -133,6 +137,10 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     }
 
     /// Sets the progress reporter used by built processors.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `R` - Concrete reporter type stored behind the shared reporter trait object.
     ///
     /// # Parameters
     ///

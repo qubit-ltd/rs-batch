@@ -68,6 +68,10 @@ pub struct SequentialBatchProcessor<Item, C = BoxConsumer<Item>> {
 impl<Item> SequentialBatchProcessor<Item> {
     /// Creates a sequential consumer-backed batch processor.
     ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Consumer type converted to the stored boxed consumer.
+    ///
     /// # Parameters
     ///
     /// * `consumer` - Consumer invoked once for each input item.
@@ -86,6 +90,10 @@ impl<Item> SequentialBatchProcessor<Item> {
 
     /// Creates a builder for configuring a sequential consumer-backed
     /// processor.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Consumer type stored by the builder.
     ///
     /// # Parameters
     ///
@@ -112,6 +120,10 @@ impl<Item> SequentialBatchProcessor<Item> {
     /// # Parameters
     ///
     /// * `consumer` - Consumer invoked once for each input item.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Consumer type stored directly by the processor.
     ///
     /// # Returns
     ///
@@ -182,6 +194,10 @@ where
     type Error = BatchProcessError;
 
     /// Processes items sequentially on the caller thread.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `I` - Item source type.
     ///
     /// # Parameters
     ///

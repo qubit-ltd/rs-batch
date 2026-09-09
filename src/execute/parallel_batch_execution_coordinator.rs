@@ -116,6 +116,13 @@ impl ParallelBatchExecutionCoordinator {
     ///   scheduler error directly; it must not silently drop a rejected
     ///   submission.
     ///
+    /// # Type Parameters
+    ///
+    /// * `I` - Task source type.
+    /// * `E` - Task-specific error type.
+    /// * `S` - Scheduler error type.
+    /// * `Schedule` - Runtime-specific scheduling closure type.
+    ///
     /// # Returns
     ///
     /// A validated [`BatchOutcome`] when progress reporting, task accounting,

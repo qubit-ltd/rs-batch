@@ -101,6 +101,10 @@ impl<P> ChunkedBatchProcessorBuilder<P> {
 
     /// Sets the progress reporter used by built processors.
     ///
+    /// # Type Parameters
+    ///
+    /// * `R` - Concrete reporter type stored behind the shared reporter trait object.
+    ///
     /// # Parameters
     ///
     /// * `reporter` - Progress reporter used for later processing calls.

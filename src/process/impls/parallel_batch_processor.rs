@@ -101,6 +101,10 @@ impl<Item> ParallelBatchProcessor<Item> {
 
     /// Creates a parallel consumer-backed batch processor.
     ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Thread-safe consumer type.
+    ///
     /// # Parameters
     ///
     /// * `consumer` - Thread-safe consumer invoked once for each accepted item.
@@ -121,6 +125,10 @@ impl<Item> ParallelBatchProcessor<Item> {
     }
 
     /// Creates a builder for configuring a parallel consumer-backed processor.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Thread-safe consumer type.
     ///
     /// # Parameters
     ///
@@ -223,6 +231,10 @@ where
     type Error = BatchProcessError;
 
     /// Processes items sequentially for small batches or on scoped workers.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `I` - Item source type.
     ///
     /// # Parameters
     ///
