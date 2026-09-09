@@ -110,3 +110,19 @@ Rayon 仓库用共享泛型断言覆盖顺序、标准并行、Rayon 及回退�
 请求与结果通道交接。性能结论必须说明负载与环境，不承诺普遍加速。
 
 [性能测量](performance.zh_CN.md)
+
+## Callable 回退与分块存储
+
+`execute::spi::call_with_executor` 统一处理稀疏输出，调用 `execute_with_count`，不递归调用
+后端覆盖的 callable 方法。外层惰性迭代器把用户 `into_iter` 延迟到执行器开始准入之后。
+标准线程与 Rayon 的 callable 回退直接使用顺序 Vec 收集；Rayon 在选择并行路径后先释放
+临时 guard，再由 helper 进入 `execute_with_count` 的保护范围，这段间隔不执行用户代码。
+`BatchCallError::map_scheduler_error` 保留成功值及次级 reporter 错误，不要求 Clone。
+
+分块委托改用 `Vec::drain(..)`，缓冲区容量由外层保留。delegate 未消费完时，Drain 的析构
+负责释放剩余元素。delegate 失败或返回非法成功结果时，汇总仍不计入当前块；不新增来源
+消费审计，也不保证具体析构顺序。
+
+策略终止标签反映来源是否被观察为耗尽，并非完成数量。最后一个任务失败时可能已完成全部
+声明任务，但尚未观察到 None；并行路径也可能先耗尽来源再失败。测试用通道握手分别验证
+这两种时序。

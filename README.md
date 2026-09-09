@@ -155,6 +155,12 @@ successful input items; domain measurements such as affected database rows
 belong in application state. A failed chunk may already have produced external
 side effects, so retry and idempotency remain the caller's responsibility.
 
+Callable small-batch and single-worker fallbacks collect outputs directly on
+the caller thread; Rayon same-pool reentry uses that path too. A policy stop can
+still have `completed_count == task_count`, while `Finished` can include task
+failures. Use counters and failure indexes alongside termination when deciding
+what to retry; see the [user guide](doc/user_guide.md).
+
 ## Testing
 
 ```bash

@@ -371,6 +371,45 @@ match error {
 }
 ```
 
+## Completion counts and termination
+
+A final declared task can fail after every declared task has completed but
+before the source returns `None`. The sequential executor stops immediately;
+it does not pull another item just to prove exhaustion:
+
+```rust
+use qubit_batch::{BatchTermination, SequentialBatchExecutor, TaskFailurePolicy};
+let executor = SequentialBatchExecutor::builder()
+    .task_failure_policy(TaskFailurePolicy::StopOnFirstFailure).build();
+let outcome = executor.execute_with_count([|| Err::<(), _>("invalid")], 1)
+    .expect("policy stop returns an outcome");
+assert_eq!(outcome.completed_count(), 1);
+assert_eq!(outcome.termination(), BatchTermination::StoppedByTaskFailurePolicy);
+assert!(!outcome.is_success());
+```
+
+If a parallel producer observes `None` before its worker fails, the same input
+can instead yield `Finished` (or `CountShortfall` when the source is short).
+A small-batch or same-pool fallback can therefore change the termination label
+without changing the task results. `Finished` is not a promise of task success,
+and `completed_count == task_count` does not prove the source count was validated
+when the failure policy stopped admission. Inspect the enclosing batch error,
+completion counters, and indexed failures together before choosing retry work.
+Already accepted parallel tasks drain, so the failure count can exceed the limit.
+
+Callable fallback uses the sequential executor's direct output collection for
+small batches or a single worker; Rayon also uses it for same-pool reentry.
+The trait's `Send` requirements and sparse, ordered result contract still apply.
+The generic parallel adapter defers custom `IntoIterator::into_iter` execution
+until its executor consumes the source inside its scheduling boundary. This
+guarantee applies to the explicit-count adapter; `call` first converts its
+exact-size source to obtain `len()` before dispatch, as before.
+
+
+Chunked processing reuses its input buffer. Delegates receive an iterator, not
+a promised Vec representation or destruction order. A failed chunk can have
+external effects; its aggregate still includes only earlier successful chunks.
+
 ## Errors and Diagnostics
 
 Inspect the result in two layers:

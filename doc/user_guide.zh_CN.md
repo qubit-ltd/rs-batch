@@ -345,6 +345,38 @@ match error {
 }
 ```
 
+## 完成数量与终止原因
+
+最后一个声明任务失败时，即使完成数量已经等于声明数量，来源也可能尚未返回 `None`。
+顺序执行器会立即按失败策略停止，不会为了确认来源耗尽再拉取一项：
+
+```rust
+use qubit_batch::{BatchTermination, SequentialBatchExecutor, TaskFailurePolicy};
+let executor = SequentialBatchExecutor::builder()
+    .task_failure_policy(TaskFailurePolicy::StopOnFirstFailure).build();
+let outcome = executor.execute_with_count([|| Err::<(), _>("invalid")], 1)
+    .expect("policy stop returns an outcome");
+assert_eq!(outcome.completed_count(), 1);
+assert_eq!(outcome.termination(), BatchTermination::StoppedByTaskFailurePolicy);
+assert!(!outcome.is_success());
+```
+
+并行执行中，生产线程可能先观察到 `None`，工作线程随后才失败。这时相同输入可以返回
+`Finished`；若来源数量不足，则返回 `CountShortfall`。因此，阈值回退或同池重入可能改变
+终止标签，但不改变已经发生的任务结果。`Finished` 不代表任务全部成功；策略停止时，
+`completed_count == task_count` 也不能证明来源计数已经验证。选择重试项时，应结合外层
+批次错误、完成计数和失败下标判断。已接纳的并行任务会继续执行，所以最终失败数可能超过
+配置的停止阈值。
+
+小批次和单 worker 的 callable 调用直接使用顺序执行器收集输出；Rayon 同池重入也走该路径。
+trait 的 `Send` 要求与稀疏、有序的结果契约保持不变。通用并行适配器还会延迟调用自定义
+`IntoIterator::into_iter`，使其发生在执行器开始消费来源、重入保护已经生效之后。此保证针对显式计数适配路径；
+`call` 仍会先转换精确长度来源以读取 `len()`，然后再选择执行路径。
+
+
+分块处理会复用输入缓冲区。delegate 接收的是迭代器，不应依赖 Vec 表示或具体析构顺序。
+失败块仍可能产生外部副作用，错误中的汇总结果只包含此前成功的块。
+
 ## 错误与诊断
 
 应分两层检查结果：
