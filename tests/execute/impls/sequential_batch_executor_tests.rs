@@ -93,7 +93,9 @@ fn test_sequential_batch_executor_executes_successfully() {
 fn test_sequential_batch_executor_runs_non_send_local_tasks() {
     let executor = SequentialBatchExecutor::new();
     let counter = Rc::new(RefCell::new(0));
-    let tasks = (0..3).map(|_| LocalTask(Rc::clone(&counter))).collect::<Vec<_>>();
+    let tasks = (0..3)
+        .map(|_| LocalTask(Rc::clone(&counter)))
+        .collect::<Vec<_>>();
 
     let result = executor
         .execute_with_count(tasks, 3)
@@ -124,7 +126,10 @@ fn test_sequential_batch_executor_runs_non_send_for_each_action() {
 fn test_sequential_batch_executor_calls_non_send_local_callables() {
     let executor = SequentialBatchExecutor::new();
     let prefix = Rc::new(String::from("local"));
-    let callables = vec![LocalCallable(Rc::clone(&prefix)), LocalCallable(Rc::clone(&prefix))];
+    let callables = vec![
+        LocalCallable(Rc::clone(&prefix)),
+        LocalCallable(Rc::clone(&prefix)),
+    ];
 
     let result = executor
         .call_with_count(callables, 2)
@@ -136,7 +141,10 @@ fn test_sequential_batch_executor_calls_non_send_local_callables() {
             .into_iter()
             .map(|output| output.into_value())
             .collect::<Vec<_>>(),
-        vec![Rc::new(String::from("local")), Rc::new(String::from("local"))]
+        vec![
+            Rc::new(String::from("local")),
+            Rc::new(String::from("local"))
+        ]
     );
 }
 
@@ -343,7 +351,10 @@ fn test_sequential_batch_executor_reports_progress() {
     let events = reporter.events();
 
     assert_eq!(result.completed_count(), 3);
-    assert!(matches!(events.first(), Some(ProgressEvent::Start { total_count: 3 })));
+    assert!(matches!(
+        events.first(),
+        Some(ProgressEvent::Start { total_count: 3 })
+    ));
     assert!(events.iter().any(|event| matches!(
         event,
         ProgressEvent::Process {
@@ -389,7 +400,10 @@ fn test_sequential_batch_executor_reports_progress_with_zero_interval() {
 fn test_sequential_batch_executor_propagates_progress_reporter_start_panic() {
     const PANIC_MESSAGE: &str = "progress reporter start panic";
     let executor = SequentialBatchExecutor::builder()
-        .reporter(PanickingReporter::new(ProgressPanicPhase::Start, PANIC_MESSAGE))
+        .reporter(PanickingReporter::new(
+            ProgressPanicPhase::Start,
+            PANIC_MESSAGE,
+        ))
         .build();
     let tasks = vec![TestTask::succeed()];
 
@@ -403,7 +417,10 @@ fn test_sequential_batch_executor_propagates_progress_reporter_start_panic() {
 fn test_sequential_batch_executor_propagates_progress_reporter_process_panic() {
     const PANIC_MESSAGE: &str = "progress reporter process panic";
     let executor = SequentialBatchExecutor::builder()
-        .reporter(PanickingReporter::new(ProgressPanicPhase::Process, PANIC_MESSAGE))
+        .reporter(PanickingReporter::new(
+            ProgressPanicPhase::Process,
+            PANIC_MESSAGE,
+        ))
         .report_interval(Duration::from_nanos(1))
         .build();
     let tasks = vec![TestTask::sleep_success(Duration::from_millis(1))];
@@ -418,7 +435,10 @@ fn test_sequential_batch_executor_propagates_progress_reporter_process_panic() {
 fn test_sequential_batch_executor_propagates_progress_reporter_finish_panic() {
     const PANIC_MESSAGE: &str = "progress reporter finish panic";
     let executor = SequentialBatchExecutor::builder()
-        .reporter(PanickingReporter::new(ProgressPanicPhase::Finish, PANIC_MESSAGE))
+        .reporter(PanickingReporter::new(
+            ProgressPanicPhase::Finish,
+            PANIC_MESSAGE,
+        ))
         .build();
     let tasks = vec![TestTask::succeed()];
 
@@ -497,7 +517,9 @@ fn test_sequential_batch_executor_for_each_with_count_reports_mismatches() {
         .expect_err("explicit count mismatch should be reported");
 
     match error {
-        BatchExecutionError::CountShortfall { expected, actual, .. } => {
+        BatchExecutionError::CountShortfall {
+            expected, actual, ..
+        } => {
             assert_eq!(expected, 3);
             assert_eq!(actual, 2);
         }

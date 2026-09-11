@@ -68,7 +68,9 @@ pub enum BatchProcessError {
     },
 
     /// The input source yielded more items than the declared item count.
-    #[error("batch item count exceeded: expected {expected}, observed at least {observed_at_least}")]
+    #[error(
+        "batch item count exceeded: expected {expected}, observed at least {observed_at_least}"
+    )]
     CountExceeded {
         /// Declared item count.
         expected: usize,
@@ -108,9 +110,8 @@ impl BatchProcessError {
     pub fn progress_report_error(&self) -> Option<&ProgressFailure> {
         match self {
             Self::ProgressReport { source, .. } => Some(source),
-            Self::CountShortfall { report_error, .. } | Self::CountExceeded { report_error, .. } => {
-                report_error.as_ref()
-            }
+            Self::CountShortfall { report_error, .. }
+            | Self::CountExceeded { report_error, .. } => report_error.as_ref(),
         }
     }
 

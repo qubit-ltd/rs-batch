@@ -22,7 +22,11 @@ use qubit_batch::ChunkedBatchProcessor;
 struct Consume;
 impl BatchProcessor<u64> for Consume {
     type Error = std::convert::Infallible;
-    fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(
+        &mut self,
+        items: I,
+        count: usize,
+    ) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = u64>,
     {
@@ -45,8 +49,11 @@ fn benchmarks(c: &mut Criterion) {
     group.measurement_time(Duration::from_millis(500));
     for count in [1024usize, 65536] {
         for size in [1usize, 16, 256, 4096] {
-            let mut processor = ChunkedBatchProcessor::new(Consume, NonZeroUsize::new(size).expect("nonzero"));
-            let check = processor.process_with_count(0..count as u64, count).expect("setup");
+            let mut processor =
+                ChunkedBatchProcessor::new(Consume, NonZeroUsize::new(size).expect("nonzero"));
+            let check = processor
+                .process_with_count(0..count as u64, count)
+                .expect("setup");
             assert_eq!(check.completed_count(), count);
             assert_eq!(check.chunk_count(), count.div_ceil(size));
             group.bench_function(BenchmarkId::new(format!("size-{size}"), count), |b| {

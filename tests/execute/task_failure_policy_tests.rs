@@ -84,7 +84,10 @@ fn test_sequential_batch_executor_stops_after_configured_failure_count() {
     assert_eq!(outcome.completed_count(), 3);
     assert_eq!(outcome.failed_count(), 1);
     assert_eq!(outcome.panicked_count(), 1);
-    assert_eq!(outcome.termination(), BatchTermination::StoppedByTaskFailurePolicy);
+    assert_eq!(
+        outcome.termination(),
+        BatchTermination::StoppedByTaskFailurePolicy
+    );
 }
 
 #[test]
@@ -104,7 +107,10 @@ fn test_sequential_batch_executor_does_not_consume_tasks_after_policy_stop() {
     assert_eq!(next_calls.get(), 1);
     assert_eq!(outcome.completed_count(), 1);
     assert_eq!(outcome.failed_count(), 1);
-    assert_eq!(outcome.termination(), BatchTermination::StoppedByTaskFailurePolicy);
+    assert_eq!(
+        outcome.termination(),
+        BatchTermination::StoppedByTaskFailurePolicy
+    );
 }
 
 #[test]
@@ -117,7 +123,10 @@ fn test_sequential_batch_executor_marks_early_stop_before_count_validation() {
 
     assert_eq!(outcome.task_count(), 2);
     assert_eq!(outcome.completed_count(), 1);
-    assert_eq!(outcome.termination(), BatchTermination::StoppedByTaskFailurePolicy);
+    assert_eq!(
+        outcome.termination(),
+        BatchTermination::StoppedByTaskFailurePolicy
+    );
 }
 
 /// Counts iterator pulls while yielding configured test tasks.

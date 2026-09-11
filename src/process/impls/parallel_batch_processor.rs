@@ -154,7 +154,9 @@ impl<Item> ParallelBatchProcessor<Item> {
     #[must_use = "use the constructed or borrowed value"]
     #[inline(always)]
     pub fn default_thread_count() -> usize {
-        thread::available_parallelism().map(usize::from).unwrap_or(1)
+        thread::available_parallelism()
+            .map(usize::from)
+            .unwrap_or(1)
     }
 
     /// Returns the configured worker-thread count.
@@ -261,13 +263,20 @@ where
     /// progress callback. Panics from the automatic parallel progress
     /// reporter are converted to [`crate::ProgressFailure`] and returned as
     /// [`BatchProcessError::ProgressReport`].
-    fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(
+        &mut self,
+        items: I,
+        count: usize,
+    ) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
     {
         let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
             .interval(self.report_interval)
-            .metric(Metric::new(PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME).total(count as u64))
+            .metric(
+                Metric::new(PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME)
+                    .total(count as u64),
+            )
             .start()
         {
             Ok(progress) => progress,

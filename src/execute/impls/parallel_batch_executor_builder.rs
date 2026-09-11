@@ -174,7 +174,8 @@ impl ParallelBatchExecutorBuilder {
         if self.thread_count == 0 {
             return Err(ParallelBatchExecutorBuildError::ZeroThreadCount);
         }
-        let coordinator = ParallelBatchExecutionCoordinator::new(self.reporter, self.report_interval);
+        let coordinator =
+            ParallelBatchExecutionCoordinator::new(self.reporter, self.report_interval);
         Ok(ParallelBatchExecutor {
             thread_count: self.thread_count,
             sequential_threshold: self.sequential_threshold,
