@@ -38,12 +38,14 @@ An import service must validate all received rows, report every bad row, and
 retry those rows by their original position. The success criterion is three
 attempted rows, two successes, and one failure at index 1.
 
-### Install the crate
+## Installation and Minimal Configuration
 
 ```toml
 [dependencies]
 qubit-batch = "0.11"
 ```
+
+## Core Workflow
 
 ### Run every validation task
 
@@ -85,8 +87,6 @@ assert!(matches!(outcome.failures()[0].error(), BatchTaskError::Failed(_)));
 `SequentialBatchExecutor` runs in iterator order on the caller thread. The
 default policy continues after task errors and captured task panics, so the
 service can build a complete retry report from `outcome.failures()`.
-
-## Core Workflow
 
 Choose the entry point from the input you already own:
 

@@ -32,12 +32,14 @@
 导入服务需要校验全部记录、汇总所有无效记录，并按原始位置安排重试。完成标准是：尝试
 3 条记录，成功 2 条，失败记录的下标为 1。
 
-### 安装 crate
+## 安装与最小配置
 
 ```toml
 [dependencies]
 qubit-batch = "0.11"
 ```
+
+## 核心工作流
 
 ### 执行全部校验任务
 
@@ -78,8 +80,6 @@ assert!(matches!(outcome.failures()[0].error(), BatchTaskError::Failed(_)));
 
 `SequentialBatchExecutor` 在调用线程中按迭代器顺序执行。默认策略会继续处理任务错误
 和已捕获的任务 panic，因此可从 `outcome.failures()` 生成完整的重试报告。
-
-## 核心工作流
 
 根据已有输入选择入口：
 
