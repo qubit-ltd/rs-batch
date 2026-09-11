@@ -17,7 +17,10 @@ fn test_batch_call_output_exposes_index_and_value() {
     let error = SequentialBatchExecutor::new()
         .call_with_count([TestCallable::returning(42)], 2)
         .expect_err("declared shortfall should preserve one output");
-    let output = error.into_outputs().pop().expect("one output should be present");
+    let output = error
+        .into_outputs()
+        .pop()
+        .expect("one output should be present");
 
     assert_eq!(output.index(), 0);
     assert_eq!(output.value(), &42);
@@ -27,10 +30,16 @@ fn test_batch_call_output_exposes_index_and_value() {
 #[test]
 fn test_batch_call_error_returns_sparse_outputs() {
     let error = SequentialBatchExecutor::new()
-        .call_with_count([TestCallable::returning(10), TestCallable::returning(20)], 3)
+        .call_with_count(
+            [TestCallable::returning(10), TestCallable::returning(20)],
+            3,
+        )
         .expect_err("declared shortfall should preserve successful outputs");
 
-    assert!(matches!(error.source(), BatchExecutionError::CountShortfall { .. }));
+    assert!(matches!(
+        error.source(),
+        BatchExecutionError::CountShortfall { .. }
+    ));
     assert_eq!(error.outputs().len(), 2);
     assert_eq!(error.outputs()[0].index(), 0);
     assert_eq!(error.outputs()[0].value(), &10);

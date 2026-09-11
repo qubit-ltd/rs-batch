@@ -55,7 +55,11 @@ fn measure(c: &mut Criterion, label: &str, executor: &Executor) {
 }
 /// Registers fallback, forced parallel, and single-worker configurations.
 fn benchmarks(c: &mut Criterion) {
-    for (name, workers, threshold) in [("default", 2, 100), ("parallel", 2, 0), ("one-worker", 1, 0)] {
+    for (name, workers, threshold) in [
+        ("default", 2, 100),
+        ("parallel", 2, 0),
+        ("one-worker", 1, 0),
+    ] {
         let executor = Executor::builder()
             .thread_count(workers)
             .sequential_threshold(threshold)

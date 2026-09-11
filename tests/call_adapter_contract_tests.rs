@@ -48,7 +48,8 @@ fn test_mapping_keeps_non_clone_outputs() {
 #[test]
 fn test_helper_collects_in_source_order() {
     let executor = SequentialBatchExecutor::new();
-    let result = call_with_executor(&executor, (0..3).map(|i| move || Ok::<_, ()>(i)), 3).expect("valid source");
+    let result = call_with_executor(&executor, (0..3).map(|i| move || Ok::<_, ()>(i)), 3)
+        .expect("valid source");
     let values: Vec<_> = result.outputs().iter().map(|o| *o.value()).collect();
     assert_eq!(values, vec![0, 1, 2]);
 }
@@ -79,18 +80,19 @@ impl BatchExecutor for RejectScheduler {
         T: Runnable<E> + Send,
         E: Send,
     {
-        ParallelBatchExecutionCoordinator::new(Arc::new(TerminalFailure), Duration::from_secs(60)).execute(
-            tasks,
-            count,
-            TaskFailurePolicy::Continue,
-            |tasks, context| {
-                let mut tasks = tasks.into_iter();
-                if let Some(token) = context.next_task(&mut tasks) {
-                    context.execute_task(token);
-                }
-                Err(io::Error::other("schedule rejected"))
-            },
-        )
+        ParallelBatchExecutionCoordinator::new(Arc::new(TerminalFailure), Duration::from_secs(60))
+            .execute(
+                tasks,
+                count,
+                TaskFailurePolicy::Continue,
+                |tasks, context| {
+                    let mut tasks = tasks.into_iter();
+                    if let Some(token) = context.next_task(&mut tasks) {
+                        context.execute_task(token);
+                    }
+                    Err(io::Error::other("schedule rejected"))
+                },
+            )
     }
 }
 
@@ -106,7 +108,11 @@ fn test_mapping_preserves_secondary_reporter_failure() {
     });
     assert_eq!(calls.get(), 1);
     assert_eq!(
-        mapped.source().scheduler_error().expect("scheduler source").kind(),
+        mapped
+            .source()
+            .scheduler_error()
+            .expect("scheduler source")
+            .kind(),
         io::ErrorKind::Interrupted
     );
     assert!(mapped.source().progress_report_error().is_some());
@@ -128,7 +134,8 @@ fn test_non_scheduler_errors_do_not_invoke_mapping() {
     ];
     for error in errors {
         let completed = error.outcome().completed_count();
-        let mapped = error.map_scheduler_error::<io::Error, _>(|_: Infallible| panic!("not a scheduler error"));
+        let mapped = error
+            .map_scheduler_error::<io::Error, _>(|_: Infallible| panic!("not a scheduler error"));
         assert_eq!(mapped.outcome().completed_count(), completed);
         assert_eq!(mapped.outputs().len(), completed);
     }
@@ -161,7 +168,9 @@ impl BatchExecutor for RejectBeforeSource {
     {
         Err(BatchExecutionError::ScheduleFailed {
             source: io::Error::other("rejected before source"),
-            outcome: BatchOutcomeBuilder::builder(count).build().expect("empty outcome"),
+            outcome: BatchOutcomeBuilder::builder(count)
+                .build()
+                .expect("empty outcome"),
             report_error: None,
         })
     }
@@ -169,8 +178,12 @@ impl BatchExecutor for RejectBeforeSource {
 #[test]
 fn test_helper_defers_source_conversion_until_execution() {
     let entered = Cell::new(false);
-    let error = call_with_executor(&RejectBeforeSource, ObserveIntoIter { entered: &entered }, 0)
-        .expect_err("scheduler rejects without consuming source");
+    let error = call_with_executor(
+        &RejectBeforeSource,
+        ObserveIntoIter { entered: &entered },
+        0,
+    )
+    .expect_err("scheduler rejects without consuming source");
     assert!(error.source().is_schedule_failed());
     assert!(!entered.get());
 }

@@ -38,7 +38,10 @@ fn test_chunked_batch_processor_returns_progress_report_error() {
         .process_with_count([1], 1)
         .expect_err("failing reporter should fail chunked processing");
 
-    assert!(matches!(&error, ChunkedBatchProcessError::ProgressReport { .. }));
+    assert!(matches!(
+        &error,
+        ChunkedBatchProcessError::ProgressReport { .. }
+    ));
     assert_eq!(error.result().completed_count(), 1);
 }
 
@@ -46,10 +49,13 @@ fn test_chunked_batch_processor_returns_progress_report_error() {
 fn test_chunked_batch_processor_accessors_and_delegate_mutation() {
     let delegate = TestChunkProcessor::success();
     let chunks = delegate.chunks();
-    let mut processor = ChunkedBatchProcessor::builder(delegate, NonZeroUsize::new(4).expect("chunk size is non-zero"))
-        .reporter(NoopReporter)
-        .report_interval(Duration::from_millis(10))
-        .build();
+    let mut processor = ChunkedBatchProcessor::builder(
+        delegate,
+        NonZeroUsize::new(4).expect("chunk size is non-zero"),
+    )
+    .reporter(NoopReporter)
+    .report_interval(Duration::from_millis(10))
+    .build();
 
     assert_eq!(processor.chunk_size().get(), 4);
     assert_eq!(processor.report_interval(), Duration::from_millis(10));
@@ -73,7 +79,10 @@ fn test_chunked_batch_processor_accessors_and_delegate_mutation() {
 fn test_chunked_batch_processor_submits_items_in_chunks() {
     let delegate = TestChunkProcessor::success();
     let chunks = delegate.chunks();
-    let mut processor = ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"));
+    let mut processor = ChunkedBatchProcessor::new(
+        delegate,
+        NonZeroUsize::new(2).expect("chunk size is non-zero"),
+    );
 
     let result = processor
         .process_with_count([1, 2, 3, 4, 5], 5)
@@ -84,7 +93,9 @@ fn test_chunked_batch_processor_submits_items_in_chunks() {
     assert_eq!(result.processed_count(), 5);
     assert_eq!(result.chunk_count(), 3);
     assert_eq!(
-        *chunks.lock().unwrap_or_else(std::sync::PoisonError::into_inner),
+        *chunks
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner),
         vec![vec![1, 2], vec![3, 4], vec![5]]
     );
 }
@@ -93,9 +104,14 @@ fn test_chunked_batch_processor_submits_items_in_chunks() {
 fn test_chunked_batch_processor_accepts_empty_input() {
     let delegate = TestChunkProcessor::success();
     let chunks = delegate.chunks();
-    let mut processor = ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"));
+    let mut processor = ChunkedBatchProcessor::new(
+        delegate,
+        NonZeroUsize::new(2).expect("chunk size is non-zero"),
+    );
 
-    let result = processor.process_with_count([], 0).expect("empty batch should succeed");
+    let result = processor
+        .process_with_count([], 0)
+        .expect("empty batch should succeed");
 
     assert_eq!(result.item_count(), 0);
     assert_eq!(result.completed_count(), 0);
@@ -113,10 +129,13 @@ fn test_chunked_batch_processor_accepts_empty_input() {
 fn test_chunked_batch_processor_reports_progress() {
     let delegate = TestChunkProcessor::success();
     let reporter = Arc::new(RecordingReporter::new());
-    let mut processor = ChunkedBatchProcessor::builder(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"))
-        .reporter_arc(reporter.clone())
-        .report_interval(Duration::ZERO)
-        .build();
+    let mut processor = ChunkedBatchProcessor::builder(
+        delegate,
+        NonZeroUsize::new(2).expect("chunk size is non-zero"),
+    )
+    .reporter_arc(reporter.clone())
+    .report_interval(Duration::ZERO)
+    .build();
 
     let _ = processor
         .process_with_count([1, 2, 3], 3)
@@ -137,7 +156,10 @@ fn test_chunked_batch_processor_reports_progress() {
         "expected a progress event after the first completed chunk: {events:?}"
     );
     assert!(
-        matches!(events.last(), Some(ProgressEvent::Finish { total_count: 3, .. })),
+        matches!(
+            events.last(),
+            Some(ProgressEvent::Finish { total_count: 3, .. })
+        ),
         "expected a finish event: {events:?}"
     );
 }
@@ -146,17 +168,24 @@ fn test_chunked_batch_processor_reports_progress() {
 fn test_chunked_batch_processor_skips_progress_before_interval() {
     let delegate = TestChunkProcessor::success();
     let reporter = Arc::new(RecordingReporter::new());
-    let mut processor = ChunkedBatchProcessor::builder(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"))
-        .reporter_arc(reporter.clone())
-        .report_interval(Duration::from_secs(3_600))
-        .build();
+    let mut processor = ChunkedBatchProcessor::builder(
+        delegate,
+        NonZeroUsize::new(2).expect("chunk size is non-zero"),
+    )
+    .reporter_arc(reporter.clone())
+    .report_interval(Duration::from_secs(3_600))
+    .build();
 
     let _ = processor
         .process_with_count([1, 2], 2)
         .expect("chunked processing should succeed");
 
     let events = reporter.events();
-    assert_eq!(events.len(), 2, "expected only start and finish: {events:?}");
+    assert_eq!(
+        events.len(),
+        2,
+        "expected only start and finish: {events:?}"
+    );
     assert!(matches!(events[0], ProgressEvent::Start { total_count: 2 }));
     assert!(
         matches!(events[1], ProgressEvent::Finish { total_count: 2, .. }),
@@ -167,7 +196,10 @@ fn test_chunked_batch_processor_skips_progress_before_interval() {
 #[test]
 fn test_chunked_batch_processor_reports_count_exceeded() {
     let delegate = TestChunkProcessor::success();
-    let mut processor = ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"));
+    let mut processor = ChunkedBatchProcessor::new(
+        delegate,
+        NonZeroUsize::new(2).expect("chunk size is non-zero"),
+    );
 
     let error = processor
         .process_with_count([1, 2, 3], 2)
@@ -193,7 +225,10 @@ fn test_chunked_batch_processor_reports_count_exceeded() {
 fn test_chunked_batch_processor_flushes_tail_chunk_before_count_exceeded() {
     let delegate = TestChunkProcessor::success();
     let chunks = delegate.chunks();
-    let mut processor = ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"));
+    let mut processor = ChunkedBatchProcessor::new(
+        delegate,
+        NonZeroUsize::new(2).expect("chunk size is non-zero"),
+    );
 
     let error = processor
         .process_with_count([1, 2, 3, 4], 3)
@@ -212,7 +247,9 @@ fn test_chunked_batch_processor_flushes_tail_chunk_before_count_exceeded() {
             assert_eq!(result.processed_count(), 3);
             assert_eq!(result.chunk_count(), 2);
             assert_eq!(
-                *chunks.lock().unwrap_or_else(std::sync::PoisonError::into_inner),
+                *chunks
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner),
                 vec![vec![1, 2], vec![3]]
             );
         }
@@ -257,7 +294,10 @@ fn test_chunked_batch_processor_propagates_tail_chunk_error_before_count_exceede
 #[test]
 fn test_chunked_batch_processor_reports_count_exceeded_before_first_chunk() {
     let delegate = TestChunkProcessor::success();
-    let mut processor = ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"));
+    let mut processor = ChunkedBatchProcessor::new(
+        delegate,
+        NonZeroUsize::new(2).expect("chunk size is non-zero"),
+    );
 
     let error = processor
         .process_with_count([1], 0)
@@ -282,7 +322,10 @@ fn test_chunked_batch_processor_reports_count_exceeded_before_first_chunk() {
 #[test]
 fn test_chunked_batch_processor_reports_count_shortfall() {
     let delegate = TestChunkProcessor::success();
-    let mut processor = ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"));
+    let mut processor = ChunkedBatchProcessor::new(
+        delegate,
+        NonZeroUsize::new(2).expect("chunk size is non-zero"),
+    );
 
     let error = processor
         .process_with_count([1, 2, 3], 5)
@@ -354,9 +397,15 @@ fn test_chunked_batch_process_error_helpers_and_display() {
         "batch item count exceeded: expected 3, observed at least 4"
     );
     assert_eq!(failed.result(), &result);
-    assert_eq!(failed.to_string(), "batch chunk 2 failed at item 4 with 2 items");
     assert_eq!(
-        failed.source().expect("chunk failure should expose source").to_string(),
+        failed.to_string(),
+        "batch chunk 2 failed at item 4 with 2 items"
+    );
+    assert_eq!(
+        failed
+            .source()
+            .expect("chunk failure should expose source")
+            .to_string(),
         "delegate failed"
     );
     assert!(shortfall.source().is_none());

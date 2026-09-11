@@ -37,7 +37,9 @@ pub enum BatchCallResultBuildError {
     },
 
     /// An output index is not strictly greater than the previous index.
-    #[error("callable output indexes must be strictly increasing: previous {previous_index}, current {index}")]
+    #[error(
+        "callable output indexes must be strictly increasing: previous {previous_index}, current {index}"
+    )]
     OutputIndexOutOfOrder {
         /// Previous output index.
         previous_index: usize,

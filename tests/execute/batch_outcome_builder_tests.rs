@@ -83,7 +83,10 @@ fn test_batch_outcome_builder_rejects_duplicate_failure_indexes() {
         .build()
         .expect_err("duplicate failure indexes should be rejected");
 
-    assert_eq!(error, BatchOutcomeBuildError::DuplicateFailureIndex { index: 0 });
+    assert_eq!(
+        error,
+        BatchOutcomeBuildError::DuplicateFailureIndex { index: 0 }
+    );
 }
 
 /// Range violations take priority over duplicate indexes regardless of order.
@@ -122,7 +125,10 @@ fn test_smallest_duplicate_index_is_reported() {
         )
         .build()
         .expect_err("repeated failure indexes must be rejected");
-    assert_eq!(error, BatchOutcomeBuildError::DuplicateFailureIndex { index: 1 });
+    assert_eq!(
+        error,
+        BatchOutcomeBuildError::DuplicateFailureIndex { index: 1 }
+    );
 }
 
 #[test]
@@ -137,7 +143,8 @@ fn test_batch_outcome_rejects_failure_detail_mismatches() {
         Err(BatchOutcomeBuildError::FailureIndexOutOfRange { .. })
     ));
 
-    let failure: BatchTaskFailure<&'static str> = BatchTaskFailure::new(0, BatchTaskError::panicked("panic"));
+    let failure: BatchTaskFailure<&'static str> =
+        BatchTaskFailure::new(0, BatchTaskError::panicked("panic"));
     assert!(matches!(
         BatchOutcomeBuilder::builder(2)
             .completed_count(1)

@@ -220,13 +220,20 @@ where
     ///
     /// Propagates any panic raised by the stored consumer or the configured
     /// progress reporter.
-    fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(
+        &mut self,
+        items: I,
+        count: usize,
+    ) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
     {
         let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
             .interval(self.report_interval)
-            .metric(Metric::new(PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME).total(count as u64))
+            .metric(
+                Metric::new(PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME)
+                    .total(count as u64),
+            )
             .start()
         {
             Ok(progress) => progress,

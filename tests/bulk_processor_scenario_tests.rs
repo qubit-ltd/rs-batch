@@ -29,7 +29,11 @@ struct BulkWriter<'a> {
 impl BatchProcessor<usize> for BulkWriter<'_> {
     type Error = &'static str;
 
-    fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(
+        &mut self,
+        items: I,
+        count: usize,
+    ) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = usize>,
     {
@@ -67,8 +71,10 @@ fn test_bulk_chunks_respect_driver_limit_and_separate_domain_metrics() {
             store: &mut store,
             fail_call: None,
         };
-        let mut processor =
-            ChunkedBatchProcessor::new(writer, NonZeroUsize::new(2).expect("chunk size should be nonzero"));
+        let mut processor = ChunkedBatchProcessor::new(
+            writer,
+            NonZeroUsize::new(2).expect("chunk size should be nonzero"),
+        );
         processor.process(0..5).expect("all chunks should succeed")
     };
     assert_eq!(store.calls, [2, 2, 1]);
@@ -87,9 +93,13 @@ fn test_failed_bulk_chunk_is_excluded_but_its_effects_are_not_rolled_back() {
             store: &mut store,
             fail_call: Some(2),
         };
-        let mut processor =
-            ChunkedBatchProcessor::new(writer, NonZeroUsize::new(2).expect("chunk size should be nonzero"));
-        processor.process(0..5).expect_err("the second chunk should fail")
+        let mut processor = ChunkedBatchProcessor::new(
+            writer,
+            NonZeroUsize::new(2).expect("chunk size should be nonzero"),
+        );
+        processor
+            .process(0..5)
+            .expect_err("the second chunk should fail")
     };
     match error {
         ChunkedBatchProcessError::ChunkFailed {

@@ -45,7 +45,8 @@ fn test_borrowed_consumer_and_legacy_types_coexist() {
             .expect("legacy processor should remain usable")
             .is_success()
     );
-    let old_builder: SequentialBatchProcessorBuilder<i32> = SequentialBatchProcessorBuilder::new(|_: &i32| {});
+    let old_builder: SequentialBatchProcessorBuilder<i32> =
+        SequentialBatchProcessorBuilder::new(|_: &i32| {});
     let processor = old_builder.build();
     let _: &BoxConsumer<i32> = processor.consumer();
     let _: BoxConsumer<i32> = processor.into_consumer();
@@ -74,7 +75,11 @@ fn test_borrowed_consumer_remains_compatible_with_chunking() {
     let mut processor = ChunkedBatchProcessor::new(borrowed, chunk_size);
 
     let result = processor
-        .process([String::from("item-1"), String::from("item-2"), String::from("item-3")])
+        .process([
+            String::from("item-1"),
+            String::from("item-2"),
+            String::from("item-3"),
+        ])
         .expect("chunked borrowed consumer should process all items");
 
     assert_eq!(result.completed_count(), 3);

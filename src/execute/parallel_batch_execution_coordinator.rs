@@ -158,7 +158,10 @@ impl ParallelBatchExecutionCoordinator {
     {
         let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
             .interval(self.report_interval)
-            .metric(Metric::new(EXECUTION_PROGRESS_METRIC_ID, EXECUTION_PROGRESS_METRIC_NAME).total(count as u64))
+            .metric(
+                Metric::new(EXECUTION_PROGRESS_METRIC_ID, EXECUTION_PROGRESS_METRIC_NAME)
+                    .total(count as u64),
+            )
             .start()
         {
             Ok(progress) => progress,
@@ -195,12 +198,17 @@ impl ParallelBatchExecutionCoordinator {
                 stop_result,
             )
         });
-        let state = Arc::into_inner(state).expect("parallel batch execution state should have a single owner");
-        let (schedule_result, observed_count, accepted_count, completed_count, stop_result) = stop_result;
+        let state = Arc::into_inner(state)
+            .expect("parallel batch execution state should have a single owner");
+        let (schedule_result, observed_count, accepted_count, completed_count, stop_result) =
+            stop_result;
         if let Err(source) = schedule_result {
             let (elapsed, report_error) = match stop_result {
                 Ok(()) => Self::fail_progress(progress),
-                Err(report_source) => (progress.elapsed(), Some(Box::new(ProgressFailure::from(report_source)))),
+                Err(report_source) => (
+                    progress.elapsed(),
+                    Some(Box::new(ProgressFailure::from(report_source))),
+                ),
             };
             return Err(BatchExecutionError::ScheduleFailed {
                 source,
@@ -215,7 +223,14 @@ impl ParallelBatchExecutionCoordinator {
             });
         }
 
-        Self::finish(progress, state, count, observed_count, accepted_count, completed_count)
+        Self::finish(
+            progress,
+            state,
+            count,
+            observed_count,
+            accepted_count,
+            completed_count,
+        )
     }
 
     /// Returns a zero-completion outcome for immediate setup failures.
@@ -282,9 +297,10 @@ impl ParallelBatchExecutionCoordinator {
                     });
                 }
             };
-            return Ok(
-                state.into_outcome_with_termination(elapsed, crate::BatchTermination::StoppedByTaskFailurePolicy)
-            );
+            return Ok(state.into_outcome_with_termination(
+                elapsed,
+                crate::BatchTermination::StoppedByTaskFailurePolicy,
+            ));
         }
         if observed_count < count {
             let (elapsed, report_error) = Self::fail_progress(progress);

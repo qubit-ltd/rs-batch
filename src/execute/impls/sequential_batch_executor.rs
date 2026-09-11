@@ -196,7 +196,11 @@ impl SequentialBatchExecutor {
     /// Returns [`BatchExecutionError`] when progress reporting fails or the
     /// source count differs from `count`.
     #[inline(always)]
-    pub fn execute_with_count<T, E, I>(&self, tasks: I, count: usize) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    pub fn execute_with_count<T, E, I>(
+        &self,
+        tasks: I,
+        count: usize,
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = T>,
         T: Runnable<E>,
@@ -282,9 +286,8 @@ impl SequentialBatchExecutor {
             })
         });
         match execution {
-            Ok(outcome) => {
-                Ok(BatchCallResult::try_new(outcome, outputs).expect("sequential outputs must match successful tasks"))
-            }
+            Ok(outcome) => Ok(BatchCallResult::try_new(outcome, outputs)
+                .expect("sequential outputs must match successful tasks")),
             Err(source) => Err(BatchCallError::new(source, outputs)),
         }
     }
@@ -317,7 +320,11 @@ impl SequentialBatchExecutor {
     /// Panics from `action` are captured as task failures. Iterator and
     /// synchronous reporter callback panics are propagated. Automatic reporter
     /// failures are returned as [`BatchExecutionError::ProgressReport`].
-    pub fn for_each<Item, E, I, F>(&self, items: I, action: F) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    pub fn for_each<Item, E, I, F>(
+        &self,
+        items: I,
+        action: F,
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = Item>,
         I::IntoIter: ExactSizeIterator,
@@ -414,7 +421,10 @@ impl SequentialBatchExecutor {
     {
         let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
             .interval(self.report_interval)
-            .metric(Metric::new(EXECUTION_PROGRESS_METRIC_ID, EXECUTION_PROGRESS_METRIC_NAME).total(count as u64))
+            .metric(
+                Metric::new(EXECUTION_PROGRESS_METRIC_ID, EXECUTION_PROGRESS_METRIC_NAME)
+                    .total(count as u64),
+            )
             .start()
         {
             Ok(progress) => progress,
@@ -478,12 +488,17 @@ impl SequentialBatchExecutor {
                     let elapsed = source.elapsed();
                     return Err(BatchExecutionError::ProgressReport {
                         source: Box::new(ProgressFailure::from(source)),
-                        outcome: state
-                            .into_outcome_with_termination(elapsed, BatchTermination::StoppedByTaskFailurePolicy),
+                        outcome: state.into_outcome_with_termination(
+                            elapsed,
+                            BatchTermination::StoppedByTaskFailurePolicy,
+                        ),
                     });
                 }
             };
-            Ok(state.into_outcome_with_termination(elapsed, BatchTermination::StoppedByTaskFailurePolicy))
+            Ok(state.into_outcome_with_termination(
+                elapsed,
+                BatchTermination::StoppedByTaskFailurePolicy,
+            ))
         } else if actual_count < count {
             let (elapsed, report_error) = {
                 let (elapsed, report_error) = ProgressFailure::fail_operation(progress);
@@ -551,12 +566,18 @@ impl SequentialBatchExecutor {
     /// Panics from tasks are captured in the result. Iterator, task destructor,
     /// and synchronous progress reporter panics are propagated to the caller.
     #[inline(always)]
-    fn execute_inner<T, E, I>(&self, tasks: I, count: usize) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
+    fn execute_inner<T, E, I>(
+        &self,
+        tasks: I,
+        count: usize,
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = T>,
         T: Runnable<E>,
     {
-        self.execute_items_inner(tasks, count, |state, index, task| state.execute_task(index, task))
+        self.execute_items_inner(tasks, count, |state, index, task| {
+            state.execute_task(index, task)
+        })
     }
 }
 

@@ -65,7 +65,9 @@ impl Runnable<()> for CpuTask {
     fn run(&mut self) -> Result<(), ()> {
         let mut value = self.seed;
         for _ in 0..256 {
-            value = value.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+            value = value
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1);
         }
         black_box(value);
         Ok(())
@@ -195,7 +197,10 @@ fn benchmark_cpu_execution(criterion: &mut Criterion) {
                 bencher.iter(|| {
                     let _ = black_box(
                         sequential
-                            .execute_with_count((0..task_count).map(|seed| CpuTask { seed: seed as u64 }), task_count)
+                            .execute_with_count(
+                                (0..task_count).map(|seed| CpuTask { seed: seed as u64 }),
+                                task_count,
+                            )
                             .expect("CPU batch should succeed"),
                     );
                 });
@@ -208,7 +213,10 @@ fn benchmark_cpu_execution(criterion: &mut Criterion) {
                 bencher.iter(|| {
                     let _ = black_box(
                         parallel
-                            .execute_with_count((0..task_count).map(|seed| CpuTask { seed: seed as u64 }), task_count)
+                            .execute_with_count(
+                                (0..task_count).map(|seed| CpuTask { seed: seed as u64 }),
+                                task_count,
+                            )
                             .expect("CPU batch should succeed"),
                     );
                 });
@@ -221,7 +229,10 @@ fn benchmark_cpu_execution(criterion: &mut Criterion) {
                 bencher.iter(|| {
                     let _ = black_box(
                         default_parallel
-                            .execute_with_count((0..task_count).map(|seed| CpuTask { seed: seed as u64 }), task_count)
+                            .execute_with_count(
+                                (0..task_count).map(|seed| CpuTask { seed: seed as u64 }),
+                                task_count,
+                            )
                             .expect("CPU batch should succeed"),
                     );
                 });
@@ -323,8 +334,10 @@ fn benchmark_call_validation(criterion: &mut Criterion) {
                     (outcome, outputs)
                 },
                 |(outcome, outputs)| {
-                    let _ =
-                        black_box(BatchCallResult::try_new(outcome, outputs).expect("mixed result should be valid"));
+                    let _ = black_box(
+                        BatchCallResult::try_new(outcome, outputs)
+                            .expect("mixed result should be valid"),
+                    );
                 },
                 BatchSize::LargeInput,
             );
@@ -345,7 +358,8 @@ fn benchmark_call_validation(criterion: &mut Criterion) {
                 },
                 |(outcome, outputs)| {
                     let _ = black_box(
-                        BatchCallResult::try_new(outcome, outputs).expect("all-success result should be valid"),
+                        BatchCallResult::try_new(outcome, outputs)
+                            .expect("all-success result should be valid"),
                     );
                 },
                 BatchSize::LargeInput,
@@ -387,25 +401,30 @@ fn benchmark_outcome_build(criterion: &mut Criterion) {
     for count in [1_000usize, 10_000, 100_000] {
         for percent in [0usize, 50, 100] {
             let failed = count * percent / 100;
-            group.bench_function(BenchmarkId::new(format!("failure-{percent}"), count), |bencher| {
-                bencher.iter_batched(
-                    || {
-                        let failures = (0..failed)
-                            .rev()
-                            .map(|index| BatchTaskFailure::new(index, BatchTaskError::Failed(())))
-                            .collect();
-                        BatchOutcomeBuilder::builder(count)
-                            .completed_count(count)
-                            .succeeded_count(count - failed)
-                            .failed_count(failed)
-                            .failures(failures)
-                    },
-                    |builder| {
-                        let _ = black_box(builder.build().expect("outcome should be valid"));
-                    },
-                    BatchSize::LargeInput,
-                );
-            });
+            group.bench_function(
+                BenchmarkId::new(format!("failure-{percent}"), count),
+                |bencher| {
+                    bencher.iter_batched(
+                        || {
+                            let failures = (0..failed)
+                                .rev()
+                                .map(|index| {
+                                    BatchTaskFailure::new(index, BatchTaskError::Failed(()))
+                                })
+                                .collect();
+                            BatchOutcomeBuilder::builder(count)
+                                .completed_count(count)
+                                .succeeded_count(count - failed)
+                                .failed_count(failed)
+                                .failures(failures)
+                        },
+                        |builder| {
+                            let _ = black_box(builder.build().expect("outcome should be valid"));
+                        },
+                        BatchSize::LargeInput,
+                    );
+                },
+            );
         }
     }
     group.finish();
@@ -448,7 +467,9 @@ fn benchmark_callable_value_shapes(criterion: &mut Criterion) {
                             .collect::<Vec<_>>()
                     },
                     |tasks| {
-                        let result = sequential.call(tasks).expect("non-Send callable batch should succeed");
+                        let result = sequential
+                            .call(tasks)
+                            .expect("non-Send callable batch should succeed");
                         let _ = black_box(result);
                     },
                     BatchSize::LargeInput,
