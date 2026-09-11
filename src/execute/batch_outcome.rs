@@ -17,6 +17,10 @@ use crate::BatchTermination;
 /// Create outcomes through [`BatchOutcomeBuilder::build`] so counters and
 /// failure details are validated before the outcome exists.
 ///
+/// # Type Parameters
+///
+/// * `E` - Task-specific error type stored in failure records.
+///
 /// # Examples
 ///
 /// ```rust
@@ -44,10 +48,6 @@ use crate::BatchTermination;
 /// let builder = BatchOutcomeBuilder::<&'static str>::builder(1);
 /// let _outcome = BatchOutcome::new(builder);
 /// ```
-///
-/// # Type Parameters
-///
-/// * `E` - Task-specific error type stored in failure records.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[must_use = "batch outcomes contain task failures and execution counters"]
 pub struct BatchOutcome<E> {
@@ -204,7 +204,9 @@ impl<E> BatchOutcome<E> {
     #[must_use = "inspect the returned value"]
     #[inline(always)]
     pub const fn is_success(&self) -> bool {
-        self.completed_count == self.task_count && self.failed_count == 0 && self.panicked_count == 0
+        self.completed_count == self.task_count
+            && self.failed_count == 0
+            && self.panicked_count == 0
     }
 
     /// Consumes this outcome and returns its failure list.

@@ -21,6 +21,11 @@ use super::SequentialBatchProcessor;
 /// Use the builder when the default progress interval or reporter should be
 /// customized.
 ///
+/// # Type Parameters
+///
+/// * `Item` - Item type consumed by the processor being built.
+/// * `C` - Stored consumer type. The default is [`BoxConsumer<Item>`].
+///
 /// # Examples
 ///
 /// ```rust
@@ -34,11 +39,6 @@ use super::SequentialBatchProcessor;
 ///
 /// assert_eq!(processor.report_interval(), Duration::ZERO);
 /// ```
-///
-/// # Type Parameters
-///
-/// * `Item` - Item type consumed by the processor being built.
-/// * `C` - Stored consumer type. The default is [`BoxConsumer<Item>`].
 #[must_use = "configure and build the value before discarding this builder"]
 pub struct SequentialBatchProcessorBuilder<Item, C = BoxConsumer<Item>> {
     /// Consumer called once for each accepted item.

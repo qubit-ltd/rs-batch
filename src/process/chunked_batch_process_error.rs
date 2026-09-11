@@ -25,6 +25,10 @@ use crate::ProgressFailure;
 /// not by itself a safe retry boundary; callers must use the delegate's own
 /// transaction or idempotency guarantees.
 ///
+/// # Type Parameters
+///
+/// * `E` - Error type returned by the delegate processor.
+///
 /// # Examples
 ///
 /// ```rust
@@ -54,10 +58,6 @@ use crate::ProgressFailure;
 ///
 /// assert_eq!(error.result().processed_count(), 2);
 /// ```
-///
-/// # Type Parameters
-///
-/// * `E` - Error type returned by the delegate processor.
 #[must_use = "errors describe a rejected operation"]
 #[derive(Debug, Error)]
 #[non_exhaustive]
@@ -86,7 +86,9 @@ pub enum ChunkedBatchProcessError<E> {
     },
 
     /// The input source yielded more items than the declared item count.
-    #[error("batch item count exceeded: expected {expected}, observed at least {observed_at_least}")]
+    #[error(
+        "batch item count exceeded: expected {expected}, observed at least {observed_at_least}"
+    )]
     CountExceeded {
         /// Declared item count.
         expected: usize,

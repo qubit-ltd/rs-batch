@@ -19,6 +19,10 @@ use super::ChunkedBatchProcessor;
 /// Use the builder when the default progress interval or reporter should be
 /// customized.
 ///
+/// # Type Parameters
+///
+/// * `P` - Processor that receives each collected chunk.
+///
 /// # Examples
 ///
 /// ```rust
@@ -43,10 +47,6 @@ use super::ChunkedBatchProcessor;
 /// assert_eq!(processor.chunk_size().get(), 2);
 /// assert_eq!(processor.report_interval(), Duration::ZERO);
 /// ```
-///
-/// # Type Parameters
-///
-/// * `P` - Processor that receives each collected chunk.
 #[must_use = "configure and build the value before discarding this builder"]
 pub struct ChunkedBatchProcessorBuilder<P> {
     /// Delegate processor receiving each chunk.

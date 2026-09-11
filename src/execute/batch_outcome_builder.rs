@@ -18,6 +18,10 @@ use crate::BatchTermination;
 /// indexes, and failed-versus-panicked detail counts before creating an
 /// outcome.
 ///
+/// # Type Parameters
+///
+/// * `E` - Task-specific error type stored in failure records.
+///
 /// # Examples
 ///
 /// ```rust
@@ -41,10 +45,6 @@ use crate::BatchTermination;
 /// assert_eq!(outcome.failed_count(), 1);
 /// assert_eq!(outcome.failures()[0].index(), 1);
 /// ```
-///
-/// # Type Parameters
-///
-/// * `E` - Task-specific error type stored in failure records.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[must_use = "configure and build the value before discarding this builder"]
 pub struct BatchOutcomeBuilder<E> {
@@ -253,6 +253,24 @@ impl<E> BatchOutcomeBuilder<E> {
 /// # Type Parameters
 ///
 /// * `E` - Task-specific error type stored in failure records.
+///
+/// # Parameters
+///
+/// * `task_count` - Declared task count for the batch.
+/// * `completed_count` - Number of tasks that reached a terminal outcome.
+/// * `succeeded_count` - Number of tasks that completed successfully.
+/// * `failed_count` - Number of tasks that returned a business error.
+/// * `panicked_count` - Number of tasks whose bodies panicked.
+/// * `failures` - Mutable failure detail slice sorted and checked in place.
+///
+/// # Returns
+///
+/// `Ok(())` when aggregate counters and failure details are consistent.
+///
+/// # Errors
+///
+/// Returns [`BatchOutcomeBuildError`] when counters overflow, disagree, or
+/// failure details do not match the aggregate failure counts.
 fn validate_outcome_invariants<E>(
     task_count: usize,
     completed_count: usize,
@@ -261,20 +279,18 @@ fn validate_outcome_invariants<E>(
     panicked_count: usize,
     failures: &mut [BatchTaskFailure<E>],
 ) -> Result<(), BatchOutcomeBuildError> {
-    let failure_count =
-        failed_count
-            .checked_add(panicked_count)
-            .ok_or(BatchOutcomeBuildError::FailureCountOverflow {
-                failed_count,
-                panicked_count,
-            })?;
-    let terminal_count =
-        succeeded_count
-            .checked_add(failure_count)
-            .ok_or(BatchOutcomeBuildError::TerminalCountOverflow {
-                succeeded_count,
-                failure_count,
-            })?;
+    let failure_count = failed_count.checked_add(panicked_count).ok_or(
+        BatchOutcomeBuildError::FailureCountOverflow {
+            failed_count,
+            panicked_count,
+        },
+    )?;
+    let terminal_count = succeeded_count.checked_add(failure_count).ok_or(
+        BatchOutcomeBuildError::TerminalCountOverflow {
+            succeeded_count,
+            failure_count,
+        },
+    )?;
 
     if completed_count > task_count {
         return Err(BatchOutcomeBuildError::CompletedCountExceeded {
@@ -305,6 +321,23 @@ fn validate_outcome_invariants<E>(
 /// # Type Parameters
 ///
 /// * `E` - Task-specific error type stored in failure records.
+///
+/// # Parameters
+///
+/// * `task_count` - Declared task count for the batch.
+/// * `failed_count` - Expected number of business-error failure records.
+/// * `panicked_count` - Expected number of panic failure records.
+/// * `failures` - Failure details sorted by index when validation succeeds.
+///
+/// # Returns
+///
+/// `Ok(())` when every detail index is in range, unique, and matches the
+/// expected failed and panicked counts.
+///
+/// # Errors
+///
+/// Returns [`BatchOutcomeBuildError`] when an index is out of range, duplicated,
+/// or the detail variants do not match the aggregate counters.
 fn validate_failure_details<E>(
     task_count: usize,
     failed_count: usize,

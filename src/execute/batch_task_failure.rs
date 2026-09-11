@@ -12,6 +12,10 @@ use super::batch_task_error::BatchTaskError;
 /// Each failure keeps the task's stable batch index so callers can map the
 /// failure back to the source task.
 ///
+/// # Type Parameters
+///
+/// * `E` - The task-specific error type.
+///
 /// # Examples
 ///
 /// ```rust
@@ -25,10 +29,6 @@ use super::batch_task_error::BatchTaskError;
 /// assert_eq!(failure.index(), 2);
 /// assert!(failure.error().is_failed());
 /// ```
-///
-/// # Type Parameters
-///
-/// * `E` - The task-specific error type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BatchTaskFailure<E> {
     /// Zero-based task index within the batch.

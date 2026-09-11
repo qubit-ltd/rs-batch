@@ -178,6 +178,22 @@ impl BatchProcessResultBuilder {
 }
 
 /// Validates all counters for a batch process result.
+///
+/// # Parameters
+///
+/// * `item_count` - Declared item count for the batch.
+/// * `completed_count` - Number of input items that reached a terminal outcome.
+/// * `processed_count` - Number of input items processed successfully.
+/// * `chunk_count` - Number of chunks completed successfully at this layer.
+///
+/// # Returns
+///
+/// `Ok(())` when all counters satisfy the builder invariants.
+///
+/// # Errors
+///
+/// Returns [`BatchProcessResultBuildError`] when any counter relationship is
+/// inconsistent.
 fn validate_process_result_invariants(
     item_count: usize,
     completed_count: usize,
@@ -197,7 +213,9 @@ fn validate_process_result_invariants(
         });
     }
     if completed_count > 0 && chunk_count == 0 {
-        return Err(BatchProcessResultBuildError::MissingChunkForCompletedItems { completed_count });
+        return Err(
+            BatchProcessResultBuildError::MissingChunkForCompletedItems { completed_count },
+        );
     }
     if chunk_count > completed_count {
         return Err(BatchProcessResultBuildError::ChunkCountExceeded {
