@@ -14,6 +14,10 @@ use std::fmt;
 /// Use this type to distinguish a task's returned business error from a panic
 /// captured while running that task.
 ///
+/// # Type Parameters
+///
+/// * `E` - The task-specific error type.
+///
 /// # Examples
 ///
 /// ```rust
@@ -27,10 +31,6 @@ use std::fmt;
 /// assert!(panicked.is_panicked());
 /// assert_eq!(panicked.panic_message(), Some("boom"));
 /// ```
-///
-/// # Type Parameters
-///
-/// * `E` - The task-specific error type.
 #[must_use = "errors describe a rejected operation"]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BatchTaskError<E> {
@@ -125,7 +125,9 @@ impl<E> BatchTaskError<E> {
     pub fn panic_message(&self) -> Option<&str> {
         match self {
             Self::Failed(_) | Self::Panicked { message: None } => None,
-            Self::Panicked { message: Some(message) } => Some(message.as_str()),
+            Self::Panicked {
+                message: Some(message),
+            } => Some(message.as_str()),
         }
     }
 }
@@ -147,7 +149,9 @@ where
         match self {
             Self::Failed(error) => write!(f, "task failed: {error}"),
             Self::Panicked { message: None } => f.write_str("task panicked"),
-            Self::Panicked { message: Some(message) } => write!(f, "task panicked: {message}"),
+            Self::Panicked {
+                message: Some(message),
+            } => write!(f, "task panicked: {message}"),
         }
     }
 }

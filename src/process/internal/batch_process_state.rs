@@ -98,12 +98,28 @@ impl BatchProcessState {
     }
 
     /// Records that one item has started processing.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the progress metric accepts the start transition.
+    ///
+    /// # Errors
+    ///
+    /// Returns a metric error when the lifecycle transition is rejected.
     #[inline(always)]
     pub(crate) fn record_item_started(&self) -> Result<(), MetricError> {
         self.metric.start(1)
     }
 
     /// Records one successfully processed item.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the progress metric accepts the success transition.
+    ///
+    /// # Errors
+    ///
+    /// Returns a metric error when the lifecycle transition is rejected.
     #[inline(always)]
     pub(crate) fn record_item_processed(&self) -> Result<(), MetricError> {
         self.metric.succeed(1)

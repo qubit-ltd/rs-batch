@@ -22,6 +22,10 @@ use super::ParallelBatchProcessorBuildError;
 /// Use the builder when the default worker count, sequential fallback
 /// threshold, progress interval, or reporter should be customized.
 ///
+/// # Type Parameters
+///
+/// * `Item` - Item type consumed by the processor being built.
+///
 /// # Examples
 ///
 /// ```rust
@@ -36,10 +40,6 @@ use super::ParallelBatchProcessorBuildError;
 /// assert_eq!(processor.thread_count(), 2);
 /// assert_eq!(processor.sequential_threshold(), 0);
 /// ```
-///
-/// # Type Parameters
-///
-/// * `Item` - Item type consumed by the processor being built.
 #[must_use = "configure and build the value before discarding this builder"]
 pub struct ParallelBatchProcessorBuilder<Item> {
     /// Consumer shared by all scoped workers.
@@ -198,8 +198,8 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     /// zero.
     #[inline]
     pub fn build(self) -> Result<ParallelBatchProcessor<Item>, ParallelBatchProcessorBuildError> {
-        let thread_count =
-            NonZeroUsize::new(self.thread_count).ok_or(ParallelBatchProcessorBuildError::ZeroThreadCount)?;
+        let thread_count = NonZeroUsize::new(self.thread_count)
+            .ok_or(ParallelBatchProcessorBuildError::ZeroThreadCount)?;
         Ok(ParallelBatchProcessor {
             consumer: self.consumer,
             thread_count,

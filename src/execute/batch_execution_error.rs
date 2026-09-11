@@ -19,6 +19,12 @@ use crate::ProgressFailure;
 /// this enum. This error reports progress-reporter failures and declared
 /// task-count mismatches, and incomplete parallel schedules.
 ///
+/// # Type Parameters
+///
+/// * `E` - The task-specific error type stored inside the attached outcome.
+/// * `S` - The runtime scheduler error type. It defaults to
+///   [`std::convert::Infallible`] for built-in executors.
+///
 /// # Examples
 ///
 /// ```rust
@@ -44,12 +50,6 @@ use crate::ProgressFailure;
 ///     _ => unreachable!(),
 /// }
 /// ```
-///
-/// # Type Parameters
-///
-/// * `E` - The task-specific error type stored inside the attached outcome.
-/// * `S` - The runtime scheduler error type. It defaults to
-///   [`std::convert::Infallible`] for built-in executors.
 #[non_exhaustive]
 #[must_use = "errors describe a rejected operation"]
 #[derive(Debug, Error)]
@@ -92,7 +92,9 @@ pub enum BatchExecutionError<E, S = Infallible> {
     },
 
     /// The task source yielded more tasks than the declared task count.
-    #[error("batch task count exceeded: expected {expected}, observed at least {observed_at_least}")]
+    #[error(
+        "batch task count exceeded: expected {expected}, observed at least {observed_at_least}"
+    )]
     CountExceeded {
         /// Declared task count.
         expected: usize,
@@ -107,7 +109,9 @@ pub enum BatchExecutionError<E, S = Infallible> {
     },
 
     /// The scheduler accepted tasks but did not execute all of them.
-    #[error("parallel batch schedule incomplete: expected {expected}, accepted {accepted}, completed {completed}")]
+    #[error(
+        "parallel batch schedule incomplete: expected {expected}, accepted {accepted}, completed {completed}"
+    )]
     IncompleteSchedule {
         /// Declared task count.
         expected: usize,
@@ -259,7 +263,9 @@ where
         F: FnOnce(S) -> T,
     {
         match self {
-            Self::ProgressReport { source, outcome } => BatchExecutionError::ProgressReport { source, outcome },
+            Self::ProgressReport { source, outcome } => {
+                BatchExecutionError::ProgressReport { source, outcome }
+            }
             Self::ScheduleFailed {
                 source,
                 outcome,

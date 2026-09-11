@@ -64,7 +64,11 @@ impl<E> BatchExecutionState<E> {
     /// Empty execution state.
     #[inline]
     #[must_use = "use the constructed or borrowed value"]
-    pub(crate) fn new(task_count: usize, metric: MetricHandle, task_failure_policy: TaskFailurePolicy) -> Self {
+    pub(crate) fn new(
+        task_count: usize,
+        metric: MetricHandle,
+        task_failure_policy: TaskFailurePolicy,
+    ) -> Self {
         Self {
             acceptance: ParallelBatchAcceptanceState::new(task_count),
             metric,
@@ -150,7 +154,11 @@ impl<E> BatchExecutionState<E> {
     ///
     /// Returns a metric error when a progress lifecycle transition is rejected.
     #[inline(always)]
-    pub(crate) fn execute_task<T>(&self, index: usize, mut task: T) -> Result<TaskExecutionStatus, MetricError>
+    pub(crate) fn execute_task<T>(
+        &self,
+        index: usize,
+        mut task: T,
+    ) -> Result<TaskExecutionStatus, MetricError>
     where
         T: Runnable<E>,
     {
@@ -178,7 +186,11 @@ impl<E> BatchExecutionState<E> {
     /// # Errors
     ///
     /// Returns a metric error when a progress lifecycle transition is rejected.
-    pub(crate) fn execute_action<F>(&self, index: usize, action: F) -> Result<TaskExecutionStatus, MetricError>
+    pub(crate) fn execute_action<F>(
+        &self,
+        index: usize,
+        action: F,
+    ) -> Result<TaskExecutionStatus, MetricError>
     where
         F: FnOnce() -> Result<(), E>,
     {
@@ -190,13 +202,16 @@ impl<E> BatchExecutionState<E> {
             }
             Ok(Err(error)) => {
                 self.metric.fail(1)?;
-                Self::lock_failures(&self.failures).push(BatchTaskFailure::new(index, BatchTaskError::Failed(error)));
+                Self::lock_failures(&self.failures)
+                    .push(BatchTaskFailure::new(index, BatchTaskError::Failed(error)));
                 TaskExecutionStatus::Failed
             }
             Err(payload) => {
                 self.metric.fail(1)?;
-                Self::lock_failures(&self.failures)
-                    .push(BatchTaskFailure::new(index, panic_payload_to_error(payload.as_ref())));
+                Self::lock_failures(&self.failures).push(BatchTaskFailure::new(
+                    index,
+                    panic_payload_to_error(payload.as_ref()),
+                ));
                 TaskExecutionStatus::Failed
             }
         };
@@ -221,18 +236,30 @@ impl<E> BatchExecutionState<E> {
 
     /// Records one observed task unless failure policy already stopped
     /// admission.
+    ///
+    /// # Returns
+    ///
+    /// `Some(count)` with the new observed count when admission is still open,
+    /// or `None` when the failure policy has already stopped accepting tasks.
     #[inline(always)]
     pub(crate) fn try_record_task_observed(&self) -> Option<usize> {
         self.acceptance.try_record_observed()
     }
 
     /// Records one source task accepted for execution.
+    ///
+    /// # Returns
+    ///
+    /// The accepted task count after this task was recorded.
     #[inline(always)]
     pub(crate) fn record_task_accepted(&self) -> usize {
         self.acceptance.record_accepted()
     }
 
     /// Marks the source iterator as exhausted.
+    ///
+    /// Subsequent [`Self::source_exhausted`] queries observe `true` even when
+    /// the declared task count has not yet been reached.
     #[inline]
     pub(crate) fn mark_source_exhausted(&self) {
         self.source_exhausted.store(true, Ordering::Release);
@@ -303,7 +330,10 @@ impl<E> BatchExecutionState<E> {
             .failures
             .into_inner()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let failed_count = failures.iter().filter(|failure| failure.error().is_failed()).count();
+        let failed_count = failures
+            .iter()
+            .filter(|failure| failure.error().is_failed())
+            .count();
         let panicked_count = failures.len() - failed_count;
         BatchOutcomeBuilder::builder(self.acceptance.task_count())
             .completed_count(snapshot.completed() as usize)
@@ -326,7 +356,11 @@ impl<E> BatchExecutionState<E> {
     ///
     /// A guard for the failure list.
     #[inline(always)]
-    fn lock_failures(failures: &Mutex<Vec<BatchTaskFailure<E>>>) -> MutexGuard<'_, Vec<BatchTaskFailure<E>>> {
-        failures.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    fn lock_failures(
+        failures: &Mutex<Vec<BatchTaskFailure<E>>>,
+    ) -> MutexGuard<'_, Vec<BatchTaskFailure<E>>> {
+        failures
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 }
