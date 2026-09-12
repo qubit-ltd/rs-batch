@@ -28,9 +28,7 @@ static NEXT_EXECUTION_ID: AtomicU64 = AtomicU64::new(1);
 #[inline]
 fn next_execution_id() -> u64 {
     NEXT_EXECUTION_ID
-        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |current| {
-            current.checked_add(1)
-        })
+        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |current| current.checked_add(1))
         .expect("parallel batch execution context id space exhausted")
 }
 
@@ -80,6 +78,13 @@ impl<E> ParallelBatchExecutionContext<E> {
     /// This constructor is only intended for runtime executors.
     /// Most callers should use
     /// [`crate::execute::spi::ParallelBatchExecutionCoordinator::execute`].
+    ///
+    /// # Parameters
+    ///
+    /// * `state` - Shared task accounting and failure collection state.
+    /// * `notifier` - Handle used to wake the running-progress reporter.
+    /// * `status` - Shared reporter status used to stop admission after a
+    ///   reporter failure.
     #[inline]
     #[must_use = "use the constructed or borrowed value"]
     pub(crate) fn new(
@@ -124,11 +129,7 @@ impl<E> ParallelBatchExecutionContext<E> {
             return None;
         }
         self.state.record_task_accepted();
-        Some(ParallelBatchTask::new(
-            self.execution_id,
-            observed_count - 1,
-            task,
-        ))
+        Some(ParallelBatchTask::new(self.execution_id, observed_count - 1, task))
     }
 
     /// Pulls and accepts one task from a single scheduler-owned source.
@@ -157,10 +158,7 @@ impl<E> ParallelBatchExecutionContext<E> {
     where
         I: Iterator,
     {
-        if self.state.source_exhausted()
-            || self.status.is_failed()
-            || self.state.should_stop_accepting()
-        {
+        if self.state.source_exhausted() || self.status.is_failed() || self.state.should_stop_accepting() {
             return None;
         }
         match tasks.next() {

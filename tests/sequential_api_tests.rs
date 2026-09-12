@@ -50,11 +50,7 @@ fn test_generic_trait_call_preserves_sparse_outputs() {
         let result = executor
             .call((0..3).map(|index| move || if index == 1 { Err(()) } else { Ok(index) }))
             .expect("task failures should be represented in the call result");
-        let indexes: Vec<_> = result
-            .outputs()
-            .iter()
-            .map(|output| output.index())
-            .collect();
+        let indexes: Vec<_> = result.outputs().iter().map(|output| output.index()).collect();
         assert_eq!(indexes, [0, 2]);
     }
 
@@ -90,10 +86,7 @@ fn test_runnable_drop_panic_propagates() {
         SequentialBatchExecutor::new().execute_with_count([DropPanickingRunnable], 1)
     }));
 
-    assert!(
-        result.is_err(),
-        "runnable destructor panic should propagate"
-    );
+    assert!(result.is_err(), "runnable destructor panic should propagate");
 }
 
 #[test]

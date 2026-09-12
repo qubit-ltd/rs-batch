@@ -23,6 +23,10 @@ pub(crate) struct ParallelBatchAcceptanceState {
 
 impl ParallelBatchAcceptanceState {
     /// Creates empty admission state for one declared task count.
+    ///
+    /// # Parameters
+    ///
+    /// * `task_count` - Declared number of tasks in the batch.
     #[inline]
     #[must_use = "use the constructed or borrowed value"]
     pub(crate) fn new(task_count: usize) -> Self {

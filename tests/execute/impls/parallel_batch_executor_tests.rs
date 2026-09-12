@@ -111,13 +111,7 @@ fn test_parallel_batch_executor_uses_sequential_threshold() {
     let active_count = ArcAtomicCount::zero();
     let max_active_count = ArcAtomic::new(0usize);
     let tasks = (0..4)
-        .map(|_| {
-            ActiveTrackingTask::new(
-                active_count.clone(),
-                max_active_count.clone(),
-                Duration::from_millis(1),
-            )
-        })
+        .map(|_| ActiveTrackingTask::new(active_count.clone(), max_active_count.clone(), Duration::from_millis(1)))
         .collect::<Vec<_>>();
 
     let result = executor
@@ -137,10 +131,7 @@ fn test_parallel_batch_executor_supports_non_static_tasks() {
         .expect("parallel executor should build");
     let first = AtomicCount::zero();
     let second = AtomicCount::zero();
-    let tasks = vec![
-        BorrowingTask { counter: &first },
-        BorrowingTask { counter: &second },
-    ];
+    let tasks = vec![BorrowingTask { counter: &first }, BorrowingTask { counter: &second }];
 
     let result = executor
         .execute_with_count(tasks, 2)
@@ -200,10 +191,7 @@ fn test_parallel_batch_executor_stops_accepting_after_first_failure() {
         })
         .expect("task failure policy should return a partial outcome");
 
-    assert_eq!(
-        outcome.termination(),
-        BatchTermination::StoppedByTaskFailurePolicy
-    );
+    assert_eq!(outcome.termination(), BatchTermination::StoppedByTaskFailurePolicy);
     assert!(outcome.completed_count() < 100);
     assert!(outcome.failure_count() >= 1);
 }
@@ -261,11 +249,7 @@ fn test_parallel_batch_executor_reports_count_exceeded() {
         .sequential_threshold(1)
         .build()
         .expect("parallel executor should build");
-    let tasks = vec![
-        TestTask::succeed(),
-        TestTask::succeed(),
-        TestTask::succeed(),
-    ];
+    let tasks = vec![TestTask::succeed(), TestTask::succeed(), TestTask::succeed()];
 
     let error = executor
         .execute_with_count(tasks, 2)
@@ -308,10 +292,7 @@ fn test_parallel_batch_executor_reports_progress() {
     let events = reporter.events();
 
     assert_eq!(result.completed_count(), 3);
-    assert!(matches!(
-        events.first(),
-        Some(ProgressEvent::Start { total_count: 3 })
-    ));
+    assert!(matches!(events.first(), Some(ProgressEvent::Start { total_count: 3 })));
     assert!(events.iter().any(|event| matches!(
         event,
         ProgressEvent::Process {
@@ -336,11 +317,7 @@ fn test_parallel_batch_executor_reports_progress_with_zero_interval() {
         .report_interval(Duration::ZERO)
         .build()
         .expect("zero report interval should build");
-    let tasks = vec![
-        TestTask::succeed(),
-        TestTask::succeed(),
-        TestTask::succeed(),
-    ];
+    let tasks = vec![TestTask::succeed(), TestTask::succeed(), TestTask::succeed()];
 
     let result = executor
         .execute_with_count(tasks, 3)
@@ -364,10 +341,7 @@ fn test_parallel_batch_executor_propagates_progress_reporter_finish_panic() {
     let executor = ParallelBatchExecutor::builder()
         .thread_count(2)
         .sequential_threshold(0)
-        .reporter(PanickingReporter::new(
-            ProgressPanicPhase::Finish,
-            PANIC_MESSAGE,
-        ))
+        .reporter(PanickingReporter::new(ProgressPanicPhase::Finish, PANIC_MESSAGE))
         .build()
         .expect("parallel executor should build");
     let tasks = vec![TestTask::succeed()];
@@ -385,10 +359,7 @@ fn test_parallel_batch_executor_propagates_progress_reporter_process_panic() {
         .thread_count(2)
         .sequential_threshold(1)
         .report_interval(Duration::from_millis(1))
-        .reporter(PanickingReporter::new(
-            ProgressPanicPhase::Process,
-            PANIC_MESSAGE,
-        ))
+        .reporter(PanickingReporter::new(ProgressPanicPhase::Process, PANIC_MESSAGE))
         .build()
         .expect("parallel executor should build");
     let tasks = vec![
@@ -431,11 +402,7 @@ impl ActiveTrackingTask {
     /// # Returns
     ///
     /// A task configured with the supplied counters.
-    fn new(
-        active_count: ArcAtomicCount,
-        max_active_count: ArcAtomic<usize>,
-        duration: Duration,
-    ) -> Self {
+    fn new(active_count: ArcAtomicCount, max_active_count: ArcAtomic<usize>, duration: Duration) -> Self {
         Self {
             active_count,
             max_active_count,
