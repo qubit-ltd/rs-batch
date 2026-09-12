@@ -50,9 +50,7 @@ fn test_sequential_batch_processor_consumer_accessors() {
     consumer.accept(&6);
 
     assert_eq!(
-        *accepted
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner),
+        *accepted.lock().unwrap_or_else(std::sync::PoisonError::into_inner),
         vec![5, 6]
     );
 }
@@ -92,9 +90,7 @@ fn test_sequential_batch_processor_processes_items_in_order() {
     assert_eq!(result.processed_count(), 3);
     assert_eq!(result.chunk_count(), 1);
     assert_eq!(
-        *accepted
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner),
+        *accepted.lock().unwrap_or_else(std::sync::PoisonError::into_inner),
         vec![1, 2, 3]
     );
 }
@@ -115,10 +111,7 @@ fn test_sequential_batch_processor_reports_progress() {
     let events = reporter.events();
 
     assert_eq!(result.completed_count(), 3);
-    assert!(matches!(
-        events.first(),
-        Some(ProgressEvent::Start { total_count: 3 })
-    ));
+    assert!(matches!(events.first(), Some(ProgressEvent::Start { total_count: 3 })));
     assert!(events.iter().any(|event| matches!(
         event,
         ProgressEvent::Process {
@@ -204,9 +197,7 @@ fn test_sequential_batch_processor_reports_count_exceeded() {
         other => panic!("unexpected error: {other:?}"),
     }
     assert_eq!(
-        *accepted
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner),
+        *accepted.lock().unwrap_or_else(std::sync::PoisonError::into_inner),
         vec![1, 2]
     );
 }
@@ -242,9 +233,7 @@ fn test_sequential_batch_processor_reports_count_shortfall() {
         other => panic!("unexpected error: {other:?}"),
     }
     assert_eq!(
-        *accepted
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner),
+        *accepted.lock().unwrap_or_else(std::sync::PoisonError::into_inner),
         vec![1, 2]
     );
 }

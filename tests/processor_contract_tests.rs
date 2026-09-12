@@ -24,11 +24,7 @@ struct PartialDelegate {
 impl BatchProcessor<usize> for PartialDelegate {
     type Error = &'static str;
 
-    fn process_with_count<I>(
-        &mut self,
-        items: I,
-        count: usize,
-    ) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = usize>,
     {
@@ -55,11 +51,7 @@ struct CountInputs;
 impl BatchProcessor<usize> for CountInputs {
     type Error = BatchProcessResultBuildError;
 
-    fn process_with_count<I>(
-        &mut self,
-        items: I,
-        count: usize,
-    ) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = usize>,
     {
@@ -79,10 +71,8 @@ fn test_failed_chunk_effect_is_not_an_aggregate_retry_boundary() {
         calls: 0,
         effects: Rc::clone(&effects),
     };
-    let mut processor = ChunkedBatchProcessor::new(
-        delegate,
-        NonZeroUsize::new(2).expect("chunk size should be non-zero"),
-    );
+    let mut processor =
+        ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("chunk size should be non-zero"));
 
     let error = processor
         .process([0, 1, 2, 3])
