@@ -249,6 +249,11 @@ let outcome = coordinator.execute(tasks, 1, TaskFailurePolicy::Continue,
 assert!(outcome.is_success());
 ```
 
+使用 `execute_with_source` 时，正常完成还要求把 `ParallelBatchSource` 消费到真实的
+`None`。只执行声明数量的任务，无法证明来源没有多余项；此时协调器返回
+`IncompleteSchedule`，并向 reporter 发送 `Failed` 终态，而不是 `Succeeded`。失败策略
+主动停止是例外：它返回明确的停止结果，不会为了探测来源而继续拉取。
+
 ### 恢复当前调用的成功输出
 
 假设应用已保存两个输出，下一块却因声明数量不正确而失败。错误会保留本次调用

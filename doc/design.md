@@ -66,7 +66,9 @@ Start failure prevents scheduling. After the scheduler returns, precedence is:
 4. Observed count overflow (CountExceeded).
 5. Failure-policy stop while exhaustion is unobserved.
 6. Exhausted/returned short source (CountShortfall).
-7. Terminal progress delivery and the final outcome.
+7. A source-aware scheduler that returned without proving source exhaustion
+   (IncompleteSchedule; failed terminal delivery is retained as `report_error`).
+8. Terminal progress delivery and the final outcome.
 
 Synchronous reporter, iterator, and task-destructor panics may unwind the call.
 Task-body unwinds are captured as failures; aborting panics cannot be caught.
@@ -112,8 +114,10 @@ This intentionally changes which error is returned for multiply-invalid input:
 all range errors precede duplicate errors, and duplicates report the smallest
 repeated index. The first range error remains the first in input order. Counter
 error ordering and callable-result error ordering are unchanged. Callers should
-update tests that relied on the old duplicate traversal order. The release is
-0.11; the companion moves to 0.9 with a qubit-batch 0.11 dependency.
+update tests that relied on the old duplicate traversal order. The in-place
+validation change was introduced in qubit-batch 0.11. qubit-batch 0.12 retains
+that error ordering. The current companion is qubit-rayon-batch 0.10, which
+depends on qubit-batch 0.12.
 
 ## Resource model and testing
 
