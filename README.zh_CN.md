@@ -15,7 +15,7 @@
 
 ```toml
 [dependencies]
-qubit-batch = "0.11"
+qubit-batch = "0.12"
 ```
 
 需要 Rust 1.94 或更高版本。只有直接实现 `Runnable`、`Callable` 或 `Consumer`

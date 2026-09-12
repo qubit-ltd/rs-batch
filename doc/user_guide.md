@@ -3,7 +3,7 @@
 [中文用户手册](user_guide.zh_CN.md) · [README](../README.md) ·
 [API documentation](https://docs.rs/qubit-batch)
 
-Applies to `qubit-batch` 0.11 and Rust 1.94 or later. This guide is for an
+Applies to `qubit-batch` 0.12 and Rust 1.94 or later. This guide is for an
 application or library author who has one finite collection to handle now and
 needs an auditable outcome, rather than a persistent queue, scheduler, or
 worker pool.
@@ -42,7 +42,7 @@ attempted rows, two successes, and one failure at index 1.
 
 ```toml
 [dependencies]
-qubit-batch = "0.11"
+qubit-batch = "0.12"
 ```
 
 ## Core Workflow
@@ -331,7 +331,7 @@ events may be coalesced on parallel paths; only lifecycle ordering is asserted.
 
 ```toml
 [dependencies]
-qubit-batch = "0.11"
+qubit-batch = "0.12"
 qubit-progress = { version = "0.8", default-features = false }
 ```
 

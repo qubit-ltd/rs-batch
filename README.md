@@ -15,7 +15,7 @@ without coupling a shared library to a particular async runtime.
 
 ```toml
 [dependencies]
-qubit-batch = "0.11"
+qubit-batch = "0.12"
 ```
 
 Use Rust 1.94 or later. Add `qubit-function = "0.18"` only when implementing

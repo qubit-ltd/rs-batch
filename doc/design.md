@@ -2,7 +2,7 @@
 
 [中文设计说明](design.zh_CN.md) · [User guide](user_guide.md) · [README](../README.md)
 
-This document describes qubit-batch 0.11. Rust 1.94 and edition 2024 remain the
+This document describes qubit-batch 0.12. Rust 1.94 and edition 2024 remain the
 minimum toolchain contract. It records the runtime and result invariants used
 by the standard-thread implementation and the qubit-rayon-batch companion.
 
