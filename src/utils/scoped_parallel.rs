@@ -11,6 +11,8 @@ use std::sync::Mutex;
 use std::sync::mpsc;
 use std::thread;
 
+use crossbeam_channel::bounded;
+
 use super::internal::ScopedWorkItem;
 
 /// Runs indexed work items on fixed-width scoped worker threads.
@@ -133,14 +135,15 @@ where
 {
     assert!(worker_count > 0, "scoped parallel worker count must be positive");
     thread::scope(|scope| {
-        let (work_sender, work_receiver) = mpsc::sync_channel(worker_count);
-        let work_receiver = Arc::new(Mutex::new(work_receiver));
+        let (work_sender, work_receiver) = bounded(worker_count);
         let mut worker_handles = Vec::with_capacity(worker_count);
         for _ in 0..worker_count {
-            let worker_receiver = Arc::clone(&work_receiver);
+            let worker_receiver = work_receiver.clone();
             let worker_run_item = &run_item;
             worker_handles.push(scope.spawn(move || {
-                run_scoped_task_worker(worker_receiver, worker_run_item);
+                while let Ok(work) = worker_receiver.recv() {
+                    worker_run_item(work);
+                }
             }));
         }
         drop(work_receiver);
@@ -197,33 +200,5 @@ fn run_scoped_worker<T, S, F>(
         }
         let ScopedWorkItem { index, item } = work_item;
         run_item(index, item);
-    }
-}
-
-/// Runs accepted work until the token channel closes.
-///
-/// # Parameters
-///
-/// * `work_receiver` - Shared receiver protected because standard receivers are
-///   not `Sync`.
-/// * `run_item` - Callback invoked for each accepted work token.
-///
-/// # Type Parameters
-///
-/// * `W` - Accepted work token type.
-/// * `F` - Worker callback type.
-fn run_scoped_task_worker<W, F>(work_receiver: Arc<Mutex<mpsc::Receiver<W>>>, run_item: &F)
-where
-    F: Fn(W),
-{
-    loop {
-        let received = work_receiver
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .recv();
-        let Ok(work) = received else {
-            break;
-        };
-        run_item(work);
     }
 }
