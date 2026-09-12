@@ -253,20 +253,13 @@ where
     /// invalid delegate call, the attached result describes only the preceding
     /// successful chunks and does not prove that the excluded chunk produced no
     /// external side effects.
-    fn process_with_count<I>(
-        &mut self,
-        items: I,
-        count: usize,
-    ) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
     {
         let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
             .interval(self.report_interval)
-            .metric(
-                Metric::new(PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME)
-                    .total(count as u64),
-            )
+            .metric(Metric::new(PROCESS_PROGRESS_METRIC_ID, PROCESS_PROGRESS_METRIC_NAME).total(count as u64))
             .start()
         {
             Ok(progress) => progress,
@@ -381,9 +374,7 @@ impl<P> ChunkedBatchProcessor<P> {
         // for the next chunk, including when the delegate returns early.
         match self.delegate.process_with_count(chunk.drain(..), chunk_len) {
             Ok(chunk_result) => {
-                if chunk_result.item_count() != chunk_len
-                    || chunk_result.completed_count() != chunk_len
-                {
+                if chunk_result.item_count() != chunk_len || chunk_result.completed_count() != chunk_len {
                     let (elapsed, report_error) = ProgressFailure::fail_operation(progress);
                     let result = state.to_chunked_result(elapsed);
                     return Err(ChunkedBatchProcessError::InvalidChunkResult {

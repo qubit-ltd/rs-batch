@@ -40,11 +40,7 @@ struct Delegate {
 }
 impl BatchProcessor<Item> for Delegate {
     type Error = &'static str;
-    fn process_with_count<I>(
-        &mut self,
-        items: I,
-        count: usize,
-    ) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
     {
@@ -92,8 +88,7 @@ fn test_full_and_claimed_chunks_keep_source_boundaries() {
             behavior,
             first_items: Vec::new(),
         };
-        let mut processor =
-            ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("nonzero"));
+        let mut processor = ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("nonzero"));
         let result = processor.process(items).expect("valid delegate result");
         assert_eq!(result.completed_count(), 5);
         assert_eq!(result.chunk_count(), 3);
@@ -108,8 +103,7 @@ fn test_partial_delegate_error_drops_every_item_once() {
         behavior: Behavior::Reject,
         first_items: Vec::new(),
     };
-    let mut processor =
-        ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("nonzero"));
+    let mut processor = ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("nonzero"));
     let error = processor.process(items).expect_err("delegate rejection");
     match error {
         ChunkedBatchProcessError::ChunkFailed {
@@ -135,8 +129,7 @@ fn test_partial_success_is_rejected_without_aggregating_chunk() {
         behavior: Behavior::ClaimPartial,
         first_items: Vec::new(),
     };
-    let mut processor =
-        ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("nonzero"));
+    let mut processor = ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("nonzero"));
     match processor.process(items).expect_err("incomplete chunk") {
         ChunkedBatchProcessError::InvalidChunkResult {
             completed_count,
@@ -157,8 +150,7 @@ fn test_delegate_panic_drops_remaining_items() {
         behavior: Behavior::Panic,
         first_items: Vec::new(),
     };
-    let mut processor =
-        ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("nonzero"));
+    let mut processor = ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("nonzero"));
     assert!(
         catch_unwind(AssertUnwindSafe(|| {
             let _ = processor.process(items);

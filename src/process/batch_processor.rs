@@ -146,11 +146,7 @@ pub trait BatchProcessor<Item> {
     /// Returns [`Self::Error`] when this processor cannot process the batch.
     /// Implementations may report a count mismatch when `count` is wrong, but
     /// callers must not rely on every implementation performing that check.
-    fn process_with_count<I>(
-        &mut self,
-        items: I,
-        count: usize,
-    ) -> Result<BatchProcessResult, Self::Error>
+    fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>;
 }

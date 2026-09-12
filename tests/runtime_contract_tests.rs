@@ -43,17 +43,16 @@ fn run_with_watchdog(test_name: &str, scenario: impl FnOnce()) {
         return;
     }
 
-    let mut child =
-        Command::new(std::env::current_exe().expect("test executable should be available"))
-            .arg("--exact")
-            .arg(test_name)
-            .arg("--nocapture")
-            .env(CHILD_PROCESS_ENV, test_name)
-            .stdin(Stdio::null())
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .spawn()
-            .expect("runtime contract child should start");
+    let mut child = Command::new(std::env::current_exe().expect("test executable should be available"))
+        .arg("--exact")
+        .arg(test_name)
+        .arg("--nocapture")
+        .env(CHILD_PROCESS_ENV, test_name)
+        .stdin(Stdio::null())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .expect("runtime contract child should start");
     let deadline = Instant::now() + WATCHDOG_TIMEOUT;
     loop {
         if let Some(status) = child
@@ -124,9 +123,7 @@ impl Iterator for ObservedItems {
         if observed - completed == self.max_unfinished
             && let Some(sender) = self.window_full_sender.take()
         {
-            sender
-                .send(())
-                .expect("window observer should remain alive");
+            sender.send(()).expect("window observer should remain alive");
         }
         Some(item)
     }
@@ -246,86 +243,76 @@ fn test_parallel_executor_keeps_concurrent_batch_outcomes_isolated() {
 
 #[test]
 fn test_parallel_executor_bounds_unfinished_admission_window() {
-    run_with_watchdog(
-        "test_parallel_executor_bounds_unfinished_admission_window",
-        || {
-            const ITEM_COUNT: usize = 64;
-            const WORKER_COUNT: usize = 2;
-            const MAX_UNFINISHED_ADMISSIONS: usize = 2 * WORKER_COUNT + 1;
+    run_with_watchdog("test_parallel_executor_bounds_unfinished_admission_window", || {
+        const ITEM_COUNT: usize = 64;
+        const WORKER_COUNT: usize = 2;
+        const MAX_UNFINISHED_ADMISSIONS: usize = 2 * WORKER_COUNT + 1;
 
-            let executor = ParallelBatchExecutor::builder()
-                .thread_count(WORKER_COUNT)
-                .sequential_threshold(0)
-                .build()
-                .expect("parallel executor should build");
-            let gate = Arc::new((Mutex::new(false), Condvar::new()));
-            let observed = Arc::new(AtomicUsize::new(0));
-            let completed = Arc::new(AtomicUsize::new(0));
-            let (window_full_sender, window_full_receiver) = mpsc::sync_channel(0);
-            let (started_sender, started_receiver) = mpsc::sync_channel(ITEM_COUNT);
+        let executor = ParallelBatchExecutor::builder()
+            .thread_count(WORKER_COUNT)
+            .sequential_threshold(0)
+            .build()
+            .expect("parallel executor should build");
+        let gate = Arc::new((Mutex::new(false), Condvar::new()));
+        let observed = Arc::new(AtomicUsize::new(0));
+        let completed = Arc::new(AtomicUsize::new(0));
+        let (window_full_sender, window_full_receiver) = mpsc::sync_channel(0);
+        let (started_sender, started_receiver) = mpsc::sync_channel(ITEM_COUNT);
 
-            thread::scope(|scope| {
-                let runner = scope.spawn(|| {
-                    executor
-                        .for_each_with_count(
-                            ObservedItems::new(
-                                ITEM_COUNT,
-                                Arc::clone(&observed),
-                                Arc::clone(&completed),
-                                MAX_UNFINISHED_ADMISSIONS,
-                                window_full_sender,
-                            ),
+        thread::scope(|scope| {
+            let runner = scope.spawn(|| {
+                executor
+                    .for_each_with_count(
+                        ObservedItems::new(
                             ITEM_COUNT,
-                            |_| {
-                                started_sender
-                                    .send(())
-                                    .expect("task-start receiver should remain alive");
-                                let (lock, ready) = gate.as_ref();
-                                let mut released = lock
-                                    .lock()
-                                    .unwrap_or_else(std::sync::PoisonError::into_inner);
-                                while !*released {
-                                    released = ready
-                                        .wait(released)
-                                        .unwrap_or_else(std::sync::PoisonError::into_inner);
-                                }
-                                completed.fetch_add(1, Ordering::AcqRel);
-                                Ok::<(), ()>(())
-                            },
-                        )
-                        .expect("bounded-window batch should complete")
-                });
-
-                for _ in 0..WORKER_COUNT {
-                    started_receiver
-                        .recv()
-                        .expect("both workers should start before release");
-                }
-                window_full_receiver
-                    .recv()
-                    .expect("blocked workers should fill the bounded admission window");
-                assert_eq!(observed.load(Ordering::Acquire), MAX_UNFINISHED_ADMISSIONS);
-                assert_eq!(completed.load(Ordering::Acquire), 0);
-
-                let (lock, ready) = gate.as_ref();
-                *lock
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner) = true;
-                ready.notify_all();
-
-                let outcome = runner.join().expect("bounded-window runner should join");
-                assert_eq!(outcome.completed_count(), ITEM_COUNT);
+                            Arc::clone(&observed),
+                            Arc::clone(&completed),
+                            MAX_UNFINISHED_ADMISSIONS,
+                            window_full_sender,
+                        ),
+                        ITEM_COUNT,
+                        |_| {
+                            started_sender
+                                .send(())
+                                .expect("task-start receiver should remain alive");
+                            let (lock, ready) = gate.as_ref();
+                            let mut released = lock.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                            while !*released {
+                                released = ready.wait(released).unwrap_or_else(std::sync::PoisonError::into_inner);
+                            }
+                            completed.fetch_add(1, Ordering::AcqRel);
+                            Ok::<(), ()>(())
+                        },
+                    )
+                    .expect("bounded-window batch should complete")
             });
-            assert_eq!(observed.load(Ordering::Acquire), ITEM_COUNT);
-            assert_eq!(completed.load(Ordering::Acquire), ITEM_COUNT);
-        },
-    );
+
+            for _ in 0..WORKER_COUNT {
+                started_receiver
+                    .recv()
+                    .expect("both workers should start before release");
+            }
+            window_full_receiver
+                .recv()
+                .expect("blocked workers should fill the bounded admission window");
+            assert_eq!(observed.load(Ordering::Acquire), MAX_UNFINISHED_ADMISSIONS);
+            assert_eq!(completed.load(Ordering::Acquire), 0);
+
+            let (lock, ready) = gate.as_ref();
+            *lock.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = true;
+            ready.notify_all();
+
+            let outcome = runner.join().expect("bounded-window runner should join");
+            assert_eq!(outcome.completed_count(), ITEM_COUNT);
+        });
+        assert_eq!(observed.load(Ordering::Acquire), ITEM_COUNT);
+        assert_eq!(completed.load(Ordering::Acquire), ITEM_COUNT);
+    });
 }
 
 #[test]
 fn test_accepted_tokens_finish_after_failure_stops_admission() {
-    let coordinator =
-        ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
+    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let mut later_calls = 0;
     let outcome = coordinator
         .execute(
@@ -354,10 +341,7 @@ fn test_accepted_tokens_finish_after_failure_stops_admission() {
     assert_eq!(outcome.completed_count(), 2);
     assert_eq!(outcome.failed_count(), 1);
     assert_eq!(outcome.succeeded_count(), 1);
-    assert_eq!(
-        outcome.termination(),
-        BatchTermination::StoppedByTaskFailurePolicy
-    );
+    assert_eq!(outcome.termination(), BatchTermination::StoppedByTaskFailurePolicy);
 }
 
 #[test]
@@ -371,10 +355,8 @@ fn test_running_reporter_failure_stops_admission_and_drains_accepted_tokens() {
 
             let (running_sender, running_receiver) = mpsc::sync_channel(0);
             let (failure_release_sender, failure_release_receiver) = mpsc::sync_channel(0);
-            let reporter =
-                CoordinatedFailingReporter::new(running_sender, failure_release_receiver);
-            let coordinator =
-                ParallelBatchExecutionCoordinator::new(Arc::new(reporter), Duration::ZERO);
+            let reporter = CoordinatedFailingReporter::new(running_sender, failure_release_receiver);
+            let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(reporter), Duration::ZERO);
             let completed = Arc::new(AtomicUsize::new(0));
             let accepted = Arc::new(AtomicUsize::new(0));
 
@@ -457,10 +439,7 @@ fn test_running_reporter_failure_stops_admission_and_drains_accepted_tokens() {
                 panic!("running reporter failure should be a progress error");
             };
             assert_eq!(outcome.completed_count(), accepted.load(Ordering::Acquire));
-            assert_eq!(
-                completed.load(Ordering::Acquire),
-                accepted.load(Ordering::Acquire)
-            );
+            assert_eq!(completed.load(Ordering::Acquire), accepted.load(Ordering::Acquire));
             assert!(outcome.completed_count() >= 2);
         },
     );

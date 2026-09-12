@@ -14,13 +14,12 @@ const README_ZH: &str = include_str!("../../README.zh_CN.md");
 /// `[package] version`.
 #[test]
 fn test_readme_dependency_version_matches_cargo_toml() {
-    let cargo_version =
-        extract_package_version(CARGO_TOML).expect("Failed to extract version from Cargo.toml");
+    let cargo_version = extract_package_version(CARGO_TOML).expect("Failed to extract version from Cargo.toml");
     let expected = minor_series(cargo_version).expect("Cargo.toml version must have major.minor");
-    let readme_en_version = extract_readme_dependency_version(README_EN)
-        .expect("Failed to extract version from README.md");
-    let readme_zh_version = extract_readme_dependency_version(README_ZH)
-        .expect("Failed to extract version from README.zh_CN.md");
+    let readme_en_version =
+        extract_readme_dependency_version(README_EN).expect("Failed to extract version from README.md");
+    let readme_zh_version =
+        extract_readme_dependency_version(README_ZH).expect("Failed to extract version from README.zh_CN.md");
     assert_eq!(readme_en_version, expected.as_str());
     assert_eq!(readme_zh_version, expected.as_str());
 }
@@ -55,16 +54,10 @@ fn test_readmes_use_local_license_and_repository_links() {
 #[test]
 fn test_readme_footer_and_guide_navigation() {
     for (readme, expected) in [
-        (
-            README_EN,
-            ["## Testing", "## License", "## Contributing", "## Author"],
-        ),
+        (README_EN, ["## Testing", "## License", "## Contributing", "## Author"]),
         (README_ZH, ["## 测试", "## 许可证", "## 贡献", "## 作者"]),
     ] {
-        let headings: Vec<_> = readme
-            .lines()
-            .filter(|line| line.starts_with("## "))
-            .collect();
+        let headings: Vec<_> = readme.lines().filter(|line| line.starts_with("## ")).collect();
         assert_eq!(
             &headings[headings.len() - 4..],
             expected,
