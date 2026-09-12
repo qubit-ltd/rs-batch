@@ -80,7 +80,7 @@ impl<Item> SequentialBatchProcessor<Item> {
     ///
     /// A processor storing `consumer` as a [`BoxConsumer`].
     #[must_use = "use the constructed or borrowed value"]
-    #[inline(always)]
+    #[inline]
     pub fn new<C>(consumer: C) -> Self
     where
         C: Consumer<Item> + 'static,
@@ -103,7 +103,7 @@ impl<Item> SequentialBatchProcessor<Item> {
     ///
     /// A builder initialized with default settings.
     #[must_use = "use the constructed or borrowed value"]
-    #[inline(always)]
+    #[inline]
     pub fn builder<C>(consumer: C) -> SequentialBatchProcessorBuilder<Item>
     where
         C: Consumer<Item> + 'static,
@@ -129,7 +129,7 @@ impl<Item> SequentialBatchProcessor<Item> {
     ///
     /// A processor that stores `consumer` without boxing it.
     #[must_use = "use the constructed or borrowed value"]
-    #[inline(always)]
+    #[inline]
     pub fn with_consumer<C>(consumer: C) -> SequentialBatchProcessor<Item, C>
     where
         C: Consumer<Item>,
@@ -148,7 +148,7 @@ impl<Item, C> SequentialBatchProcessor<Item, C> {
     ///
     /// The minimum time between due-based running progress callbacks.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn report_interval(&self) -> Duration {
         self.report_interval
     }
@@ -159,7 +159,7 @@ impl<Item, C> SequentialBatchProcessor<Item, C> {
     ///
     /// A shared reference to the configured progress reporter.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub fn reporter(&self) -> &Arc<dyn Reporter> {
         &self.reporter
     }
@@ -170,7 +170,7 @@ impl<Item, C> SequentialBatchProcessor<Item, C> {
     ///
     /// A shared reference to the stored consumer.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn consumer(&self) -> &C {
         &self.consumer
     }
@@ -180,7 +180,7 @@ impl<Item, C> SequentialBatchProcessor<Item, C> {
     /// # Returns
     ///
     /// The consumer used by this processor.
-    #[inline(always)]
+    #[inline]
     pub fn into_consumer(self) -> C {
         self.consumer
     }

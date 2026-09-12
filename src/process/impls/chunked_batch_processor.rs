@@ -134,7 +134,7 @@ impl<P> ChunkedBatchProcessor<P> {
     /// with any delegate type, but it can only process items for item types
     /// that the delegate actually supports.
     #[must_use = "use the constructed or borrowed value"]
-    #[inline(always)]
+    #[inline]
     pub fn new(delegate: P, chunk_size: NonZeroUsize) -> Self {
         Self::builder(delegate, chunk_size).build()
     }
@@ -150,7 +150,7 @@ impl<P> ChunkedBatchProcessor<P> {
     ///
     /// A builder initialized with default settings.
     #[must_use = "use the constructed or borrowed value"]
-    #[inline(always)]
+    #[inline]
     pub fn builder(delegate: P, chunk_size: NonZeroUsize) -> ChunkedBatchProcessorBuilder<P> {
         ChunkedBatchProcessorBuilder::new(delegate, chunk_size)
     }
@@ -161,7 +161,7 @@ impl<P> ChunkedBatchProcessor<P> {
     ///
     /// The maximum number of items submitted to the delegate at once.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn chunk_size(&self) -> NonZeroUsize {
         self.chunk_size
     }
@@ -172,7 +172,7 @@ impl<P> ChunkedBatchProcessor<P> {
     ///
     /// The minimum time between due-based running progress callbacks.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn report_interval(&self) -> Duration {
         self.report_interval
     }
@@ -183,7 +183,7 @@ impl<P> ChunkedBatchProcessor<P> {
     ///
     /// A shared reference to the configured progress reporter.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub fn reporter(&self) -> &Arc<dyn Reporter> {
         &self.reporter
     }
@@ -194,7 +194,7 @@ impl<P> ChunkedBatchProcessor<P> {
     ///
     /// The wrapped delegate processor.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn delegate(&self) -> &P {
         &self.delegate
     }
@@ -205,7 +205,7 @@ impl<P> ChunkedBatchProcessor<P> {
     ///
     /// The wrapped delegate processor.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn delegate_mut(&mut self) -> &mut P {
         &mut self.delegate
     }
@@ -215,7 +215,7 @@ impl<P> ChunkedBatchProcessor<P> {
     /// # Returns
     ///
     /// The wrapped delegate processor.
-    #[inline(always)]
+    #[inline]
     pub fn into_delegate(self) -> P {
         self.delegate
     }

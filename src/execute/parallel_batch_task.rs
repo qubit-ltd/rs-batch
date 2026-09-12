@@ -75,7 +75,7 @@ impl<T> ParallelBatchTask<T> {
     ///
     /// The execution identity, context-assigned task index, and runnable
     /// payload.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn into_parts(self) -> (u64, usize, T) {
         (self.execution_id, self.index, self.task)
     }

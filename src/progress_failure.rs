@@ -81,7 +81,7 @@ pub enum ProgressFailure {
 
 impl From<StartError> for ProgressFailure {
     /// Wraps a start failure.
-    #[inline(always)]
+    #[inline]
     fn from(error: StartError) -> Self {
         Self::Start(error)
     }
@@ -89,7 +89,7 @@ impl From<StartError> for ProgressFailure {
 
 impl From<EmissionError> for ProgressFailure {
     /// Wraps a running emission failure.
-    #[inline(always)]
+    #[inline]
     fn from(error: EmissionError) -> Self {
         Self::Emission(error)
     }
@@ -97,7 +97,7 @@ impl From<EmissionError> for ProgressFailure {
 
 impl From<AutoReporterError> for ProgressFailure {
     /// Wraps a scoped automatic reporter failure.
-    #[inline(always)]
+    #[inline]
     fn from(error: AutoReporterError) -> Self {
         Self::AutoReporter(error)
     }
@@ -105,7 +105,7 @@ impl From<AutoReporterError> for ProgressFailure {
 
 impl From<TerminalError> for ProgressFailure {
     /// Wraps a terminal emission failure.
-    #[inline(always)]
+    #[inline]
     fn from(error: TerminalError) -> Self {
         Self::Terminal(error)
     }
@@ -137,7 +137,7 @@ impl ProgressFailure {
     /// The terminal event's elapsed duration, or `None` when no terminal event
     /// was attempted.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub fn elapsed(&self) -> Option<Duration> {
         match self {
             Self::Terminal(error) => Some(error.elapsed()),

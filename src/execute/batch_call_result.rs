@@ -100,32 +100,32 @@ impl<R, E> BatchCallResult<R, E> {
 
     /// Returns the execution outcome for the callable batch.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn outcome(&self) -> &BatchOutcome<E> {
         &self.outcome
     }
 
     /// Returns sparse successful outputs sorted by callable position.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub fn outputs(&self) -> &[BatchCallOutput<R>] {
         &self.outputs
     }
 
     /// Consumes this result and returns the execution outcome.
-    #[inline(always)]
+    #[inline]
     pub fn into_outcome(self) -> BatchOutcome<E> {
         self.outcome
     }
 
     /// Consumes this result and returns sparse successful outputs.
-    #[inline(always)]
+    #[inline]
     pub fn into_outputs(self) -> Vec<BatchCallOutput<R>> {
         self.outputs
     }
 
     /// Consumes this result and returns both stored parts.
-    #[inline(always)]
+    #[inline]
     pub fn into_parts(self) -> (BatchOutcome<E>, Vec<BatchCallOutput<R>>) {
         (self.outcome, self.outputs)
     }

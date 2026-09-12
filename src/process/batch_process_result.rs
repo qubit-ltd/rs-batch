@@ -70,7 +70,7 @@ impl BatchProcessResult {
     ///
     /// A result builder initialized with zero counters and zero elapsed time.
     #[must_use = "use the constructed or borrowed value"]
-    #[inline(always)]
+    #[inline]
     pub const fn builder(item_count: usize) -> BatchProcessResultBuilder {
         BatchProcessResultBuilder::builder(item_count)
     }
@@ -103,7 +103,7 @@ impl BatchProcessResult {
     ///
     /// The expected number of input items.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn item_count(&self) -> usize {
         self.item_count
     }
@@ -114,7 +114,7 @@ impl BatchProcessResult {
     ///
     /// The number of completed input items.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn completed_count(&self) -> usize {
         self.completed_count
     }
@@ -126,7 +126,7 @@ impl BatchProcessResult {
     /// The successful input count. Domain measurements such as affected rows
     /// are tracked separately.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn processed_count(&self) -> usize {
         self.processed_count
     }
@@ -138,7 +138,7 @@ impl BatchProcessResult {
     /// The successful chunk count. Failed attempts and nested delegate chunks
     /// are not included in an outer processor's result.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn chunk_count(&self) -> usize {
         self.chunk_count
     }
@@ -149,7 +149,7 @@ impl BatchProcessResult {
     ///
     /// The elapsed duration for this batch processing attempt.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn elapsed(&self) -> Duration {
         self.elapsed
     }
@@ -160,7 +160,7 @@ impl BatchProcessResult {
     ///
     /// `true` when every declared item completed and was reported as processed.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn is_success(&self) -> bool {
         self.completed_count == self.item_count && self.processed_count == self.item_count
     }

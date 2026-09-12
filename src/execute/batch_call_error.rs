@@ -140,7 +140,7 @@ where
     ///
     /// The batch-level error that stopped execution.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub fn source(&self) -> &BatchExecutionError<E, S> {
         self.source.as_ref()
     }
@@ -151,7 +151,7 @@ where
     ///
     /// The outcome accumulated before the batch-level error occurred.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub fn outcome(&self) -> &BatchOutcome<E> {
         self.source.outcome()
     }
@@ -162,7 +162,7 @@ where
     ///
     /// Outputs sorted by their original zero-based callable index.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub fn outputs(&self) -> &[BatchCallOutput<R>] {
         &self.outputs
     }
@@ -172,7 +172,7 @@ where
     /// # Returns
     ///
     /// The owned batch-level execution error.
-    #[inline(always)]
+    #[inline]
     pub fn into_source(self) -> BatchExecutionError<E, S> {
         *self.source
     }
@@ -182,7 +182,7 @@ where
     /// # Returns
     ///
     /// Successful outputs sorted by their original zero-based callable index.
-    #[inline(always)]
+    #[inline]
     pub fn into_outputs(self) -> Vec<BatchCallOutput<R>> {
         self.outputs
     }
@@ -192,7 +192,7 @@ where
     /// # Returns
     ///
     /// The nested execution error and its preserved successful outputs.
-    #[inline(always)]
+    #[inline]
     pub fn into_parts(self) -> (BatchExecutionError<E, S>, Vec<BatchCallOutput<R>>) {
         (*self.source, self.outputs)
     }
@@ -211,7 +211,7 @@ where
     /// # Returns
     ///
     /// The formatting result.
-    #[inline(always)]
+    #[inline]
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.source.fmt(formatter)
     }
@@ -223,7 +223,12 @@ where
     S: std::error::Error + Send + Sync + 'static,
 {
     /// Returns the nested batch execution error as the source.
-    #[inline(always)]
+    ///
+    /// # Returns
+    ///
+    /// `Some` containing the nested [`BatchExecutionError`] that caused this
+    /// call error.
+    #[inline]
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         Some(&self.source)
     }

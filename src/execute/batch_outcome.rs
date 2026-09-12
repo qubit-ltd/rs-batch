@@ -100,7 +100,7 @@ impl<E> BatchOutcome<E> {
     ///
     /// The expected number of tasks supplied by the caller.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn task_count(&self) -> usize {
         self.task_count
     }
@@ -111,7 +111,7 @@ impl<E> BatchOutcome<E> {
     ///
     /// The number of completed tasks.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn completed_count(&self) -> usize {
         self.completed_count
     }
@@ -122,7 +122,7 @@ impl<E> BatchOutcome<E> {
     ///
     /// The number of successful tasks.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn succeeded_count(&self) -> usize {
         self.succeeded_count
     }
@@ -133,7 +133,7 @@ impl<E> BatchOutcome<E> {
     ///
     /// The number of failed tasks.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn failed_count(&self) -> usize {
         self.failed_count
     }
@@ -144,7 +144,7 @@ impl<E> BatchOutcome<E> {
     ///
     /// The number of panicked tasks.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn panicked_count(&self) -> usize {
         self.panicked_count
     }
@@ -157,7 +157,7 @@ impl<E> BatchOutcome<E> {
     /// failure policy stopped admission before source exhaustion was observed;
     /// otherwise [`BatchTermination::Finished`].
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn termination(&self) -> BatchTermination {
         self.termination
     }
@@ -168,7 +168,7 @@ impl<E> BatchOutcome<E> {
     ///
     /// Failed plus panicked task count.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn failure_count(&self) -> usize {
         self.failed_count + self.panicked_count
     }
@@ -179,7 +179,7 @@ impl<E> BatchOutcome<E> {
     ///
     /// The elapsed duration for this batch execution.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn elapsed(&self) -> Duration {
         self.elapsed
     }
@@ -190,7 +190,7 @@ impl<E> BatchOutcome<E> {
     ///
     /// A shared slice of task failure records.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub fn failures(&self) -> &[BatchTaskFailure<E>] {
         self.failures.as_slice()
     }
@@ -202,7 +202,7 @@ impl<E> BatchOutcome<E> {
     /// `true` if the batch has no failures and every declared task completed.
     /// A `Finished` termination alone does not imply this condition.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn is_success(&self) -> bool {
         self.completed_count == self.task_count && self.failed_count == 0 && self.panicked_count == 0
     }
@@ -212,7 +212,7 @@ impl<E> BatchOutcome<E> {
     /// # Returns
     ///
     /// The detailed failure records collected during execution.
-    #[inline(always)]
+    #[inline]
     pub fn into_failures(self) -> Vec<BatchTaskFailure<E>> {
         self.failures
     }

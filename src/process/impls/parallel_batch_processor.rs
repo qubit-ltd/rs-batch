@@ -138,7 +138,7 @@ impl<Item> ParallelBatchProcessor<Item> {
     ///
     /// A builder initialized with default settings.
     #[must_use = "use the constructed or borrowed value"]
-    #[inline(always)]
+    #[inline]
     pub fn builder<C>(consumer: C) -> ParallelBatchProcessorBuilder<Item>
     where
         C: Consumer<Item> + Send + Sync + 'static,
@@ -152,7 +152,7 @@ impl<Item> ParallelBatchProcessor<Item> {
     ///
     /// The available CPU parallelism, or `1` if it cannot be detected.
     #[must_use = "use the constructed or borrowed value"]
-    #[inline(always)]
+    #[inline]
     pub fn default_thread_count() -> usize {
         thread::available_parallelism().map(usize::from).unwrap_or(1)
     }
@@ -163,7 +163,7 @@ impl<Item> ParallelBatchProcessor<Item> {
     ///
     /// The maximum number of scoped worker threads used for one batch.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn thread_count(&self) -> usize {
         self.thread_count.get()
     }
@@ -174,7 +174,7 @@ impl<Item> ParallelBatchProcessor<Item> {
     ///
     /// The maximum item count that still runs sequentially.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn sequential_threshold(&self) -> usize {
         self.sequential_threshold
     }
@@ -185,7 +185,7 @@ impl<Item> ParallelBatchProcessor<Item> {
     ///
     /// The minimum time between due-based running progress callbacks.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn report_interval(&self) -> Duration {
         self.report_interval
     }
@@ -196,7 +196,7 @@ impl<Item> ParallelBatchProcessor<Item> {
     ///
     /// A shared reference to the configured progress reporter.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub fn reporter(&self) -> &Arc<dyn Reporter> {
         &self.reporter
     }
@@ -207,7 +207,7 @@ impl<Item> ParallelBatchProcessor<Item> {
     ///
     /// A shared reference to the arc-backed consumer.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn consumer(&self) -> &ArcConsumer<Item> {
         &self.consumer
     }
@@ -217,7 +217,7 @@ impl<Item> ParallelBatchProcessor<Item> {
     /// # Returns
     ///
     /// The arc-backed consumer used by this processor.
-    #[inline(always)]
+    #[inline]
     pub fn into_consumer(self) -> ArcConsumer<Item> {
         self.consumer
     }
@@ -235,6 +235,15 @@ where
     /// # Type Parameters
     ///
     /// * `I` - Item source type.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` after all declared items are consumed and processed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an emission error when a running progress event cannot be
+    /// delivered.
     ///
     /// # Parameters
     ///
@@ -361,6 +370,15 @@ where
     ///
     /// * `I` - Item source type.
     ///
+    /// # Returns
+    ///
+    /// `Ok(())` after all declared items are consumed and processed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an emission error when a running progress event cannot be
+    /// delivered.
+    ///
     /// # Panics
     ///
     /// Propagates any panic raised while invoking the stored consumer.
@@ -403,6 +421,15 @@ where
     /// # Type Parameters
     ///
     /// * `I` - Item source type.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` after all accepted items finish processing.
+    ///
+    /// # Errors
+    ///
+    /// Returns an automatic-reporter error when the running progress reporter
+    /// fails.
     ///
     /// # Panics
     ///

@@ -60,7 +60,7 @@ impl ParallelBatchExecutorBuilder {
     ///
     /// This builder for fluent configuration.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn thread_count(mut self, thread_count: usize) -> Self {
         self.thread_count = thread_count;
         self
@@ -77,7 +77,7 @@ impl ParallelBatchExecutorBuilder {
     ///
     /// This builder for fluent configuration.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn sequential_threshold(mut self, sequential_threshold: usize) -> Self {
         self.sequential_threshold = sequential_threshold;
         self
@@ -95,7 +95,7 @@ impl ParallelBatchExecutorBuilder {
     ///
     /// This builder for fluent configuration.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn report_interval(mut self, report_interval: Duration) -> Self {
         self.report_interval = report_interval;
         self
@@ -134,7 +134,7 @@ impl ParallelBatchExecutorBuilder {
     ///
     /// This builder for fluent configuration.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub fn reporter_arc(mut self, reporter: Arc<dyn Reporter>) -> Self {
         self.reporter = reporter;
         self
@@ -154,7 +154,7 @@ impl ParallelBatchExecutorBuilder {
     /// Sets the policy that controls parallel source acceptance after task
     /// errors or captured panics.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn task_failure_policy(mut self, task_failure_policy: TaskFailurePolicy) -> Self {
         self.task_failure_policy = task_failure_policy;
         self

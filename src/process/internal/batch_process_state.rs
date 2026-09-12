@@ -60,7 +60,7 @@ impl BatchProcessState {
     ///
     /// The number of items observed from the source.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub(crate) fn observed_count(&self) -> usize {
         self.observed_count.get()
     }
@@ -71,7 +71,7 @@ impl BatchProcessState {
     ///
     /// The number of input items completed so far.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub(crate) fn completed_count(&self) -> usize {
         self.metric.snapshot().completed() as usize
     }
@@ -82,7 +82,7 @@ impl BatchProcessState {
     ///
     /// The number of chunks successfully delegated so far.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub(crate) fn chunk_count(&self) -> usize {
         self.chunk_count.get()
     }
@@ -92,7 +92,7 @@ impl BatchProcessState {
     /// # Returns
     ///
     /// The observed item count after this item was recorded.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn record_item_observed(&self) -> usize {
         self.observed_count.inc()
     }
@@ -106,7 +106,7 @@ impl BatchProcessState {
     /// # Errors
     ///
     /// Returns a metric error when the lifecycle transition is rejected.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn record_item_started(&self) -> Result<(), MetricError> {
         self.metric.start(1)
     }
@@ -120,7 +120,7 @@ impl BatchProcessState {
     /// # Errors
     ///
     /// Returns a metric error when the lifecycle transition is rejected.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn record_item_processed(&self) -> Result<(), MetricError> {
         self.metric.succeed(1)
     }
@@ -131,6 +131,19 @@ impl BatchProcessState {
     ///
     /// * `completed_count` - Number of source items completed by the chunk.
     /// * `processed_count` - Delegate-reported processed item count.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` after the progress metric and chunk counter are updated.
+    ///
+    /// # Errors
+    ///
+    /// Returns a metric error when the progress transition is rejected.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `processed_count` exceeds `completed_count` and the remaining
+    /// unclassified count would underflow.
     #[inline]
     pub(crate) fn record_chunk_processed(
         &self,

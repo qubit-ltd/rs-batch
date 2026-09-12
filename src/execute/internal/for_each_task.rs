@@ -54,6 +54,10 @@ where
     ///
     /// The result returned by the shared action.
     ///
+    /// # Errors
+    ///
+    /// Returns the error produced by the shared action.
+    ///
     /// # Panics
     ///
     /// Panics if the derived task is run more than once.

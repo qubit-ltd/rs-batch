@@ -88,7 +88,7 @@ impl BatchProcessError {
     ///
     /// A shared reference to the partial batch process result.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn result(&self) -> &BatchProcessResult {
         match self {
             Self::ProgressReport { result, .. }
@@ -104,7 +104,7 @@ impl BatchProcessError {
     /// `Some` contains the primary progress error or a secondary terminal
     /// error; `None` means reporting succeeded.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub fn progress_report_error(&self) -> Option<&ProgressFailure> {
         match self {
             Self::ProgressReport { source, .. } => Some(source),
@@ -119,7 +119,7 @@ impl BatchProcessError {
     /// # Returns
     ///
     /// The partial batch process result.
-    #[inline(always)]
+    #[inline]
     pub fn into_result(self) -> BatchProcessResult {
         match self {
             Self::ProgressReport { result, .. }

@@ -73,7 +73,7 @@ impl SequentialBatchExecutor {
     ///
     /// A sequential batch executor using no-op progress reporting.
     #[must_use = "use the constructed or borrowed value"]
-    #[inline(always)]
+    #[inline]
     pub fn new() -> Self {
         Self::default()
     }
@@ -84,7 +84,7 @@ impl SequentialBatchExecutor {
     ///
     /// A builder initialized with default settings.
     #[must_use = "use the constructed or borrowed value"]
-    #[inline(always)]
+    #[inline]
     pub fn builder() -> SequentialBatchExecutorBuilder {
         SequentialBatchExecutorBuilder::default()
     }
@@ -95,7 +95,7 @@ impl SequentialBatchExecutor {
     ///
     /// The minimum time between due-based running progress callbacks.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn report_interval(&self) -> Duration {
         self.report_interval
     }
@@ -106,7 +106,7 @@ impl SequentialBatchExecutor {
     ///
     /// A shared reference to the configured progress reporter.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub fn reporter(&self) -> &Arc<dyn Reporter> {
         &self.reporter
     }
@@ -118,7 +118,7 @@ impl SequentialBatchExecutor {
     /// The policy that controls whether sequential execution stops after task
     /// errors or captured task panics.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn task_failure_policy(&self) -> TaskFailurePolicy {
         self.task_failure_policy
     }
@@ -130,7 +130,7 @@ impl Default for SequentialBatchExecutor {
     /// # Returns
     ///
     /// A sequential batch executor using no-op progress reporting.
-    #[inline(always)]
+    #[inline]
     fn default() -> Self {
         Self::builder().build()
     }
@@ -195,7 +195,7 @@ impl SequentialBatchExecutor {
     ///
     /// Returns [`BatchExecutionError`] when progress reporting fails or the
     /// source count differs from `count`.
-    #[inline(always)]
+    #[inline]
     pub fn execute_with_count<T, E, I>(&self, tasks: I, count: usize) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = T>,
@@ -550,7 +550,7 @@ impl SequentialBatchExecutor {
     ///
     /// Panics from tasks are captured in the result. Iterator, task destructor,
     /// and synchronous progress reporter panics are propagated to the caller.
-    #[inline(always)]
+    #[inline]
     fn execute_inner<T, E, I>(&self, tasks: I, count: usize) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = T>,
@@ -570,7 +570,17 @@ impl BatchExecutor for SequentialBatchExecutor {
     /// * `T` - Runnable task type.
     /// * `E` - Task error type.
     /// * `I` - Task source type.
-    #[inline(always)]
+    ///
+    /// # Returns
+    ///
+    /// The sequential execution outcome, or an execution error when progress
+    /// reporting or the declared task count is invalid.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BatchExecutionError`] when progress reporting fails or the
+    /// source yields a different number of tasks than `count`.
+    #[inline]
     fn execute_with_count<T, E, I>(
         &self,
         tasks: I,
@@ -592,7 +602,17 @@ impl BatchExecutor for SequentialBatchExecutor {
     /// * `R` - Callable success value type.
     /// * `E` - Callable error type.
     /// * `I` - Callable source type.
-    #[inline(always)]
+    ///
+    /// # Returns
+    ///
+    /// The sequential callable result, or an error retaining successful values
+    /// collected before execution stopped.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BatchCallError`] when progress reporting fails or the source
+    /// yields a different number of callables than `count`.
+    #[inline]
     fn call_with_count<C, R, E, I>(
         &self,
         tasks: I,
