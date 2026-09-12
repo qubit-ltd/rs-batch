@@ -98,7 +98,7 @@ impl<E> BatchTaskError<E> {
     ///
     /// `true` if this error is [`Self::Failed`].
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn is_failed(&self) -> bool {
         matches!(self, Self::Failed(_))
     }
@@ -109,7 +109,7 @@ impl<E> BatchTaskError<E> {
     ///
     /// `true` if this error is [`Self::Panicked`].
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn is_panicked(&self) -> bool {
         matches!(self, Self::Panicked { .. })
     }
@@ -121,7 +121,7 @@ impl<E> BatchTaskError<E> {
     /// `Some(message)` when the panic payload was a string, or `None` for
     /// business errors and non-string panic payloads.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub fn panic_message(&self) -> Option<&str> {
         match self {
             Self::Failed(_) | Self::Panicked { message: None } => None,
@@ -185,7 +185,7 @@ where
 ///
 /// A panicked task error containing a string message when the payload carries
 /// one.
-#[inline(always)]
+#[inline]
 pub(crate) fn panic_payload_to_error<E>(payload: &(dyn Any + Send)) -> BatchTaskError<E> {
     BatchTaskError::from_panic_payload(payload)
 }

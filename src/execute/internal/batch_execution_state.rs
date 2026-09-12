@@ -77,28 +77,28 @@ impl<E> BatchExecutionState<E> {
 
     /// Returns the declared task count used by the active execution.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub(crate) const fn task_count(&self) -> usize {
         self.acceptance.task_count()
     }
 
     /// Returns the number of source tasks observed by the scheduler.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub(crate) fn observed_count(&self) -> usize {
         self.acceptance.observed_count()
     }
 
     /// Returns the number of source tasks accepted for execution.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub(crate) fn accepted_count(&self) -> usize {
         self.acceptance.accepted_count()
     }
 
     /// Returns the number of tasks that reached a terminal metric state.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub(crate) fn completed_count(&self) -> usize {
         self.metric.snapshot().completed() as usize
     }
@@ -109,21 +109,21 @@ impl<E> BatchExecutionState<E> {
     ///
     /// The total terminal task failure count recorded so far.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub(crate) fn failure_count(&self) -> usize {
         Self::lock_failures(&self.failures).len()
     }
 
     /// Returns whether the failure policy has stopped accepting new tasks.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub(crate) fn should_stop_accepting(&self) -> bool {
         self.acceptance.should_stop()
     }
 
     /// Returns whether the source iterator has been observed to be exhausted.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub(crate) fn source_exhausted(&self) -> bool {
         self.source_exhausted.load(Ordering::Acquire)
     }
@@ -149,7 +149,7 @@ impl<E> BatchExecutionState<E> {
     /// # Errors
     ///
     /// Returns a metric error when a progress lifecycle transition is rejected.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn execute_task<T>(&self, index: usize, mut task: T) -> Result<TaskExecutionStatus, MetricError>
     where
         T: Runnable<E>,
@@ -214,7 +214,7 @@ impl<E> BatchExecutionState<E> {
     /// # Returns
     ///
     /// The observed task count after this task was recorded.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn record_task_observed(&self) -> usize {
         self.acceptance.record_observed()
     }
@@ -226,7 +226,7 @@ impl<E> BatchExecutionState<E> {
     ///
     /// `Some(count)` with the new observed count when admission is still open,
     /// or `None` when the failure policy has already stopped accepting tasks.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn try_record_task_observed(&self) -> Option<usize> {
         self.acceptance.try_record_observed()
     }
@@ -236,7 +236,7 @@ impl<E> BatchExecutionState<E> {
     /// # Returns
     ///
     /// The accepted task count after this task was recorded.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn record_task_accepted(&self) -> usize {
         self.acceptance.record_accepted()
     }
@@ -264,7 +264,7 @@ impl<E> BatchExecutionState<E> {
     ///
     /// Panics if callers used the low-level recording methods to create
     /// counters or failure details that violate [`BatchOutcome`] invariants.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn into_outcome(self, elapsed: Duration) -> BatchOutcome<E> {
         self.into_outcome_with_termination(elapsed, BatchTermination::Finished)
     }
@@ -305,6 +305,11 @@ impl<E> BatchExecutionState<E> {
     ///
     /// A validated final or partial outcome, or a build error if low-level
     /// recording calls created inconsistent counters.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::BatchOutcomeBuildError`] when the recorded counters,
+    /// failure details, or termination state violate outcome invariants.
     pub(crate) fn try_into_outcome_with_termination(
         self,
         elapsed: Duration,
@@ -337,7 +342,7 @@ impl<E> BatchExecutionState<E> {
     /// # Returns
     ///
     /// A guard for the failure list.
-    #[inline(always)]
+    #[inline]
     fn lock_failures(failures: &Mutex<Vec<BatchTaskFailure<E>>>) -> MutexGuard<'_, Vec<BatchTaskFailure<E>>> {
         failures.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
     }

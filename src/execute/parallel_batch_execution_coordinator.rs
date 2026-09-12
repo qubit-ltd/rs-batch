@@ -82,7 +82,7 @@ impl ParallelBatchExecutionCoordinator {
     ///
     /// The minimum interval between due-based running progress events.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn report_interval(&self) -> Duration {
         self.report_interval
     }
@@ -93,7 +93,7 @@ impl ParallelBatchExecutionCoordinator {
     ///
     /// A shared reference to the configured progress reporter.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn reporter(&self) -> &Arc<dyn Reporter> {
         &self.reporter
     }
@@ -251,6 +251,16 @@ impl ParallelBatchExecutionCoordinator {
     /// * `accepted_count` - Number of tasks accepted by the scheduler.
     /// * `completed_count` - Number of accepted tasks that reached a terminal
     ///   outcome.
+    ///
+    /// # Returns
+    ///
+    /// A validated batch outcome when terminal reporting and count validation
+    /// succeed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an incomplete-schedule, count-mismatch, or progress-report
+    /// error when finalization cannot produce a valid outcome.
     fn finish<E, S>(
         progress: Progress<'_>,
         state: BatchExecutionState<E>,

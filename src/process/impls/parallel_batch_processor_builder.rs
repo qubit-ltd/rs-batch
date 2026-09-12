@@ -93,7 +93,7 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     ///
     /// This builder for fluent configuration.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn thread_count(mut self, thread_count: usize) -> Self {
         self.thread_count = thread_count;
         self
@@ -111,7 +111,7 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     ///
     /// This builder for fluent configuration.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn sequential_threshold(mut self, sequential_threshold: usize) -> Self {
         self.sequential_threshold = sequential_threshold;
         self
@@ -130,7 +130,7 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     ///
     /// This builder for fluent configuration.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn report_interval(mut self, report_interval: Duration) -> Self {
         self.report_interval = report_interval;
         self
@@ -169,7 +169,7 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     ///
     /// This builder for fluent configuration.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub fn reporter_arc(mut self, reporter: Arc<dyn Reporter>) -> Self {
         self.reporter = reporter;
         self

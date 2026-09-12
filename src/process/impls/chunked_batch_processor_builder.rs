@@ -93,7 +93,7 @@ impl<P> ChunkedBatchProcessorBuilder<P> {
     ///
     /// This builder for fluent configuration.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn report_interval(mut self, report_interval: Duration) -> Self {
         self.report_interval = report_interval;
         self
@@ -132,7 +132,7 @@ impl<P> ChunkedBatchProcessorBuilder<P> {
     ///
     /// This builder for fluent configuration.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub fn reporter_arc(mut self, reporter: Arc<dyn Reporter>) -> Self {
         self.reporter = reporter;
         self

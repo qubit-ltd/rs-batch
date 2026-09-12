@@ -60,7 +60,7 @@ impl<E> BatchTaskFailure<E> {
     ///
     /// The task index recorded for this failure.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn index(&self) -> usize {
         self.index
     }
@@ -71,7 +71,7 @@ impl<E> BatchTaskFailure<E> {
     ///
     /// A shared reference to the task error.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn error(&self) -> &BatchTaskError<E> {
         &self.error
     }
@@ -81,7 +81,7 @@ impl<E> BatchTaskFailure<E> {
     /// # Returns
     ///
     /// The task error previously stored in this failure record.
-    #[inline(always)]
+    #[inline]
     pub fn into_error(self) -> BatchTaskError<E> {
         self.error
     }

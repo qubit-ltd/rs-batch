@@ -40,40 +40,49 @@ impl ParallelBatchAcceptanceState {
 
     /// Returns the declared task count.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub(crate) const fn task_count(&self) -> usize {
         self.task_count
     }
 
     /// Returns the observed task count.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub(crate) fn observed_count(&self) -> usize {
         self.observed_count.load(Ordering::Acquire)
     }
 
     /// Returns the accepted task count.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub(crate) fn accepted_count(&self) -> usize {
         self.accepted_count.load(Ordering::Acquire)
     }
 
     /// Returns whether source admission has stopped.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub(crate) fn should_stop(&self) -> bool {
         self.stop_accepting.load(Ordering::Acquire)
     }
 
     /// Records one observed source task and returns the new total.
-    #[inline(always)]
+    ///
+    /// # Returns
+    ///
+    /// The observed source-task count after recording the task.
+    #[inline]
     pub(crate) fn record_observed(&self) -> usize {
         self.observed_count.fetch_add(1, Ordering::AcqRel) + 1
     }
 
     /// Records an observation unless failure policy has already stopped
     /// admission.
+    ///
+    /// # Returns
+    ///
+    /// `Some(count)` with the new observed count, or `None` when admission has
+    /// already stopped.
     #[inline]
     pub(crate) fn try_record_observed(&self) -> Option<usize> {
         if self.should_stop() {
@@ -84,13 +93,13 @@ impl ParallelBatchAcceptanceState {
     }
 
     /// Records one accepted source task and returns the new total.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn record_accepted(&self) -> usize {
         self.accepted_count.fetch_add(1, Ordering::AcqRel) + 1
     }
 
     /// Marks source admission as stopped.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn stop(&self) {
         self.stop_accepting.store(true, Ordering::Release);
     }

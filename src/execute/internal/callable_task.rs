@@ -55,6 +55,10 @@ where
     /// `Ok(())` when the callable succeeds, or the callable error when it
     /// fails.
     ///
+    /// # Errors
+    ///
+    /// Returns the error produced by the wrapped callable.
+    ///
     /// # Panics
     ///
     /// Panics if this wrapper is run more than once.

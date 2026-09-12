@@ -54,7 +54,7 @@ impl<R> BatchCallOutput<R> {
     ///
     /// The original position of the successful callable.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn index(&self) -> usize {
         self.index
     }
@@ -65,7 +65,7 @@ impl<R> BatchCallOutput<R> {
     ///
     /// The value produced by the callable.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn value(&self) -> &R {
         &self.value
     }
@@ -75,7 +75,7 @@ impl<R> BatchCallOutput<R> {
     /// # Returns
     ///
     /// The callable value without its index.
-    #[inline(always)]
+    #[inline]
     pub fn into_value(self) -> R {
         self.value
     }
@@ -85,7 +85,7 @@ impl<R> BatchCallOutput<R> {
     /// # Returns
     ///
     /// A tuple containing the original index and successful value.
-    #[inline(always)]
+    #[inline]
     pub fn into_parts(self) -> (usize, R) {
         (self.index, self.value)
     }

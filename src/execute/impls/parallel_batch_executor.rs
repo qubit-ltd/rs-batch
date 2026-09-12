@@ -89,7 +89,7 @@ impl ParallelBatchExecutor {
     ///
     /// A builder initialized with default settings.
     #[must_use = "use the constructed or borrowed value"]
-    #[inline(always)]
+    #[inline]
     pub fn builder() -> ParallelBatchExecutorBuilder {
         ParallelBatchExecutorBuilder::default()
     }
@@ -109,7 +109,7 @@ impl ParallelBatchExecutor {
     /// Returns [`ParallelBatchExecutorBuildError::ZeroThreadCount`] when
     /// `thread_count` is zero.
     #[must_use = "use the constructed or borrowed value"]
-    #[inline(always)]
+    #[inline]
     pub fn new(thread_count: usize) -> Result<Self, ParallelBatchExecutorBuildError> {
         Self::builder().thread_count(thread_count).build()
     }
@@ -120,7 +120,7 @@ impl ParallelBatchExecutor {
     ///
     /// The available CPU parallelism, or `1` if it cannot be detected.
     #[must_use = "use the constructed or borrowed value"]
-    #[inline(always)]
+    #[inline]
     pub fn default_thread_count() -> usize {
         thread::available_parallelism().map(usize::from).unwrap_or(1)
     }
@@ -131,7 +131,7 @@ impl ParallelBatchExecutor {
     ///
     /// The maximum number of scoped worker threads used for one batch.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn thread_count(&self) -> usize {
         self.thread_count
     }
@@ -142,7 +142,7 @@ impl ParallelBatchExecutor {
     ///
     /// The maximum task count that still runs sequentially.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn sequential_threshold(&self) -> usize {
         self.sequential_threshold
     }
@@ -153,7 +153,7 @@ impl ParallelBatchExecutor {
     ///
     /// The policy applied after task errors or captured task panics.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn task_failure_policy(&self) -> TaskFailurePolicy {
         self.task_failure_policy
     }
@@ -164,7 +164,7 @@ impl ParallelBatchExecutor {
     ///
     /// The minimum interval between due-based running progress callbacks.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn report_interval(&self) -> Duration {
         self.coordinator.report_interval()
     }
@@ -175,7 +175,7 @@ impl ParallelBatchExecutor {
     ///
     /// A shared reference to the configured progress reporter.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub fn reporter(&self) -> &Arc<dyn Reporter> {
         self.coordinator.reporter()
     }

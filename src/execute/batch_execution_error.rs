@@ -135,7 +135,7 @@ where
     ///
     /// A shared reference to the attached batch outcome.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn outcome(&self) -> &BatchOutcome<E> {
         match self {
             Self::ProgressReport { outcome, .. }
@@ -152,7 +152,7 @@ where
     ///
     /// `true` if this error is [`Self::CountShortfall`].
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn is_count_shortfall(&self) -> bool {
         matches!(self, Self::CountShortfall { .. })
     }
@@ -163,7 +163,7 @@ where
     ///
     /// `true` if this error is [`Self::ScheduleFailed`].
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn is_schedule_failed(&self) -> bool {
         matches!(self, Self::ScheduleFailed { .. })
     }
@@ -174,7 +174,7 @@ where
     ///
     /// `Some(error)` for [`Self::ScheduleFailed`], or `None` for other errors.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub fn scheduler_error(&self) -> Option<&S> {
         match self {
             Self::ScheduleFailed { source, .. } => Some(source),
@@ -188,7 +188,7 @@ where
     ///
     /// `true` if this error is [`Self::CountExceeded`].
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn is_count_exceeded(&self) -> bool {
         matches!(self, Self::CountExceeded { .. })
     }
@@ -199,7 +199,7 @@ where
     ///
     /// `true` if this error is [`Self::IncompleteSchedule`].
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub const fn is_incomplete_schedule(&self) -> bool {
         matches!(self, Self::IncompleteSchedule { .. })
     }
@@ -212,7 +212,7 @@ where
     /// error attached to a primary count/scheduler error, or `None` when
     /// reporting did not fail.
     #[must_use = "inspect the returned value"]
-    #[inline(always)]
+    #[inline]
     pub fn progress_report_error(&self) -> Option<&ProgressFailure> {
         match self {
             Self::ProgressReport { source, .. } => Some(source.as_ref()),
@@ -228,7 +228,7 @@ where
     /// # Returns
     ///
     /// The batch outcome accumulated before this error was reported.
-    #[inline(always)]
+    #[inline]
     pub fn into_outcome(self) -> BatchOutcome<E> {
         match self {
             Self::ProgressReport { outcome, .. }
