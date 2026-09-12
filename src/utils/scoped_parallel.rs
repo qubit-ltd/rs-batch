@@ -60,10 +60,7 @@ pub(crate) fn run_scoped_parallel<I, T, O, S, F>(
     S: Fn() -> bool + Sync,
     F: Fn(usize, T) + Sync,
 {
-    assert!(
-        worker_count > 0,
-        "scoped parallel worker count must be positive"
-    );
+    assert!(worker_count > 0, "scoped parallel worker count must be positive");
     thread::scope(|scope| {
         let (work_sender, work_receiver) = mpsc::sync_channel(worker_count);
         let work_receiver = Arc::new(Mutex::new(work_receiver));
@@ -126,22 +123,15 @@ pub(crate) fn run_scoped_parallel<I, T, O, S, F>(
 /// * `W` - Accepted work token type.
 /// * `A` - Admission callback type.
 /// * `F` - Worker callback type.
-pub(crate) fn run_scoped_parallel_tasks<I, T, W, A, F>(
-    items: I,
-    worker_count: usize,
-    accept_item: A,
-    run_item: F,
-) where
+pub(crate) fn run_scoped_parallel_tasks<I, T, W, A, F>(items: I, worker_count: usize, accept_item: A, run_item: F)
+where
     I: IntoIterator<Item = T>,
     T: Send,
     W: Send,
     A: Fn(T) -> Option<W>,
     F: Fn(W) + Sync,
 {
-    assert!(
-        worker_count > 0,
-        "scoped parallel worker count must be positive"
-    );
+    assert!(worker_count > 0, "scoped parallel worker count must be positive");
     thread::scope(|scope| {
         let (work_sender, work_receiver) = mpsc::sync_channel(worker_count);
         let work_receiver = Arc::new(Mutex::new(work_receiver));

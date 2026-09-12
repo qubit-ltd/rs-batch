@@ -29,8 +29,7 @@ fn work(seed: usize, rounds: usize, skewed: bool) {
     };
     let mut value = black_box(seed as u64);
     for step in 0..rounds {
-        value =
-            black_box(value.rotate_left(7).wrapping_mul(6_364_136_223_846_793_005) ^ step as u64);
+        value = black_box(value.rotate_left(7).wrapping_mul(6_364_136_223_846_793_005) ^ step as u64);
     }
     black_box(value);
 }
@@ -89,13 +88,7 @@ fn register_concurrent<E: BatchExecutor>(criterion: &mut Criterion, label: &str,
                     })
                     .collect();
                 for handle in handles {
-                    assert_eq!(
-                        handle
-                            .join()
-                            .expect("setup caller should join")
-                            .succeeded_count(),
-                        1024
-                    );
+                    assert_eq!(handle.join().expect("setup caller should join").succeeded_count(), 1024);
                 }
             });
             bencher.iter(|| {
@@ -181,12 +174,10 @@ fn benchmarks(criterion: &mut Criterion) {
     register_executor(criterion, "sequential", &sequential);
     register_concurrent(criterion, "sequential", &sequential);
     register_steady_callers(criterion, "sequential", &sequential);
-    for threads in [1usize, 2, 4].into_iter().filter(|threads| {
-        *threads
-            <= std::thread::available_parallelism()
-                .map(usize::from)
-                .unwrap_or(1)
-    }) {
+    for threads in [1usize, 2, 4]
+        .into_iter()
+        .filter(|threads| *threads <= std::thread::available_parallelism().map(usize::from).unwrap_or(1))
+    {
         let executor = ParallelBatchExecutor::builder()
             .thread_count(threads)
             .sequential_threshold(0)

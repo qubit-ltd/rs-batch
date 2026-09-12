@@ -141,9 +141,7 @@ impl ProgressFailure {
     pub fn elapsed(&self) -> Option<Duration> {
         match self {
             Self::Terminal(error) => Some(error.elapsed()),
-            Self::Start(_) | Self::Emission(_) | Self::AutoReporter(_) | Self::Completion(_) => {
-                None
-            }
+            Self::Start(_) | Self::Emission(_) | Self::AutoReporter(_) | Self::Completion(_) => None,
         }
     }
 
