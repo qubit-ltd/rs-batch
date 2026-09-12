@@ -272,6 +272,13 @@ let outcome = coordinator.execute(tasks, 1, TaskFailurePolicy::Continue,
 assert!(outcome.is_success());
 ```
 
+When using `execute_with_source`, normal completion also requires consuming the
+`ParallelBatchSource` until it returns a real `None`. Executing exactly the
+declared number of tasks is insufficient to prove that the source has no extra
+items; the coordinator then returns `IncompleteSchedule` and reports a `Failed`
+terminal event instead of `Succeeded`. A failure-policy stop is the exception:
+it returns its explicit stopped outcome without probing the source again.
+
 ### Recover outputs from the current call
 
 The application has already saved two outputs. A count error in the next
