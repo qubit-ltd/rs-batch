@@ -2,7 +2,7 @@
 
 [English design](design.md) · [用户手册](user_guide.zh_CN.md) · [README](../README.zh_CN.md)
 
-本文描述 qubit-batch 0.11 的架构与契约，最低工具链仍为 Rust 1.94、edition 2024。
+本文描述 qubit-batch 0.12 的架构与契约，最低工具链仍为 Rust 1.94、edition 2024。
 标准线程执行器与配套 qubit-rayon-batch 共同遵守下述运行与结果约束。
 
 ## 职责与所有权
