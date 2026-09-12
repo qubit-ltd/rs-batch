@@ -53,9 +53,7 @@ fn test_loom_concurrent_admission_preserves_each_atomic_counter() {
         });
         let mut observations = [
             first_handle.join().expect("first loom worker should join"),
-            second_handle
-                .join()
-                .expect("second loom worker should join"),
+            second_handle.join().expect("second loom worker should join"),
         ];
         observations.sort_unstable();
         assert_eq!(observations, [1, 2]);
