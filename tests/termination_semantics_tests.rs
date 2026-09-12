@@ -25,10 +25,7 @@ fn test_last_declared_failure_does_not_prove_exhaustion() {
         .execute_with_count([|| Err::<(), _>("failed")], 1)
         .expect("policy outcome");
     assert_eq!(outcome.completed_count(), outcome.task_count());
-    assert_eq!(
-        outcome.termination(),
-        BatchTermination::StoppedByTaskFailurePolicy
-    );
+    assert_eq!(outcome.termination(), BatchTermination::StoppedByTaskFailurePolicy);
     assert!(!outcome.is_success());
 }
 
@@ -97,13 +94,8 @@ fn test_fallback_does_not_pull_after_failure() {
             assert_eq!(pulls, 1, "source must not be probed after policy stop");
             Some(|| Err::<(), _>("failed"))
         });
-        let outcome = executor
-            .execute_with_count(source, 1)
-            .expect("policy outcome");
-        assert_eq!(
-            outcome.termination(),
-            BatchTermination::StoppedByTaskFailurePolicy
-        );
+        let outcome = executor.execute_with_count(source, 1).expect("policy outcome");
+        assert_eq!(outcome.termination(), BatchTermination::StoppedByTaskFailurePolicy);
         assert_eq!(pulls, 1);
     }
 }

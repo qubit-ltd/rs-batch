@@ -89,11 +89,7 @@ fn test_callable_panics_and_errors_preserve_sparse_successes() {
         assert_eq!(result.outcome().failed_count(), 1);
         assert_eq!(result.outcome().completed_count(), 5);
         assert_eq!(
-            result
-                .outputs()
-                .iter()
-                .map(|o| o.index())
-                .collect::<Vec<_>>(),
+            result.outputs().iter().map(|o| o.index()).collect::<Vec<_>>(),
             vec![0, 4]
         );
         assert_eq!(
@@ -130,10 +126,7 @@ fn test_count_and_report_errors_preserve_outputs() {
                 .build()
                 .expect("valid executor");
             let error = executor
-                .call_with_count(
-                    (0..2).map(|value| move || Ok::<_, ()>(NonClone { value })),
-                    expected,
-                )
+                .call_with_count((0..2).map(|value| move || Ok::<_, ()>(NonClone { value })), expected)
                 .expect_err("count or terminal error");
             let completed = expected.min(2);
             assert_eq!(error.outcome().completed_count(), completed);

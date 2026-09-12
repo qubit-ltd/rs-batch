@@ -27,8 +27,7 @@ fn test_next_task_does_not_pull_after_policy_stop() {
         pulls.set(pulls.get() + 1);
         Some(|| Err::<(), _>("failure"))
     });
-    let coordinator =
-        ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
+    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let outcome = coordinator
         .execute(
             source,
@@ -36,9 +35,7 @@ fn test_next_task_does_not_pull_after_policy_stop() {
             TaskFailurePolicy::StopOnFirstFailure,
             |tasks, context: &ParallelBatchExecutionContext<&'static str>| {
                 let mut tasks = tasks;
-                let token = context
-                    .next_task(&mut tasks)
-                    .expect("first task should be accepted");
+                let token = context.next_task(&mut tasks).expect("first task should be accepted");
                 context.execute_task(token);
                 assert!(context.next_task(&mut tasks).is_none());
                 Ok::<(), Infallible>(())
@@ -47,8 +44,5 @@ fn test_next_task_does_not_pull_after_policy_stop() {
         .expect("policy stop should return a partial outcome");
     assert_eq!(pulls.get(), 1);
     assert_eq!(outcome.completed_count(), 1);
-    assert_eq!(
-        outcome.termination(),
-        BatchTermination::StoppedByTaskFailurePolicy
-    );
+    assert_eq!(outcome.termination(), BatchTermination::StoppedByTaskFailurePolicy);
 }

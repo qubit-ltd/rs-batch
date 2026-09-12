@@ -52,6 +52,14 @@ where
     S: std::error::Error + Send + Sync + 'static,
 {
     /// Formats the nested error and the number of preserved outputs.
+    ///
+    /// # Parameters
+    ///
+    /// * `formatter` - Formatter receiving the debug representation.
+    ///
+    /// # Returns
+    ///
+    /// The formatting result.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("BatchCallError")
@@ -195,6 +203,14 @@ where
     S: std::error::Error + Send + Sync + 'static,
 {
     /// Formats the nested batch execution error.
+    ///
+    /// # Parameters
+    ///
+    /// * `formatter` - Formatter receiving the display representation.
+    ///
+    /// # Returns
+    ///
+    /// The formatting result.
     #[inline(always)]
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.source.fmt(formatter)

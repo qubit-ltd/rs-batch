@@ -122,9 +122,7 @@ impl ParallelBatchExecutor {
     #[must_use = "use the constructed or borrowed value"]
     #[inline(always)]
     pub fn default_thread_count() -> usize {
-        thread::available_parallelism()
-            .map(usize::from)
-            .unwrap_or(1)
+        thread::available_parallelism().map(usize::from).unwrap_or(1)
     }
 
     /// Returns the configured worker-thread count.
@@ -311,11 +309,8 @@ impl BatchExecutor for ParallelBatchExecutor {
         }
 
         let worker_count = self.thread_count.min(count);
-        self.coordinator.execute(
-            tasks,
-            count,
-            self.task_failure_policy,
-            move |tasks, context| {
+        self.coordinator
+            .execute(tasks, count, self.task_failure_policy, move |tasks, context| {
                 let mut tasks = tasks.into_iter();
                 run_scoped_parallel_tasks(
                     std::iter::from_fn(|| context.next_task(&mut tasks)),
@@ -324,7 +319,6 @@ impl BatchExecutor for ParallelBatchExecutor {
                     |task| context.execute_task(task),
                 );
                 Ok::<(), Infallible>(())
-            },
-        )
+            })
     }
 }

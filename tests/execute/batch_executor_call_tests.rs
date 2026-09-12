@@ -110,31 +110,21 @@ fn test_sequential_batch_executor_calls_callables_and_collects_values() {
         TestCallable::returning(30),
     ];
 
-    let result = executor
-        .call_with_count(tasks, 3)
-        .expect("call batch should succeed");
+    let result = executor.call_with_count(tasks, 3).expect("call batch should succeed");
 
     assert_eq!(result.outcome().completed_count(), 3);
     assert_eq!(
-        result
-            .outputs()
-            .iter()
-            .map(|o| *o.value())
-            .collect::<Vec<_>>(),
+        result.outputs().iter().map(|o| *o.value()).collect::<Vec<_>>(),
         vec![10, 20, 30]
     );
     assert_eq!(result.into_outputs().len(), 3);
 
     let tasks = vec![TestCallable::returning(40)];
-    let result = executor
-        .call_with_count(tasks, 1)
-        .expect("call batch should succeed");
+    let result = executor.call_with_count(tasks, 1).expect("call batch should succeed");
     assert_eq!(result.into_outcome().completed_count(), 1);
 
     let tasks = vec![TestCallable::returning(50)];
-    let result = executor
-        .call_with_count(tasks, 1)
-        .expect("call batch should succeed");
+    let result = executor.call_with_count(tasks, 1).expect("call batch should succeed");
     let (outcome, values) = result.into_parts();
     assert_eq!(outcome.completed_count(), 1);
     assert_eq!(values[0].index(), 0);
@@ -151,11 +141,7 @@ fn test_batch_executor_call_derives_count_from_exact_iterator() {
 
     assert_eq!(result.outcome().completed_count(), 2);
     assert_eq!(
-        result
-            .outputs()
-            .iter()
-            .map(|o| *o.value())
-            .collect::<Vec<_>>(),
+        result.outputs().iter().map(|o| *o.value()).collect::<Vec<_>>(),
         vec![10, 20]
     );
 }
@@ -314,10 +300,7 @@ fn test_parallel_batch_executor_call_reports_count_mismatches() {
 fn test_batch_executor_call_error_preserves_success_values() {
     let executor = SequentialBatchExecutor::new();
     let error = executor
-        .call_with_count(
-            vec![TestCallable::returning(10), TestCallable::returning(20)],
-            3,
-        )
+        .call_with_count(vec![TestCallable::returning(10), TestCallable::returning(20)], 3)
         .expect_err("call shortfall should preserve partial values");
 
     assert_eq!(error.outputs().len(), 2);
@@ -353,10 +336,7 @@ fn test_batch_executor_call_panics_when_callable_wrapper_reports_out_of_range_in
     let executor = OverconsumingExecutor;
 
     let payload = catch_unwind(AssertUnwindSafe(|| {
-        let _ = executor.call_with_count(
-            vec![TestCallable::returning(10), TestCallable::returning(20)],
-            1,
-        );
+        let _ = executor.call_with_count(vec![TestCallable::returning(10), TestCallable::returning(20)], 1);
     }))
     .expect_err("out-of-range callable output should panic");
 
