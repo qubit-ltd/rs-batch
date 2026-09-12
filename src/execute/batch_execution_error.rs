@@ -106,7 +106,8 @@ pub enum BatchExecutionError<E, S = Infallible> {
         report_error: Option<Box<ProgressFailure>>,
     },
 
-    /// The scheduler accepted tasks but did not execute all of them.
+    /// The scheduler accepted tasks but did not execute all of them, or a
+    /// source-aware scheduler returned without proving source exhaustion.
     #[error("parallel batch schedule incomplete: expected {expected}, accepted {accepted}, completed {completed}")]
     IncompleteSchedule {
         /// Declared task count.
@@ -115,7 +116,8 @@ pub enum BatchExecutionError<E, S = Infallible> {
         accepted: usize,
         /// Number of source tasks observed before scheduling stopped.
         observed: usize,
-        /// Number of accepted tasks that reached a terminal outcome.
+        /// Number of accepted tasks that reached a terminal outcome. This can
+        /// equal `expected` when source exhaustion itself was not observed.
         completed: usize,
         /// Outcome accumulated before the incomplete schedule was reported.
         outcome: BatchOutcome<E>,

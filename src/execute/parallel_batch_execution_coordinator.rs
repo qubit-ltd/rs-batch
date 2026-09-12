@@ -65,6 +65,18 @@ impl ParallelBatchExecutionCoordinator {
     /// different source or forgetting to observe source exhaustion. The
     /// lower-level `execute` method remains available for integrations that
     /// need to provide their own admission loop.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BatchExecutionError::IncompleteSchedule`] when the scheduler
+    /// does not consume the source through a real `None`, even if all declared
+    /// tasks completed. The failed terminal report is emitted before this error
+    /// is returned; a report failure is retained as `report_error`.
+    ///
+    /// # Panics
+    ///
+    /// Propagates panics from the scheduler, source iterator, and synchronous
+    /// reporter callbacks.
     pub fn execute_with_source<I, E, S, Schedule>(
         &self,
         tasks: I,
@@ -83,26 +95,10 @@ impl ParallelBatchExecutionCoordinator {
     {
         let exhausted = Arc::new(AtomicBool::new(false));
         let exhausted_for_schedule = Arc::clone(&exhausted);
-        let result = self.execute(tasks, count, task_failure_policy, |tasks, context| {
+        self.execute_inner(tasks, count, task_failure_policy, Some(exhausted), |tasks, context| {
             let mut source = ParallelBatchSource::with_exhaustion(tasks, context, exhausted_for_schedule);
             schedule(&mut source, context)
-        });
-        match result {
-            Ok(outcome)
-                if outcome.termination() == crate::BatchTermination::Finished
-                    && !exhausted.load(std::sync::atomic::Ordering::Acquire) =>
-            {
-                Err(BatchExecutionError::IncompleteSchedule {
-                    expected: count,
-                    accepted: outcome.completed_count(),
-                    observed: outcome.completed_count(),
-                    completed: outcome.completed_count(),
-                    outcome,
-                    report_error: None,
-                })
-            }
-            other => other,
-        }
+        })
     }
     /// Creates a coordinator instance.
     ///
@@ -203,6 +199,30 @@ impl ParallelBatchExecutionCoordinator {
         S: std::error::Error + Send + Sync + 'static,
         Schedule: FnOnce(I, &ParallelBatchExecutionContext<E>) -> Result<(), S>,
     {
+        self.execute_inner(tasks, count, task_failure_policy, None, schedule)
+    }
+
+    /// Executes a batch after optionally requiring the source to prove
+    /// exhaustion before the terminal progress event is emitted.
+    ///
+    /// The public [`Self::execute`] entry point passes no exhaustion flag and
+    /// retains the low-level scheduler contract. [`Self::execute_with_source`]
+    /// supplies a flag owned by [`ParallelBatchSource`] so an incomplete source
+    /// is reported before a success terminal event can be sent.
+    fn execute_inner<I, E, S, Schedule>(
+        &self,
+        tasks: I,
+        count: usize,
+        task_failure_policy: TaskFailurePolicy,
+        required_exhaustion: Option<Arc<AtomicBool>>,
+        schedule: Schedule,
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E, S>>
+    where
+        I: IntoIterator,
+        E: Send,
+        S: std::error::Error + Send + Sync + 'static,
+        Schedule: FnOnce(I, &ParallelBatchExecutionContext<E>) -> Result<(), S>,
+    {
         let mut progress = match Progress::builder_arc(Arc::clone(&self.reporter))
             .interval(self.report_interval)
             .metric(Metric::new(EXECUTION_PROGRESS_METRIC_ID, EXECUTION_PROGRESS_METRIC_NAME).total(count as u64))
@@ -262,7 +282,18 @@ impl ParallelBatchExecutionCoordinator {
             });
         }
 
-        Self::finish(progress, state, count, observed_count, accepted_count, completed_count)
+        let source_exhaustion_missing = required_exhaustion
+            .as_ref()
+            .is_some_and(|flag| !flag.load(std::sync::atomic::Ordering::Acquire));
+        Self::finish(
+            progress,
+            state,
+            count,
+            observed_count,
+            accepted_count,
+            completed_count,
+            source_exhaustion_missing,
+        )
     }
 
     /// Returns a zero-completion outcome for immediate setup failures.
@@ -298,6 +329,8 @@ impl ParallelBatchExecutionCoordinator {
     /// * `accepted_count` - Number of tasks accepted by the scheduler.
     /// * `completed_count` - Number of accepted tasks that reached a terminal
     ///   outcome.
+    /// * `source_exhaustion_missing` - Whether a source-aware scheduler failed
+    ///   to observe source `None`.
     ///
     /// # Returns
     ///
@@ -315,6 +348,7 @@ impl ParallelBatchExecutionCoordinator {
         observed_count: usize,
         accepted_count: usize,
         completed_count: usize,
+        source_exhaustion_missing: bool,
     ) -> Result<BatchOutcome<E>, BatchExecutionError<E, S>>
     where
         S: std::error::Error + Send + Sync + 'static,
@@ -362,6 +396,17 @@ impl ParallelBatchExecutionCoordinator {
             return Err(BatchExecutionError::CountShortfall {
                 expected: count,
                 actual: observed_count,
+                outcome: state.into_outcome(elapsed),
+                report_error,
+            });
+        }
+        if source_exhaustion_missing {
+            let (elapsed, report_error) = Self::fail_progress(progress);
+            return Err(BatchExecutionError::IncompleteSchedule {
+                expected: count,
+                accepted: accepted_count,
+                observed: observed_count,
+                completed: completed_count,
                 outcome: state.into_outcome(elapsed),
                 report_error,
             });
