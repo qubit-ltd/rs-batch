@@ -6,6 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::thread;
 use std::time::Duration;
 
@@ -21,6 +22,7 @@ use super::EXECUTION_PROGRESS_METRIC_ID;
 use super::EXECUTION_PROGRESS_METRIC_NAME;
 use super::ParallelBatchExecutionContext;
 use super::TaskFailurePolicy;
+use super::parallel_batch_source::ParallelBatchSource;
 use crate::ProgressFailure;
 
 /// Shared coordinator for runtime-specific parallel execution paths.
@@ -57,6 +59,51 @@ pub struct ParallelBatchExecutionCoordinator {
 }
 
 impl ParallelBatchExecutionCoordinator {
+    /// Executes a batch while owning the source admission boundary.
+    ///
+    /// This entry point prevents runtime integrations from substituting a
+    /// different source or forgetting to observe source exhaustion. The
+    /// lower-level `execute` method remains available for integrations that
+    /// need to provide their own admission loop.
+    pub fn execute_with_source<I, E, S, Schedule>(
+        &self,
+        tasks: I,
+        count: usize,
+        task_failure_policy: TaskFailurePolicy,
+        schedule: Schedule,
+    ) -> Result<BatchOutcome<E>, BatchExecutionError<E, S>>
+    where
+        I: IntoIterator,
+        E: Send,
+        S: std::error::Error + Send + Sync + 'static,
+        Schedule: for<'ctx> FnOnce(
+            &mut ParallelBatchSource<'ctx, I, E>,
+            &'ctx ParallelBatchExecutionContext<E>,
+        ) -> Result<(), S>,
+    {
+        let exhausted = Arc::new(AtomicBool::new(false));
+        let exhausted_for_schedule = Arc::clone(&exhausted);
+        let result = self.execute(tasks, count, task_failure_policy, |tasks, context| {
+            let mut source = ParallelBatchSource::with_exhaustion(tasks, context, exhausted_for_schedule);
+            schedule(&mut source, context)
+        });
+        match result {
+            Ok(outcome)
+                if outcome.termination() == crate::BatchTermination::Finished
+                    && !exhausted.load(std::sync::atomic::Ordering::Acquire) =>
+            {
+                Err(BatchExecutionError::IncompleteSchedule {
+                    expected: count,
+                    accepted: outcome.completed_count(),
+                    observed: outcome.completed_count(),
+                    completed: outcome.completed_count(),
+                    outcome,
+                    report_error: None,
+                })
+            }
+            other => other,
+        }
+    }
     /// Creates a coordinator instance.
     ///
     /// # Parameters

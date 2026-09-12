@@ -23,6 +23,7 @@ pub mod impls;
 pub(crate) mod internal;
 mod parallel_batch_execution_context;
 mod parallel_batch_execution_coordinator;
+mod parallel_batch_source;
 mod parallel_batch_task;
 pub mod spi;
 mod task_failure_policy;

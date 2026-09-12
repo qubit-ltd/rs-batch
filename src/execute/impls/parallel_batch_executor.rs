@@ -310,14 +310,8 @@ impl BatchExecutor for ParallelBatchExecutor {
 
         let worker_count = self.thread_count.min(count);
         self.coordinator
-            .execute(tasks, count, self.task_failure_policy, move |tasks, context| {
-                let mut tasks = tasks.into_iter();
-                run_scoped_parallel_tasks(
-                    std::iter::from_fn(|| context.next_task(&mut tasks)),
-                    worker_count,
-                    Some,
-                    |task| context.execute_task(task),
-                );
+            .execute_with_source(tasks, count, self.task_failure_policy, move |source, context| {
+                run_scoped_parallel_tasks(source.by_ref(), worker_count, Some, |task| context.execute_task(task));
                 Ok::<(), Infallible>(())
             })
     }
