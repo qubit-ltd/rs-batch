@@ -73,6 +73,16 @@ pub struct ParallelBatchExecutionContext<E> {
 }
 
 impl<E> ParallelBatchExecutionContext<E> {
+    /// Returns whether this execution can accept another source item.
+    #[inline]
+    pub(crate) fn is_accepting(&self) -> bool {
+        !self.state.source_exhausted() && !self.status.is_failed() && !self.state.should_stop_accepting()
+    }
+
+    #[inline]
+    pub(crate) fn source_exhausted(&self) -> bool {
+        self.state.source_exhausted()
+    }
     /// Creates worker-facing execution state for one active batch run.
     ///
     /// This constructor is only intended for runtime executors.
