@@ -229,6 +229,9 @@ worker；任意任务依赖或跨池循环等待仍需由应用设计处理。
 运行时相关的调度器拥有惰性来源时，应使用 `next_task`，这样可以把来源返回
 `None` 与准入停止分别记录：
 
+这个 SPI 示例会直接构造 `NoopReporter`，因此还需在应用中声明
+`qubit-progress = { version = "0.8", default-features = false }` 依赖。
+
 ```rust
 use std::{convert::Infallible, sync::Arc, time::Duration};
 use qubit_batch::{BatchExecutor, TaskFailurePolicy};
