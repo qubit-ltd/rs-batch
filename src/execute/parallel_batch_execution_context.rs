@@ -79,6 +79,8 @@ impl<E> ParallelBatchExecutionContext<E> {
         !self.state.source_exhausted() && !self.status.is_failed() && !self.state.should_stop_accepting()
     }
 
+    /// Returns whether this scheduler has observed the source's terminal
+    /// `None`.
     #[inline]
     pub(crate) fn source_exhausted(&self) -> bool {
         self.state.source_exhausted()
