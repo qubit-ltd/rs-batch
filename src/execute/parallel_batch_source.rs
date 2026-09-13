@@ -21,10 +21,15 @@ use super::ParallelBatchTask;
 /// iterator instead of manually pairing an input iterator with
 /// `ParallelBatchExecutionContext::next_task`.
 pub struct ParallelBatchSource<'ctx, I: IntoIterator, E> {
+    /// User-provided source retained until the first item is requested.
     input: Option<I>,
+    /// Lazily initialized iterator created from [`Self::input`].
     iterator: Option<I::IntoIter>,
+    /// Execution context that validates and accepts source items.
     context: &'ctx ParallelBatchExecutionContext<E>,
+    /// Whether this source has permanently stopped producing items.
     done: bool,
+    /// Shared marker used by the coordinator to verify source exhaustion.
     exhausted: Arc<AtomicBool>,
 }
 
