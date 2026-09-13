@@ -252,6 +252,9 @@ case an `Ok(BatchOutcome)` can describe early termination; inspect
 Runtime-specific schedulers should use `next_task` when they own a lazy source,
 so a source `None` is recorded separately from an admission stop:
 
+This SPI example also requires `qubit-progress = { version = "0.8", default-features = false }`
+as a direct dependency because it constructs `NoopReporter`.
+
 ```rust
 use std::{convert::Infallible, sync::Arc, time::Duration};
 use qubit_batch::{BatchExecutor, TaskFailurePolicy};
