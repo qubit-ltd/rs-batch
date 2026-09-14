@@ -20,6 +20,33 @@ use super::ParallelBatchTask;
 /// admission gate rejects an item. Runtime integrations should consume this
 /// iterator instead of manually pairing an input iterator with
 /// `ParallelBatchExecutionContext::next_task`.
+///
+/// # Type Parameters
+///
+/// * `'ctx` - Lifetime of the execution context borrowed by the scheduler.
+/// * `I` - Source converted lazily into an iterator of runnable tasks.
+/// * `E` - Task-specific error stored in the shared outcome.
+///
+/// # Examples
+///
+/// ```rust
+/// use std::convert::Infallible;
+/// use std::sync::Arc;
+/// use std::time::Duration;
+/// use qubit_batch::TaskFailurePolicy;
+/// use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
+/// use qubit_progress::NoopReporter;
+///
+/// let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
+/// let outcome = coordinator.execute_with_source([|| Ok::<(), &'static str>(())], 1,
+///     TaskFailurePolicy::Continue, |source, context| {
+///         for token in source {
+///             context.execute_task(token);
+///         }
+///         Ok::<(), Infallible>(())
+///     }).expect("the source is exhausted and its accepted task completed");
+/// assert!(outcome.is_success());
+/// ```
 pub struct ParallelBatchSource<'ctx, I: IntoIterator, E> {
     /// User-provided source retained until the first item is requested.
     input: Option<I>,

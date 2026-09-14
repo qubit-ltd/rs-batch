@@ -26,14 +26,13 @@
 /// use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
 /// use qubit_progress::NoopReporter;
 /// let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
-/// let outcome = coordinator.execute([|| Ok::<(), &'static str>(())], 1,
-///     TaskFailurePolicy::Continue, |tasks, context| {
-///         let mut source = tasks.into_iter();
-///         while let Some(token) = context.next_task(&mut source) {
+/// let outcome = coordinator.execute_with_source([|| Ok::<(), &'static str>(())], 1,
+///     TaskFailurePolicy::Continue, |source, context| {
+///         for token in source {
 ///             context.execute_task(token);
 ///         }
 ///         Ok::<(), Infallible>(())
-///     }).expect("all accepted tasks finish before the scheduler returns");
+///     }).expect("all accepted tasks finish and the source is exhausted");
 /// assert!(outcome.is_success());
 /// ```
 #[must_use = "accepted parallel batch tasks must be executed"]

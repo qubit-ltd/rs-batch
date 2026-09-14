@@ -40,14 +40,13 @@ use crate::ProgressFailure;
 /// use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
 /// use qubit_progress::NoopReporter;
 /// let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
-/// let outcome = coordinator.execute([|| Ok::<(), &'static str>(())], 1,
-///     TaskFailurePolicy::Continue, |tasks, context| {
-///         let mut source = tasks.into_iter();
-///         while let Some(token) = context.next_task(&mut source) {
+/// let outcome = coordinator.execute_with_source([|| Ok::<(), &'static str>(())], 1,
+///     TaskFailurePolicy::Continue, |source, context| {
+///         for token in source {
 ///             context.execute_task(token);
 ///         }
 ///         Ok::<(), Infallible>(())
-///     }).expect("all accepted tasks finish before the scheduler returns");
+///     }).expect("all accepted tasks finish and the source is exhausted");
 /// assert!(outcome.is_success());
 /// ```
 #[derive(Clone)]
@@ -61,17 +60,43 @@ pub struct ParallelBatchExecutionCoordinator {
 impl ParallelBatchExecutionCoordinator {
     /// Executes a batch while owning the source admission boundary.
     ///
-    /// This entry point prevents runtime integrations from substituting a
-    /// different source or forgetting to observe source exhaustion. The
-    /// lower-level `execute` method remains available for integrations that
-    /// need to provide their own admission loop.
+    /// This is the preferred entry point for runtime integrations. It prevents
+    /// schedulers from substituting a different source or forgetting to observe
+    /// source exhaustion. The lower-level [`Self::execute`] method remains
+    /// available for integrations that must own their admission loop.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `I` - Task source type.
+    /// * `E` - Task-specific error type.
+    /// * `S` - Scheduler error type.
+    /// * `Schedule` - Runtime-specific scheduling closure type.
+    ///
+    /// # Parameters
+    ///
+    /// * `tasks` - Source converted lazily when the scheduler first pulls it.
+    /// * `count` - Declared number of tasks expected from the source.
+    /// * `task_failure_policy` - Policy that may stop source admission after
+    ///   task failures while accepted tasks finish.
+    /// * `schedule` - Scheduler that consumes the supplied
+    ///   [`ParallelBatchSource`] and executes every accepted token before
+    ///   returning. Returning early without a policy stop is an incomplete
+    ///   schedule, even after `count` tasks have completed.
+    ///
+    /// # Returns
+    ///
+    /// A validated [`BatchOutcome`] when the source is exhausted or a failure
+    /// policy stops admission and all accepted tasks have completed.
     ///
     /// # Errors
     ///
-    /// Returns [`BatchExecutionError::IncompleteSchedule`] when the scheduler
-    /// does not consume the source through a real `None`, even if all declared
-    /// tasks completed. The failed terminal report is emitted before this error
-    /// is returned; a report failure is retained as `report_error`.
+    /// Returns a schedule, progress-report, or source-count error when the
+    /// corresponding operation fails. Returns
+    /// [`BatchExecutionError::IncompleteSchedule`] when accepted tasks remain
+    /// unfinished or the scheduler does not consume the source through a real
+    /// `None`, even if all declared tasks completed. A failed terminal report
+    /// is emitted before the latter error is returned; its failure is retained
+    /// as `report_error`.
     ///
     /// # Panics
     ///
@@ -141,7 +166,17 @@ impl ParallelBatchExecutionCoordinator {
         &self.reporter
     }
 
-    /// Executes one batch through a scheduler closure.
+    /// Executes one batch through a scheduler-owned admission loop.
+    ///
+    /// This low-level compatibility entry point cannot verify that the
+    /// scheduler consumed the original source to `None`. If the scheduler
+    /// accepts exactly `count` tasks and returns without checking for another
+    /// item, the result may be `Ok` even when the source contains extra tasks.
+    /// To validate a normally completed source, the scheduler must use
+    /// [`ParallelBatchExecutionContext::next_task`] until it observes source
+    /// exhaustion. Policy, progress, or count failures can stop admission
+    /// earlier. Prefer [`Self::execute_with_source`] when possible; it owns the
+    /// source boundary and verifies exhaustion before successful return.
     ///
     /// # Parameters
     ///
@@ -168,8 +203,9 @@ impl ParallelBatchExecutionCoordinator {
     ///
     /// # Returns
     ///
-    /// A validated [`BatchOutcome`] when progress reporting, task accounting,
-    /// and scheduler completion all succeed.
+    /// A [`BatchOutcome`] when progress reporting, task accounting, and
+    /// scheduler completion all succeed. Source-count validation is complete
+    /// only if the scheduler also observed source exhaustion.
     ///
     /// # Errors
     ///

@@ -249,38 +249,42 @@ when further source items should not be accepted after the threshold. In this
 case an `Ok(BatchOutcome)` can describe early termination; inspect
 `outcome.termination()` before treating the source count as fully validated.
 
-Runtime-specific schedulers should use `next_task` when they own a lazy source,
-so a source `None` is recorded separately from an admission stop:
+Runtime-specific schedulers should use `execute_with_source`. Its supplied
+source admits tasks and records a real source `None` separately from an
+admission stop:
 
 This SPI example also requires `qubit-progress = { version = "0.8", default-features = false }`
 as a direct dependency because it constructs `NoopReporter`.
 
 ```rust
 use std::{convert::Infallible, sync::Arc, time::Duration};
-use qubit_batch::{BatchExecutor, TaskFailurePolicy};
+use qubit_batch::TaskFailurePolicy;
 use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
 use qubit_progress::NoopReporter;
 
 let coordinator = ParallelBatchExecutionCoordinator::new(
     Arc::new(NoopReporter), Duration::ZERO);
 let tasks = [|| Ok::<(), &'static str>(())];
-let outcome = coordinator.execute(tasks, 1, TaskFailurePolicy::Continue,
-    |tasks, context| {
-        let mut source = tasks.into_iter();
-        while let Some(token) = context.next_task(&mut source) {
+let outcome = coordinator.execute_with_source(tasks, 1, TaskFailurePolicy::Continue,
+    |source, context| {
+        for token in source {
             context.execute_task(token);
         }
         Ok::<(), Infallible>(())
-    }).unwrap();
+    }).expect("the source should be exhausted and its task completed");
 assert!(outcome.is_success());
 ```
 
-When using `execute_with_source`, normal completion also requires consuming the
+Normal completion with `execute_with_source` requires consuming the
 `ParallelBatchSource` until it returns a real `None`. Executing exactly the
 declared number of tasks is insufficient to prove that the source has no extra
 items; the coordinator then returns `IncompleteSchedule` and reports a `Failed`
 terminal event instead of `Succeeded`. A failure-policy stop is the exception:
 it returns its explicit stopped outcome without probing the source again.
+The lower-level `execute` method remains available for schedulers that own
+their admission loop. Such a scheduler must observe exhaustion itself; if it
+returns after exactly the declared count without checking for another item,
+`execute` can return `Ok` while leaving extra source items unobserved.
 
 ### Recover outputs from the current call
 

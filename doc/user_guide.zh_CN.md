@@ -226,36 +226,37 @@ worker；任意任务依赖或跨池循环等待仍需由应用设计处理。
 `StopAfterFailures(...)`。此时即使得到 `Ok(BatchOutcome)`，也可能是提前停止；在把
 来源数量视为已完整校验前，应先检查 `outcome.termination()`。
 
-运行时相关的调度器拥有惰性来源时，应使用 `next_task`，这样可以把来源返回
-`None` 与准入停止分别记录：
+运行时相关的调度器应优先使用 `execute_with_source`。传入调度器的来源负责准入，
+并把来源真正返回 `None` 与准入停止分别记录：
 
 这个 SPI 示例会直接构造 `NoopReporter`，因此还需在应用中声明
 `qubit-progress = { version = "0.8", default-features = false }` 依赖。
 
 ```rust
 use std::{convert::Infallible, sync::Arc, time::Duration};
-use qubit_batch::{BatchExecutor, TaskFailurePolicy};
+use qubit_batch::TaskFailurePolicy;
 use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
 use qubit_progress::NoopReporter;
 
 let coordinator = ParallelBatchExecutionCoordinator::new(
     Arc::new(NoopReporter), Duration::ZERO);
 let tasks = [|| Ok::<(), &'static str>(())];
-let outcome = coordinator.execute(tasks, 1, TaskFailurePolicy::Continue,
-    |tasks, context| {
-        let mut source = tasks.into_iter();
-        while let Some(token) = context.next_task(&mut source) {
+let outcome = coordinator.execute_with_source(tasks, 1, TaskFailurePolicy::Continue,
+    |source, context| {
+        for token in source {
             context.execute_task(token);
         }
         Ok::<(), Infallible>(())
-    }).unwrap();
+    }).expect("来源应已耗尽，且任务应已完成");
 assert!(outcome.is_success());
 ```
 
-使用 `execute_with_source` 时，正常完成还要求把 `ParallelBatchSource` 消费到真实的
+使用 `execute_with_source` 正常完成时，还要求把 `ParallelBatchSource` 消费到真实的
 `None`。只执行声明数量的任务，无法证明来源没有多余项；此时协调器返回
 `IncompleteSchedule`，并向 reporter 发送 `Failed` 终态，而不是 `Succeeded`。失败策略
 主动停止是例外：它返回明确的停止结果，不会为了探测来源而继续拉取。
+低层 `execute` 仍可供自行管理准入循环的调度器使用，但调度器必须自己观察来源耗尽。
+若执行声明数量的任务后未探测下一项便返回，来源仍有多余数据时也可能得到 `Ok`。
 
 ### 恢复当前调用的成功输出
 

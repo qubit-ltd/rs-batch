@@ -51,14 +51,13 @@ fn next_execution_id() -> u64 {
 /// use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
 /// use qubit_progress::NoopReporter;
 /// let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
-/// let outcome = coordinator.execute([|| Ok::<(), &'static str>(())], 1,
-///     TaskFailurePolicy::Continue, |tasks, context| {
-///         let mut source = tasks.into_iter();
-///         while let Some(token) = context.next_task(&mut source) {
+/// let outcome = coordinator.execute_with_source([|| Ok::<(), &'static str>(())], 1,
+///     TaskFailurePolicy::Continue, |source, context| {
+///         for token in source {
 ///             context.execute_task(token);
 ///         }
 ///         Ok::<(), Infallible>(())
-///     }).expect("all accepted tasks finish before the scheduler returns");
+///     }).expect("all accepted tasks finish and the source is exhausted");
 /// assert!(outcome.is_success());
 /// ```
 pub struct ParallelBatchExecutionContext<E> {
@@ -89,7 +88,7 @@ impl<E> ParallelBatchExecutionContext<E> {
     ///
     /// This constructor is only intended for runtime executors.
     /// Most callers should use
-    /// [`crate::execute::spi::ParallelBatchExecutionCoordinator::execute`].
+    /// [`crate::execute::spi::ParallelBatchExecutionCoordinator::execute_with_source`].
     ///
     /// # Parameters
     ///
