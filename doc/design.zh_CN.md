@@ -2,7 +2,7 @@
 
 [English design](design.md) · [用户手册](user_guide.zh_CN.md) · [README](../README.zh_CN.md)
 
-本文描述 qubit-batch 0.12 的架构与契约，最低工具链仍为 Rust 1.94、edition 2024。
+本文描述 qubit-batch 0.13 的架构与契约，最低工具链仍为 Rust 1.94、edition 2024。
 标准线程执行器与配套 qubit-rayon-batch 共同遵守下述运行与结果约束。
 
 ## 职责与所有权
@@ -32,13 +32,12 @@ Token 带有本次执行的身份和唯一来源下标，外部不能直接构�
 execute_task 消耗 token，并拒绝来自其他执行上下文的 token。调度器返回成功后，
 coordinator 会检查所有已接受 token 是否都已完成。
 
-调度器优先使用 execute_with_source。其 ParallelBatchSource 会把来源真正返回 None
-与失败策略停止、进度失败或声明数量超限区分开。最终原因以 coordinator 的结果为准。
-低层 execute 无法自行证明来源耗尽：若调度器接受恰好声明数量的任务后，没有观察
-到 None 就返回，即使来源还有多余项，也可能得到 Ok。使用此兼容入口的调度器必须
-自行确保来源耗尽。accept_task 是更低层的适配入口，不替调用方记录来源耗尽。
-0.12 暂不弃用低层入口，以保持现有外部调度器集成的编译兼容性；仓库内的标准线程
-与 Rayon 后端已经使用 execute_with_source。
+execute_with_source 是唯一公开调度入口。其 ParallelBatchSource 在共享准入状态中
+记录来源真正返回的 None，并与失败策略停止、进度失败或声明数量超限区分开。最终
+原因以 coordinator 的结果为准。上下文的 accept_task 和 next_task 仅供 crate
+内部调用；外部调度器必须消费传入的来源。只执行恰好声明数量的任务而不观察 None，
+即使任务全部完成，也返回 IncompleteSchedule。仓库内的标准线程与 Rayon 后端均
+使用 execute_with_source。
 
 失败策略采用协作式停止：已经接受的任务仍会完成，所以最终失败次数可以超过
 配置阈值。准入可能与 worker 失败同时发生，不保证最后接受的精确下标。
@@ -99,7 +98,7 @@ Outcome 校验不再分配 HashSet 保存下标：先检查聚合计数与越界
 多个非法条件同时存在时，错误选择有意改变：越界优先于重复，重复错误报告最小
 重复下标；多个越界项仍报告原输入顺序中的第一个。聚合计数错误与 callable 结果
 错误的优先级保持不变。原地校验与错误优先级变化最早随 qubit-batch 0.11 引入；
-当前 0.12 沿用该行为。当前配套版本为 qubit-rayon-batch 0.10，依赖 qubit-batch 0.12。
+当前 0.13 沿用该行为。当前配套版本为 qubit-rayon-batch 0.11，依赖 qubit-batch 0.13。
 
 ## 资源与验证
 

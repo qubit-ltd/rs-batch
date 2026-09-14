@@ -15,7 +15,7 @@
 
 ```toml
 [dependencies]
-qubit-batch = "0.12"
+qubit-batch = "0.13"
 ```
 
 需要 Rust 1.94 或更高版本。直接实现 `Runnable`、`Callable` 或 `Consumer` 时需加入
@@ -75,6 +75,11 @@ worker。每次嵌套调用仍返回独立的 outcome；失败不会自动合并
 具体的顺序 callable API 接收的 callable 天生是 `FnMut`，闭包不需要实现 `Fn`。
 `BatchExecutor` trait 的并行入口仍保留 `Send` 约束，因为已接受的任务可能在 scoped
 worker 上运行。
+
+自定义并行调度器使用协调器唯一公开入口 `execute_with_source`，并从传入的来源取得
+任务 token。正常完成必须观察到来源真正结束；失败策略停止会返回明确的部分结果，
+不再拉取下一项。调度器、来源和同步 reporter 的 panic 会向外传播，任务 panic
+则作为带下标的失败记录保存在 outcome 中。
 
 对于 processor，`processed_count` 表示成功处理的输入项数量，并满足
 `processed_count <= completed_count <= item_count`。数据库受影响行数等业务指标必须单独

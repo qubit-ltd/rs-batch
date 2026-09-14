@@ -3,7 +3,7 @@
 [中文用户手册](user_guide.zh_CN.md) · [README](../README.md) ·
 [API documentation](https://docs.rs/qubit-batch)
 
-Applies to `qubit-batch` 0.12 and Rust 1.94 or later. This guide is for an
+Applies to `qubit-batch` 0.13 and Rust 1.94 or later. This guide is for an
 application or library author who has one finite collection to handle now and
 needs an auditable outcome, rather than a persistent queue, scheduler, or
 worker pool.
@@ -42,7 +42,7 @@ attempted rows, two successes, and one failure at index 1.
 
 ```toml
 [dependencies]
-qubit-batch = "0.12"
+qubit-batch = "0.13"
 ```
 
 ## Core Workflow
@@ -249,7 +249,7 @@ when further source items should not be accepted after the threshold. In this
 case an `Ok(BatchOutcome)` can describe early termination; inspect
 `outcome.termination()` before treating the source count as fully validated.
 
-Runtime-specific schedulers should use `execute_with_source`. Its supplied
+Runtime-specific schedulers use `execute_with_source`. Its supplied
 source admits tasks and records a real source `None` separately from an
 admission stop:
 
@@ -281,10 +281,9 @@ declared number of tasks is insufficient to prove that the source has no extra
 items; the coordinator then returns `IncompleteSchedule` and reports a `Failed`
 terminal event instead of `Succeeded`. A failure-policy stop is the exception:
 it returns its explicit stopped outcome without probing the source again.
-The lower-level `execute` method remains available for schedulers that own
-their admission loop. Such a scheduler must observe exhaustion itself; if it
-returns after exactly the declared count without checking for another item,
-`execute` can return `Ok` while leaving extra source items unobserved.
+This is the only public scheduler entry point. External schedulers obtain
+tokens only from the supplied source; the context's admission methods are
+crate-internal.
 
 ### Recover outputs from the current call
 
@@ -345,7 +344,7 @@ events may be coalesced on parallel paths; only lifecycle ordering is asserted.
 
 ```toml
 [dependencies]
-qubit-batch = "0.12"
+qubit-batch = "0.13"
 qubit-progress = { version = "0.8", default-features = false }
 ```
 

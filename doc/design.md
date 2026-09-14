@@ -2,7 +2,7 @@
 
 [中文设计说明](design.zh_CN.md) · [User guide](user_guide.md) · [README](../README.md)
 
-This document describes qubit-batch 0.12. Rust 1.94 and edition 2024 remain the
+This document describes qubit-batch 0.13. Rust 1.94 and edition 2024 remain the
 minimum toolchain contract. It records the runtime and result invariants used
 by the standard-thread implementation and the qubit-rayon-batch companion.
 
@@ -39,17 +39,14 @@ constructed publicly or cloned. execute_task consumes it once and rejects a
 token belonging to another execution. The coordinator checks that all accepted
 tokens completed before accepting a successful scheduler return.
 
-execute_with_source is the preferred scheduler API. Its ParallelBatchSource
-records a real source None separately from failure-policy stop, progress
-failure, or count overflow. The coordinator result is authoritative. The
-lower-level execute API cannot prove source exhaustion on its own: a scheduler
-that returns after accepting exactly the declared count without observing None
-can receive Ok while extra source items remain. Users of that compatibility
-entry point must establish exhaustion themselves. accept_task remains a lower
-level adapter and does not observe exhaustion on behalf of its caller.
-The low-level entry point remains available without deprecation in 0.12 so
-existing external scheduler integrations keep compiling; the in-repository
-standard and Rayon backends already use execute_with_source.
+execute_with_source is the only public scheduler API. Its ParallelBatchSource
+records a real source None in the shared admission state, separately from
+failure-policy stop, progress failure, or count overflow. The coordinator
+result is authoritative. The context's accept_task and next_task methods are
+crate-internal; external schedulers must consume the supplied source. Returning
+after exactly the declared number of tasks without observing None yields
+IncompleteSchedule, even when all accepted tasks completed. The in-repository
+standard and Rayon backends use execute_with_source.
 
 Failure policies stop admission cooperatively. Already accepted tokens drain,
 so the final failure count may exceed the configured threshold. Concurrent
@@ -124,9 +121,9 @@ all range errors precede duplicate errors, and duplicates report the smallest
 repeated index. The first range error remains the first in input order. Counter
 error ordering and callable-result error ordering are unchanged. Callers should
 update tests that relied on the old duplicate traversal order. The in-place
-validation change was introduced in qubit-batch 0.11. qubit-batch 0.12 retains
-that error ordering. The current companion is qubit-rayon-batch 0.10, which
-depends on qubit-batch 0.12.
+validation change was introduced in qubit-batch 0.11. qubit-batch 0.13 retains
+that error ordering. The current companion is qubit-rayon-batch 0.11, which
+depends on qubit-batch 0.13.
 
 ## Resource model and testing
 

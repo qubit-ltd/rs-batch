@@ -15,7 +15,7 @@ without coupling a shared library to a particular async runtime.
 
 ```toml
 [dependencies]
-qubit-batch = "0.12"
+qubit-batch = "0.13"
 ```
 
 Use Rust 1.94 or later. Add `qubit-function = "0.18"` when implementing
@@ -79,6 +79,13 @@ The concrete sequential callable APIs accept callable values that are
 inherently `FnMut`; a callable closure does not need to implement `Fn`. The
 parallel `BatchExecutor` trait keeps its `Send` bounds because accepted work
 may run on scoped workers.
+
+Custom parallel schedulers use the sole public coordinator entry point,
+`execute_with_source`, and obtain task tokens from its supplied source. Normal
+completion requires observing the source's real end; a failure-policy stop
+returns an explicit partial outcome without pulling another item. Scheduler,
+source, and synchronous reporter panics propagate, while task panics are
+recorded as indexed failures in the outcome.
 
 For processors, `processed_count` is the number of successfully processed
 input items and satisfies `processed_count <= completed_count <= item_count`.
