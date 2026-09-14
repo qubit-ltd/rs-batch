@@ -3,7 +3,7 @@
 [English user guide](user_guide.md) · [README](../README.zh_CN.md) ·
 [API 文档](https://docs.rs/qubit-batch)
 
-本文适用于 `qubit-batch` 0.12 和 Rust 1.94 及以上版本。面向需要立刻处理一批有限
+本文适用于 `qubit-batch` 0.13 和 Rust 1.94 及以上版本。面向需要立刻处理一批有限
 数据、并希望拿到可审计结果的应用或库作者；它不用于构建常驻队列、调度器或 worker pool。
 
 ## 手册目标与读者
@@ -36,7 +36,7 @@
 
 ```toml
 [dependencies]
-qubit-batch = "0.12"
+qubit-batch = "0.13"
 ```
 
 ## 核心工作流
@@ -226,7 +226,7 @@ worker；任意任务依赖或跨池循环等待仍需由应用设计处理。
 `StopAfterFailures(...)`。此时即使得到 `Ok(BatchOutcome)`，也可能是提前停止；在把
 来源数量视为已完整校验前，应先检查 `outcome.termination()`。
 
-运行时相关的调度器应优先使用 `execute_with_source`。传入调度器的来源负责准入，
+运行时相关的调度器使用 `execute_with_source`。传入调度器的来源负责准入，
 并把来源真正返回 `None` 与准入停止分别记录：
 
 这个 SPI 示例会直接构造 `NoopReporter`，因此还需在应用中声明
@@ -255,8 +255,8 @@ assert!(outcome.is_success());
 `None`。只执行声明数量的任务，无法证明来源没有多余项；此时协调器返回
 `IncompleteSchedule`，并向 reporter 发送 `Failed` 终态，而不是 `Succeeded`。失败策略
 主动停止是例外：它返回明确的停止结果，不会为了探测来源而继续拉取。
-低层 `execute` 仍可供自行管理准入循环的调度器使用，但调度器必须自己观察来源耗尽。
-若执行声明数量的任务后未探测下一项便返回，来源仍有多余数据时也可能得到 `Ok`。
+这是唯一公开调度入口。外部调度器只能从传入的来源取得 token；上下文的准入方法
+仅供 crate 内部调用。
 
 ### 恢复当前调用的成功输出
 
@@ -314,7 +314,7 @@ assert_eq!(result.outputs().len(), 2);
 
 ```toml
 [dependencies]
-qubit-batch = "0.12"
+qubit-batch = "0.13"
 qubit-progress = { version = "0.8", default-features = false }
 ```
 
