@@ -39,13 +39,12 @@ struct SchedulerError;
 fn test_parallel_batch_execution_coordinator_records_task_outcomes() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let outcome = coordinator
-        .execute(
+        .execute_with_source(
             [TestTask::succeed(), TestTask::fail("failed"), TestTask::panic("panic")],
             3,
             TaskFailurePolicy::Continue,
             |tasks, context: &ParallelBatchExecutionContext<&'static str>| {
                 for task in tasks {
-                    let task = context.accept_task(task).expect("task should be accepted");
                     context.execute_task(task);
                 }
                 Ok::<(), Infallible>(())
@@ -62,13 +61,12 @@ fn test_parallel_batch_execution_coordinator_records_task_outcomes() {
 fn test_parallel_batch_execution_coordinator_reports_count_shortfall() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let error = coordinator
-        .execute(
+        .execute_with_source(
             [TestTask::succeed()],
             2,
             TaskFailurePolicy::Continue,
             |tasks, context| {
                 for task in tasks {
-                    let task = context.accept_task(task).expect("task should be accepted");
                     context.execute_task(task);
                 }
                 Ok::<(), Infallible>(())
@@ -95,15 +93,13 @@ fn test_parallel_batch_execution_coordinator_reports_count_shortfall() {
 fn test_parallel_batch_execution_coordinator_reports_count_exceeded() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let error = coordinator
-        .execute(
+        .execute_with_source(
             [TestTask::succeed(), TestTask::succeed(), TestTask::succeed()],
             2,
             TaskFailurePolicy::Continue,
             |tasks, context| {
                 for task in tasks {
-                    if let Some(task) = context.accept_task(task) {
-                        context.execute_task(task);
-                    }
+                    context.execute_task(task);
                 }
                 Ok::<(), Infallible>(())
             },
@@ -129,16 +125,13 @@ fn test_parallel_batch_execution_coordinator_reports_count_exceeded() {
 fn test_parallel_batch_execution_coordinator_count_exceeded_precedes_failure_stop() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let error = coordinator
-        .execute(
+        .execute_with_source(
             [TestTask::fail("failed"), TestTask::succeed()],
             1,
             TaskFailurePolicy::StopOnFirstFailure,
             |tasks, context| {
-                let mut tasks = tasks.into_iter();
-                let first = context
-                    .accept_task(tasks.next().expect("first task should exist"))
-                    .expect("first task should be accepted");
-                let second = context.accept_task(tasks.next().expect("second task should exist"));
+                let first = tasks.next().expect("first task should be accepted");
+                let second = tasks.next();
                 assert!(second.is_none(), "the overflow task must be rejected");
                 context.execute_task(first);
                 Ok::<(), Infallible>(())
@@ -153,17 +146,15 @@ fn test_parallel_batch_execution_coordinator_count_exceeded_precedes_failure_sto
 fn test_parallel_batch_execution_context_rejects_token_from_another_execution() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let outer_error = coordinator
-        .execute(
+        .execute_with_source(
             [TestTask::succeed()],
             1,
             TaskFailurePolicy::Continue,
-            |tasks, outer_context: &ParallelBatchExecutionContext<&'static str>| {
-                let token = outer_context
-                    .accept_task(tasks.into_iter().next().expect("outer task should exist"))
-                    .expect("outer task should be accepted");
+            |tasks, _outer_context: &ParallelBatchExecutionContext<&'static str>| {
+                let token = tasks.next().expect("outer task should be accepted");
                 let inner_result = catch_unwind(AssertUnwindSafe(|| {
                     let _ = coordinator
-                        .execute(
+                        .execute_with_source(
                             [TestTask::succeed()],
                             1,
                             TaskFailurePolicy::Continue,
@@ -188,7 +179,7 @@ fn test_parallel_batch_execution_coordinator_reports_start_error_as_progress_rep
     let coordinator =
         ParallelBatchExecutionCoordinator::new(Arc::new(FailingReporter::after_successes(0)), Duration::ZERO);
     let error = coordinator
-        .execute(
+        .execute_with_source(
             [TestTask::succeed()],
             1,
             TaskFailurePolicy::Continue,
@@ -208,18 +199,20 @@ fn test_parallel_batch_execution_coordinator_reports_start_error_as_progress_rep
 fn test_parallel_batch_execution_coordinator_propagates_scheduler_panic() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let payload = catch_unwind(AssertUnwindSafe(|| {
-        coordinator.execute([1, 2, 3], 3, TaskFailurePolicy::Continue, |tasks, context| {
-            for task in tasks {
-                let task_token = context
-                    .accept_task(TestTask::succeed())
-                    .expect("task should be accepted");
-                context.execute_task(task_token);
-                if task == 2 {
-                    panic!("scheduler failure");
+        coordinator.execute_with_source(
+            std::array::from_fn::<_, 3, _>(|_| TestTask::succeed()),
+            3,
+            TaskFailurePolicy::Continue,
+            |tasks, context| {
+                for (index, task) in tasks.enumerate() {
+                    context.execute_task(task);
+                    if index == 1 {
+                        panic!("scheduler failure");
+                    }
                 }
-            }
-            Ok::<(), Infallible>(())
-        })
+                Ok::<(), Infallible>(())
+            },
+        )
     }))
     .expect_err("scheduler panic should be propagated");
 
@@ -230,13 +223,12 @@ fn test_parallel_batch_execution_coordinator_propagates_scheduler_panic() {
 fn test_parallel_batch_execution_coordinator_uses_context_observed_count() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let error = coordinator
-        .execute(
+        .execute_with_source(
             [TestTask::succeed()],
             2,
             TaskFailurePolicy::Continue,
             |tasks, context| {
                 for task in tasks {
-                    let task = context.accept_task(task).expect("task should be accepted");
                     context.execute_task(task);
                 }
                 Ok::<(), Infallible>(())
@@ -251,14 +243,12 @@ fn test_parallel_batch_execution_coordinator_uses_context_observed_count() {
 fn test_parallel_batch_execution_coordinator_rejects_dropped_accepted_tasks() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let error = coordinator
-        .execute(
+        .execute_with_source(
             [TestTask::succeed()],
             1,
             TaskFailurePolicy::Continue,
-            |tasks, context: &ParallelBatchExecutionContext<&'static str>| {
-                for task in tasks {
-                    let _dropped = context.accept_task(task).expect("task should be accepted");
-                }
+            |tasks, _context: &ParallelBatchExecutionContext<&'static str>| {
+                for _dropped in tasks {}
                 Ok::<(), Infallible>(())
             },
         )
@@ -285,14 +275,12 @@ fn test_parallel_batch_execution_coordinator_rejects_dropped_accepted_tasks() {
 fn test_parallel_batch_execution_coordinator_prioritizes_incomplete_schedule_over_shortfall() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let error = coordinator
-        .execute(
+        .execute_with_source(
             [TestTask::succeed()],
             10,
             TaskFailurePolicy::Continue,
-            |tasks, context: &ParallelBatchExecutionContext<&'static str>| {
-                if let Some(task) = tasks.into_iter().next() {
-                    let _ = context.accept_task(task).expect("task should be accepted");
-                }
+            |tasks, _context: &ParallelBatchExecutionContext<&'static str>| {
+                let _dropped = tasks.next().expect("task should be accepted");
                 Ok::<(), Infallible>(())
             },
         )
@@ -319,13 +307,12 @@ fn test_parallel_batch_execution_coordinator_prioritizes_incomplete_schedule_ove
 fn test_parallel_batch_execution_coordinator_returns_scheduler_error_directly() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let error = coordinator
-        .execute(
+        .execute_with_source(
             [TestTask::succeed()],
             1,
             TaskFailurePolicy::Continue,
             |tasks, context| {
-                for task in tasks {
-                    let token = context.accept_task(task).expect("task should be accepted");
+                for token in tasks {
                     context.execute_task(token);
                 }
                 Err(SchedulerError)
@@ -356,13 +343,12 @@ impl Reporter for TerminalFailureReporter {
 fn test_scheduler_rejection_preserves_terminal_failure() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(TerminalFailureReporter), Duration::ZERO);
     let error = coordinator
-        .execute(
+        .execute_with_source(
             [TestTask::succeed()],
             1,
             TaskFailurePolicy::Continue,
             |tasks, context| {
-                let mut tasks = tasks.into_iter();
-                while let Some(token) = context.next_task(&mut tasks) {
+                for token in tasks {
                     context.execute_task(token);
                 }
                 Err(SchedulerError)
@@ -382,13 +368,12 @@ fn test_scheduler_rejection_preserves_terminal_failure() {
 fn test_policy_stop_preserves_termination_on_terminal_failure() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(TerminalFailureReporter), Duration::ZERO);
     let error = coordinator
-        .execute(
+        .execute_with_source(
             [TestTask::fail("failed"), TestTask::succeed()],
             2,
             TaskFailurePolicy::StopOnFirstFailure,
             |tasks, context| {
-                let mut tasks = tasks.into_iter();
-                while let Some(token) = context.next_task(&mut tasks) {
+                for token in tasks {
                     context.execute_task(token);
                 }
                 Ok::<(), Infallible>(())
@@ -408,13 +393,12 @@ fn test_policy_stop_preserves_termination_on_terminal_failure() {
 fn test_finished_batch_preserves_counts_on_terminal_failure() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(TerminalFailureReporter), Duration::ZERO);
     let error = coordinator
-        .execute(
+        .execute_with_source(
             [TestTask::succeed()],
             1,
             TaskFailurePolicy::Continue,
             |tasks, context| {
-                let mut tasks = tasks.into_iter();
-                while let Some(token) = context.next_task(&mut tasks) {
+                for token in tasks {
                     context.execute_task(token);
                 }
                 Ok::<(), Infallible>(())
@@ -435,7 +419,7 @@ fn test_finished_batch_preserves_counts_on_terminal_failure() {
 fn test_finished_failed_batch_preserves_task_failures_on_terminal_failure() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(TerminalFailureReporter), Duration::ZERO);
     let error = coordinator
-        .execute(
+        .execute_with_source(
             [
                 TestTask::fail("invalid row"),
                 TestTask::succeed(),
@@ -444,8 +428,7 @@ fn test_finished_failed_batch_preserves_task_failures_on_terminal_failure() {
             3,
             TaskFailurePolicy::Continue,
             |tasks, context| {
-                let mut tasks = tasks.into_iter();
-                while let Some(token) = context.next_task(&mut tasks) {
+                for token in tasks {
                     context.execute_task(token);
                 }
                 Ok::<(), Infallible>(())

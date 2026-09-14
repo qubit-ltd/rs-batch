@@ -29,15 +29,14 @@ fn test_next_task_does_not_pull_after_policy_stop() {
     });
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let outcome = coordinator
-        .execute(
+        .execute_with_source(
             source,
             100,
             TaskFailurePolicy::StopOnFirstFailure,
             |tasks, context: &ParallelBatchExecutionContext<&'static str>| {
-                let mut tasks = tasks;
-                let token = context.next_task(&mut tasks).expect("first task should be accepted");
+                let token = tasks.next().expect("first task should be accepted");
                 context.execute_task(token);
-                assert!(context.next_task(&mut tasks).is_none());
+                assert!(tasks.next().is_none());
                 Ok::<(), Infallible>(())
             },
         )

@@ -27,7 +27,7 @@ fn test_parallel_batch_execution_context_execute_task_notifies_running_progress(
     let reporter_for_coordinator: Arc<dyn Reporter> = reporter.clone();
     let coordinator = ParallelBatchExecutionCoordinator::new(reporter_for_coordinator, Duration::ZERO);
     let outcome = coordinator
-        .execute(
+        .execute_with_source(
             [
                 TestTask::sleep_success(Duration::from_millis(2)),
                 TestTask::sleep_success(Duration::from_millis(2)),
@@ -36,9 +36,7 @@ fn test_parallel_batch_execution_context_execute_task_notifies_running_progress(
             TaskFailurePolicy::Continue,
             |tasks, context| {
                 for task in tasks {
-                    if let Some(task) = context.accept_task(task) {
-                        context.execute_task(task);
-                    }
+                    context.execute_task(task);
                 }
                 Ok::<(), std::convert::Infallible>(())
             },
@@ -63,15 +61,13 @@ fn test_parallel_batch_execution_context_execute_task_notifies_running_progress(
 fn test_parallel_batch_execution_context_rejects_tasks_after_declared_count() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(RecordingReporter::new()), Duration::ZERO);
     let error = coordinator
-        .execute(
+        .execute_with_source(
             [TestTask::succeed(), TestTask::succeed()],
             1,
             TaskFailurePolicy::Continue,
             |tasks, context| {
                 for task in tasks {
-                    if let Some(task) = context.accept_task(task) {
-                        context.execute_task(task);
-                    }
+                    context.execute_task(task);
                 }
                 Ok::<(), std::convert::Infallible>(())
             },
@@ -86,15 +82,13 @@ fn test_parallel_batch_execution_context_auto_reporter_failure_is_reported_as_pr
     let coordinator =
         ParallelBatchExecutionCoordinator::new(Arc::new(FailingReporter::after_successes(1)), Duration::ZERO);
 
-    let error = coordinator.execute(
+    let error = coordinator.execute_with_source(
         [TestTask::succeed()],
         1,
         TaskFailurePolicy::Continue,
         |tasks, context| {
             for task in tasks {
-                if let Some(task) = context.accept_task(task) {
-                    context.execute_task(task);
-                }
+                context.execute_task(task);
                 for _ in 0..100 {
                     std::thread::sleep(Duration::from_millis(1));
                 }

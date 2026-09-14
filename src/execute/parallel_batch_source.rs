@@ -6,9 +6,6 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::iter::FusedIterator;
-use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering;
 
 use super::ParallelBatchExecutionContext;
 use super::ParallelBatchTask;
@@ -56,23 +53,16 @@ pub struct ParallelBatchSource<'ctx, I: IntoIterator, E> {
     context: &'ctx ParallelBatchExecutionContext<E>,
     /// Whether this source has permanently stopped producing items.
     done: bool,
-    /// Shared marker used by the coordinator to verify source exhaustion.
-    exhausted: Arc<AtomicBool>,
 }
 
 impl<'ctx, I: IntoIterator, E> ParallelBatchSource<'ctx, I, E> {
     /// Creates a source for one coordinator invocation.
-    pub(crate) fn with_exhaustion(
-        input: I,
-        context: &'ctx ParallelBatchExecutionContext<E>,
-        exhausted: Arc<AtomicBool>,
-    ) -> Self {
+    pub(crate) fn new(input: I, context: &'ctx ParallelBatchExecutionContext<E>) -> Self {
         Self {
             input: Some(input),
             iterator: None,
             context,
             done: false,
-            exhausted,
         }
     }
 }
@@ -97,9 +87,6 @@ impl<I: IntoIterator, E> Iterator for ParallelBatchSource<'_, I, E> {
         if token.is_none() {
             self.done = true;
             self.iterator.take();
-            if self.context.source_exhausted() {
-                self.exhausted.store(true, Ordering::Release);
-            }
         }
         token
     }

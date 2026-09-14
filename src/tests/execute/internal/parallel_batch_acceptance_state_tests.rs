@@ -61,3 +61,31 @@ fn test_loom_concurrent_admission_preserves_each_atomic_counter() {
         assert_eq!(state.accepted_count(), 2);
     });
 }
+
+#[test]
+fn test_loom_source_exhaustion_races_with_policy_stop_without_being_lost() {
+    model(|| {
+        let state = Arc::new(ParallelBatchAcceptanceState::new(1));
+        let exhausted = Arc::clone(&state);
+        let stopper = Arc::clone(&state);
+        let source = thread::spawn(move || exhausted.mark_source_exhausted());
+        let policy = thread::spawn(move || stopper.stop());
+        source.join().expect("loom source should join");
+        policy.join().expect("loom policy should join");
+        assert!(state.source_exhausted());
+        assert!(state.should_stop());
+        assert!(state.try_record_observed().is_none());
+    });
+}
+
+#[test]
+fn test_loom_policy_stop_without_source_none_does_not_claim_exhaustion() {
+    model(|| {
+        let state = Arc::new(ParallelBatchAcceptanceState::new(1));
+        let stopper = Arc::clone(&state);
+        let policy = thread::spawn(move || stopper.stop());
+        policy.join().expect("loom policy should join");
+        assert!(state.should_stop());
+        assert!(!state.source_exhausted());
+    });
+}

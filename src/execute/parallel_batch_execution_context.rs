@@ -35,7 +35,7 @@ fn next_execution_id() -> u64 {
 /// Worker-facing context for one parallel batch execution.
 ///
 /// Runtime-specific executors receive this context from the coordinator and
-/// use it to accept and execute one-shot task tokens.
+/// use it to execute one-shot task tokens admitted by the source.
 ///
 /// # Type Parameters
 ///
@@ -78,12 +78,6 @@ impl<E> ParallelBatchExecutionContext<E> {
         !self.state.source_exhausted() && !self.status.is_failed() && !self.state.should_stop_accepting()
     }
 
-    /// Returns whether this scheduler has observed the source's terminal
-    /// `None`.
-    #[inline]
-    pub(crate) fn source_exhausted(&self) -> bool {
-        self.state.source_exhausted()
-    }
     /// Creates worker-facing execution state for one active batch run.
     ///
     /// This constructor is only intended for runtime executors.
@@ -131,7 +125,7 @@ impl<E> ParallelBatchExecutionContext<E> {
     /// `Some(token)` when the task is accepted, or `None` when execution must
     /// stop accepting work.
     #[inline]
-    pub fn accept_task<T>(&self, task: T) -> Option<ParallelBatchTask<T>> {
+    pub(crate) fn accept_task<T>(&self, task: T) -> Option<ParallelBatchTask<T>> {
         if self.status.is_failed() {
             return None;
         }
@@ -165,7 +159,7 @@ impl<E> ParallelBatchExecutionContext<E> {
     /// An accepted task token, or `None` when the source or admission gate
     /// stops execution.
     #[inline]
-    pub fn next_task<I>(&self, tasks: &mut I) -> Option<ParallelBatchTask<I::Item>>
+    pub(crate) fn next_task<I>(&self, tasks: &mut I) -> Option<ParallelBatchTask<I::Item>>
     where
         I: Iterator,
     {
@@ -188,7 +182,7 @@ impl<E> ParallelBatchExecutionContext<E> {
     ///
     /// # Parameters
     ///
-    /// * `task` - Token accepted by [`Self::accept_task`].
+    /// * `task` - Token supplied by the coordinator-owned source.
     ///
     /// # Type Parameters
     ///

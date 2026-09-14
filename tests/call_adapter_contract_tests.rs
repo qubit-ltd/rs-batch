@@ -79,13 +79,12 @@ impl BatchExecutor for RejectScheduler {
         T: Runnable<E> + Send,
         E: Send,
     {
-        ParallelBatchExecutionCoordinator::new(Arc::new(TerminalFailure), Duration::from_secs(60)).execute(
+        ParallelBatchExecutionCoordinator::new(Arc::new(TerminalFailure), Duration::from_secs(60)).execute_with_source(
             tasks,
             count,
             TaskFailurePolicy::Continue,
             |tasks, context| {
-                let mut tasks = tasks.into_iter();
-                if let Some(token) = context.next_task(&mut tasks) {
+                if let Some(token) = tasks.next() {
                     context.execute_task(token);
                 }
                 Err(io::Error::other("schedule rejected"))
