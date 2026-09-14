@@ -5,8 +5,6 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Tests for crate-internal contracts unavailable through public APIs.
+//! Tests for crate-internal scoped processing behavior.
 
-#[cfg(loom)]
-mod execute;
-mod utils;
+mod scoped_parallel_tests;

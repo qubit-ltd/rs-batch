@@ -24,6 +24,7 @@ use qubit_batch::ParallelBatchProcessor;
 use qubit_batch::ParallelBatchProcessorBuildError;
 use qubit_function::Consumer;
 
+use crate::support::FailingReporter;
 use crate::support::ProgressEvent;
 use crate::support::RecordingReporter;
 use crate::support::panic_payload_message;
@@ -159,6 +160,25 @@ fn test_parallel_batch_processor_reports_progress() {
             completed_count: 4,
         })
     ));
+}
+
+#[test]
+fn test_parallel_batch_processor_preserves_completed_count_when_terminal_report_fails() {
+    let mut processor = ParallelBatchProcessor::builder(|_item: &i32| {})
+        .thread_count(2)
+        .sequential_threshold(0)
+        .report_interval(Duration::from_secs(3600))
+        .reporter(FailingReporter::after_successes(1))
+        .build()
+        .expect("parallel processor should build");
+
+    let error = processor
+        .process_with_count([1], 1)
+        .expect_err("terminal progress reporting should fail");
+
+    assert!(matches!(&error, BatchProcessError::ProgressReport { .. }));
+    assert_eq!(error.result().completed_count(), 1);
+    assert_eq!(error.result().processed_count(), 1);
 }
 
 #[test]

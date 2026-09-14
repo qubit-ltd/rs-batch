@@ -30,7 +30,7 @@ use super::internal::ScopedWorkItem;
 /// * `worker_count` - Number of scoped worker threads to spawn.
 /// * `observe_item` - Callback invoked on the producer thread for each observed
 ///   source item. It must return the observed count after recording the item.
-/// * `should_stop` - Callback checked before accepting or executing work.
+/// * `should_stop` - Callback checked before pulling or executing work.
 /// * `run_item` - Callback invoked by workers for each accepted item.
 ///
 /// # Type Parameters
@@ -41,7 +41,9 @@ use super::internal::ScopedWorkItem;
 /// * `S` - Stop predicate type.
 /// * `F` - Worker callback type.
 ///
-/// The observer records every pulled item up to the first item beyond
+/// The producer checks for an already-observed stop before pulling another
+/// item. It cannot cancel a source `next` call already in progress. The
+/// observer records every pulled item up to the first item beyond
 /// `declared_count`; that extra item is not passed to a worker.
 ///
 /// # Panics
@@ -77,10 +79,14 @@ pub(crate) fn run_scoped_parallel<I, T, O, S, F>(
         }
         drop(work_receiver);
 
-        for item in items {
+        let mut items = items.into_iter();
+        loop {
             if should_stop() {
                 break;
             }
+            let Some(item) = items.next() else {
+                break;
+            };
             let observed_count = observe_item();
             if observed_count > declared_count {
                 break;
