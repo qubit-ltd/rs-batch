@@ -106,8 +106,8 @@ pub trait BatchExecutor: Send + Sync {
     /// are returned as [`BatchExecutionError::ProgressReport`].
     /// Implementations must not return while an accepted task can still run.
     /// Runtime-specific schedulers should prefer
-    /// [`crate::execute::spi::ParallelBatchExecutionContext::next_task`] so a
-    /// source `None` is distinguished from a policy-based admission stop.
+    /// [`crate::execute::spi::ParallelBatchExecutionCoordinator::execute_with_source`]
+    /// so the source boundary and exhaustion check remain with the coordinator.
     fn execute<T, E, I>(&self, tasks: I) -> Result<BatchOutcome<E>, BatchExecutionError<E, Self::SchedulerError>>
     where
         I: IntoIterator<Item = T>,

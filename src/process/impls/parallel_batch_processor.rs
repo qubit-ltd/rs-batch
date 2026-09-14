@@ -236,15 +236,6 @@ where
     ///
     /// * `I` - Item source type.
     ///
-    /// # Returns
-    ///
-    /// `Ok(())` after all declared items are consumed and processed.
-    ///
-    /// # Errors
-    ///
-    /// Returns an emission error when a running progress event cannot be
-    /// delivered.
-    ///
     /// # Parameters
     ///
     /// * `items` - Item source for the batch.

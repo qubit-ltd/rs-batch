@@ -39,16 +39,25 @@ constructed publicly or cloned. execute_task consumes it once and rejects a
 token belonging to another execution. The coordinator checks that all accepted
 tokens completed before accepting a successful scheduler return.
 
-next_task is the preferred source API. A source None records exhaustion; an
-admission None can instead mean failure-policy stop, progress failure, or count
-overflow. The coordinator result is authoritative. accept_task remains a lower
+execute_with_source is the preferred scheduler API. Its ParallelBatchSource
+records a real source None separately from failure-policy stop, progress
+failure, or count overflow. The coordinator result is authoritative. The
+lower-level execute API cannot prove source exhaustion on its own: a scheduler
+that returns after accepting exactly the declared count without observing None
+can receive Ok while extra source items remain. Users of that compatibility
+entry point must establish exhaustion themselves. accept_task remains a lower
 level adapter and does not observe exhaustion on behalf of its caller.
+The low-level entry point remains available without deprecation in 0.12 so
+existing external scheduler integrations keep compiling; the in-repository
+standard and Rayon backends already use execute_with_source.
 
 Failure policies stop admission cooperatively. Already accepted tokens drain,
 so the final failure count may exceed the configured threshold. Concurrent
 admission can overlap a failure; no exact last accepted index is promised.
 A policy check before pulling avoids consuming another source item after an
 already observed stop. It cannot cancel an iterator next call already running.
+The parallel processor also checks its reporter-stop signal before pulling the
+next source item; an in-flight next call still cannot be cancelled.
 
 Only an actually observed source None proves exhaustion. If exhaustion was
 observed before a worker failure, a short source remains CountShortfall rather

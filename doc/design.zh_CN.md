@@ -32,13 +32,19 @@ Token 带有本次执行的身份和唯一来源下标，外部不能直接构�
 execute_task 消耗 token，并拒绝来自其他执行上下文的 token。调度器返回成功后，
 coordinator 会检查所有已接受 token 是否都已完成。
 
-调度器优先使用 next_task。来源返回 None 会记录耗尽；准入返回 None 也可能是
-失败策略停止、进度失败或声明数量超限。最终原因以 coordinator 的结果为准。
-accept_task 是较低层的适配入口，不替调用方记录来源耗尽。
+调度器优先使用 execute_with_source。其 ParallelBatchSource 会把来源真正返回 None
+与失败策略停止、进度失败或声明数量超限区分开。最终原因以 coordinator 的结果为准。
+低层 execute 无法自行证明来源耗尽：若调度器接受恰好声明数量的任务后，没有观察
+到 None 就返回，即使来源还有多余项，也可能得到 Ok。使用此兼容入口的调度器必须
+自行确保来源耗尽。accept_task 是更低层的适配入口，不替调用方记录来源耗尽。
+0.12 暂不弃用低层入口，以保持现有外部调度器集成的编译兼容性；仓库内的标准线程
+与 Rayon 后端已经使用 execute_with_source。
 
 失败策略采用协作式停止：已经接受的任务仍会完成，所以最终失败次数可以超过
 配置阈值。准入可能与 worker 失败同时发生，不保证最后接受的精确下标。
 拉取前检查能避免在已经观察到停止后再次拉取，但不能取消正在运行的 next 调用。
+并行 processor 也会在拉取下一来源项前检查 reporter 的停止信号；已经开始的 next
+调用同样无法取消。
 
 只有真正观察到来源 None 才证明耗尽。如果先观察到耗尽，之后 worker 才失败，
 数量不足仍报告 CountShortfall，不能被策略停止覆盖。Ok outcome 中的 Finished
