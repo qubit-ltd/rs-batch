@@ -6,7 +6,6 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
 use std::thread;
 use std::time::Duration;
 
@@ -58,12 +57,29 @@ pub struct ParallelBatchExecutionCoordinator {
 }
 
 impl ParallelBatchExecutionCoordinator {
+    /// Creates a coordinator instance.
+    ///
+    /// # Parameters
+    ///
+    /// * `reporter` - Reporter receiving lifecycle and running progress events.
+    /// * `report_interval` - Minimum interval between due-based running events.
+    ///
+    /// # Returns
+    ///
+    /// A coordinator configured with the supplied reporter and interval.
+    #[inline]
+    #[must_use = "use the constructed or borrowed value"]
+    pub fn new(reporter: Arc<dyn Reporter>, report_interval: Duration) -> Self {
+        Self {
+            reporter,
+            report_interval,
+        }
+    }
+
     /// Executes a batch while owning the source admission boundary.
     ///
-    /// This is the preferred entry point for runtime integrations. It prevents
-    /// schedulers from substituting a different source or forgetting to observe
-    /// source exhaustion. The lower-level [`Self::execute`] method remains
-    /// available for integrations that must own their admission loop.
+    /// This is the only public scheduling entry point. It prevents schedulers
+    /// from substituting a different source or bypassing exhaustion validation.
     ///
     /// # Type Parameters
     ///
@@ -118,30 +134,10 @@ impl ParallelBatchExecutionCoordinator {
             &'ctx ParallelBatchExecutionContext<E>,
         ) -> Result<(), S>,
     {
-        let exhausted = Arc::new(AtomicBool::new(false));
-        let exhausted_for_schedule = Arc::clone(&exhausted);
-        self.execute_inner(tasks, count, task_failure_policy, Some(exhausted), |tasks, context| {
-            let mut source = ParallelBatchSource::with_exhaustion(tasks, context, exhausted_for_schedule);
+        self.execute_inner(tasks, count, task_failure_policy, |tasks, context| {
+            let mut source = ParallelBatchSource::new(tasks, context);
             schedule(&mut source, context)
         })
-    }
-    /// Creates a coordinator instance.
-    ///
-    /// # Parameters
-    ///
-    /// * `reporter` - Reporter receiving lifecycle and running progress events.
-    /// * `report_interval` - Minimum interval between due-based running events.
-    ///
-    /// # Returns
-    ///
-    /// A coordinator configured with the supplied reporter and interval.
-    #[inline]
-    #[must_use = "use the constructed or borrowed value"]
-    pub fn new(reporter: Arc<dyn Reporter>, report_interval: Duration) -> Self {
-        Self {
-            reporter,
-            report_interval,
-        }
     }
 
     /// Returns the configured progress-report interval.
@@ -166,91 +162,12 @@ impl ParallelBatchExecutionCoordinator {
         &self.reporter
     }
 
-    /// Executes one batch through a scheduler-owned admission loop.
-    ///
-    /// This low-level compatibility entry point cannot verify that the
-    /// scheduler consumed the original source to `None`. If the scheduler
-    /// accepts exactly `count` tasks and returns without checking for another
-    /// item, the result may be `Ok` even when the source contains extra tasks.
-    /// To validate a normally completed source, the scheduler must use
-    /// [`ParallelBatchExecutionContext::next_task`] until it observes source
-    /// exhaustion. Policy, progress, or count failures can stop admission
-    /// earlier. Prefer [`Self::execute_with_source`] when possible; it owns the
-    /// source boundary and verifies exhaustion before successful return.
-    ///
-    /// # Parameters
-    ///
-    /// * `tasks` - Task source consumed by the scheduler.
-    /// * `count` - Declared task count expected from `tasks`.
-    /// * `task_failure_policy` - Policy that stops accepting new source tasks
-    ///   after the configured number of task failures while allowing accepted
-    ///   tokens to finish.
-    /// * `schedule` - Runtime-specific scheduler that consumes tasks and uses
-    ///   [`ParallelBatchExecutionContext::next_task`] to observe source
-    ///   exhaustion and admit each task before dispatching its token. Each
-    ///   accepted token must be passed to
-    ///   [`ParallelBatchExecutionContext::execute_task`] exactly once before
-    ///   the scheduler returns. The closure returns its runtime-specific
-    ///   scheduler error directly; it must not silently drop a rejected
-    ///   submission.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `I` - Task source type.
-    /// * `E` - Task-specific error type.
-    /// * `S` - Scheduler error type.
-    /// * `Schedule` - Runtime-specific scheduling closure type.
-    ///
-    /// # Returns
-    ///
-    /// A [`BatchOutcome`] when progress reporting, task accounting, and
-    /// scheduler completion all succeed. Source-count validation is complete
-    /// only if the scheduler also observed source exhaustion.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`BatchExecutionError::ScheduleFailed`] when the scheduler
-    /// returns an error, [`BatchExecutionError::ProgressReport`] when progress
-    /// setup, running reporting, or terminal reporting fails; a
-    /// count-mismatch error when the scheduler observes a different number
-    /// of tasks than `count`; or
-    /// [`BatchExecutionError::IncompleteSchedule`] when accepted task tokens
-    /// are not all completed.
-    ///
-    /// # Panics
-    ///
-    /// Propagates panics from synchronous reporter callbacks and from the
-    /// runtime-specific `schedule` closure. The coordinator does not catch
-    /// scheduler panics.
-    pub fn execute<I, E, S, Schedule>(
-        &self,
-        tasks: I,
-        count: usize,
-        task_failure_policy: TaskFailurePolicy,
-        schedule: Schedule,
-    ) -> Result<BatchOutcome<E>, BatchExecutionError<E, S>>
-    where
-        I: IntoIterator,
-        E: Send,
-        S: std::error::Error + Send + Sync + 'static,
-        Schedule: FnOnce(I, &ParallelBatchExecutionContext<E>) -> Result<(), S>,
-    {
-        self.execute_inner(tasks, count, task_failure_policy, None, schedule)
-    }
-
-    /// Executes a batch after optionally requiring the source to prove
-    /// exhaustion before the terminal progress event is emitted.
-    ///
-    /// The public [`Self::execute`] entry point passes no exhaustion flag and
-    /// retains the low-level scheduler contract. [`Self::execute_with_source`]
-    /// supplies a flag owned by [`ParallelBatchSource`] so an incomplete source
-    /// is reported before a success terminal event can be sent.
+    /// Executes a source-aware batch and validates its terminal state.
     fn execute_inner<I, E, S, Schedule>(
         &self,
         tasks: I,
         count: usize,
         task_failure_policy: TaskFailurePolicy,
-        required_exhaustion: Option<Arc<AtomicBool>>,
         schedule: Schedule,
     ) -> Result<BatchOutcome<E>, BatchExecutionError<E, S>>
     where
@@ -318,9 +235,7 @@ impl ParallelBatchExecutionCoordinator {
             });
         }
 
-        let source_exhaustion_missing = required_exhaustion
-            .as_ref()
-            .is_some_and(|flag| !flag.load(std::sync::atomic::Ordering::Acquire));
+        let source_exhaustion_missing = !state.source_exhausted();
         Self::finish(
             progress,
             state,
@@ -365,8 +280,8 @@ impl ParallelBatchExecutionCoordinator {
     /// * `accepted_count` - Number of tasks accepted by the scheduler.
     /// * `completed_count` - Number of accepted tasks that reached a terminal
     ///   outcome.
-    /// * `source_exhaustion_missing` - Whether a source-aware scheduler failed
-    ///   to observe source `None`.
+    /// * `source_exhaustion_missing` - Whether the scheduler failed to observe
+    ///   a real source `None`.
     ///
     /// # Returns
     ///

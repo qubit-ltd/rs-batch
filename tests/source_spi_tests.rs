@@ -8,6 +8,8 @@
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use qubit_batch::BatchExecutionError;
@@ -70,6 +72,31 @@ fn source_scheduler_return_without_exhaustion_is_incomplete() {
         .expect_err("the source must be exhausted explicitly");
     assert!(error.is_incomplete_schedule());
     assert_eq!(error.outcome().completed_count(), 1);
+}
+
+#[test]
+fn test_extra_source_item_remains_unobserved_when_schedule_returns_early() {
+    let pulls = Arc::new(AtomicUsize::new(0));
+    let observed = Arc::clone(&pulls);
+    let reporter = Arc::new(RecordingReporter::default());
+    let coordinator = ParallelBatchExecutionCoordinator::new(reporter.clone(), Duration::ZERO);
+    let tasks = (0..2).map(|_| || Ok::<(), ()>(())).inspect(move |_| {
+        observed.fetch_add(1, Ordering::Relaxed);
+    });
+
+    let error = coordinator
+        .execute_with_source(tasks, 1, TaskFailurePolicy::Continue, |source, context| {
+            context.execute_task(source.next().expect("the first task should be admitted"));
+            Ok::<(), Infallible>(())
+        })
+        .expect_err("an unobserved extra source item must not be accepted as success");
+
+    assert!(error.is_incomplete_schedule());
+    assert_eq!(error.outcome().completed_count(), 1);
+    assert_eq!(pulls.load(Ordering::Relaxed), 1);
+    let phases = reporter.0.lock().expect("phase log lock must be healthy");
+    assert_eq!(phases.first(), Some(&Phase::Started));
+    assert_eq!(phases.last(), Some(&Phase::Failed));
 }
 
 #[test]

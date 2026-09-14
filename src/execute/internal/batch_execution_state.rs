@@ -24,7 +24,6 @@ use crate::BatchTaskFailure;
 use crate::BatchTermination;
 use crate::TaskFailurePolicy;
 use crate::execute::panic_payload_to_error;
-use crate::sync::AtomicBool;
 use crate::sync::AtomicUsize;
 use crate::sync::Ordering;
 
@@ -46,8 +45,6 @@ pub(crate) struct BatchExecutionState<E> {
     task_failure_policy: TaskFailurePolicy,
     /// Number of task failures observed by parallel workers.
     failure_count_atomic: AtomicUsize,
-    /// Whether the task source has been observed to be exhausted.
-    source_exhausted: AtomicBool,
 }
 
 impl<E> BatchExecutionState<E> {
@@ -71,7 +68,6 @@ impl<E> BatchExecutionState<E> {
             failures: Mutex::new(Vec::new()),
             task_failure_policy,
             failure_count_atomic: AtomicUsize::new(0),
-            source_exhausted: AtomicBool::new(false),
         }
     }
 
@@ -125,7 +121,7 @@ impl<E> BatchExecutionState<E> {
     #[must_use = "inspect the returned value"]
     #[inline]
     pub(crate) fn source_exhausted(&self) -> bool {
-        self.source_exhausted.load(Ordering::Acquire)
+        self.acceptance.source_exhausted()
     }
 
     /// Executes one indexed task and records its terminal outcome.
@@ -247,7 +243,7 @@ impl<E> BatchExecutionState<E> {
     /// the declared task count has not yet been reached.
     #[inline]
     pub(crate) fn mark_source_exhausted(&self) {
-        self.source_exhausted.store(true, Ordering::Release);
+        self.acceptance.mark_source_exhausted();
     }
 
     /// Consumes this state and builds a batch outcome.

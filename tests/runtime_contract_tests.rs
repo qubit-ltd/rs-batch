@@ -157,6 +157,23 @@ impl Runnable<()> for CountingTask {
     }
 }
 
+/// Task used to verify that already accepted work drains after a policy stop.
+struct PolicyTask {
+    fail: bool,
+    later_calls: Arc<AtomicUsize>,
+}
+
+impl Runnable<()> for PolicyTask {
+    fn run(&mut self) -> Result<(), ()> {
+        if self.fail {
+            Err(())
+        } else {
+            self.later_calls.fetch_add(1, Ordering::AcqRel);
+            Ok(())
+        }
+    }
+}
+
 /// Reporter whose first running event is released by the scheduler and fails.
 struct CoordinatedFailingReporter {
     running_sender: mpsc::SyncSender<()>,
@@ -313,31 +330,37 @@ fn test_parallel_executor_bounds_unfinished_admission_window() {
 #[test]
 fn test_accepted_tokens_finish_after_failure_stops_admission() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
-    let mut later_calls = 0;
+    let later_calls = Arc::new(AtomicUsize::new(0));
     let outcome = coordinator
-        .execute(
-            std::iter::empty::<()>(),
+        .execute_with_source(
+            [
+                PolicyTask {
+                    fail: true,
+                    later_calls: Arc::clone(&later_calls),
+                },
+                PolicyTask {
+                    fail: false,
+                    later_calls: Arc::clone(&later_calls),
+                },
+                PolicyTask {
+                    fail: false,
+                    later_calls: Arc::clone(&later_calls),
+                },
+            ],
             3,
             TaskFailurePolicy::StopOnFirstFailure,
-            |_, context| {
-                let first = context
-                    .accept_task(|| Err::<(), ()>(()))
-                    .expect("first task should be accepted");
-                let second = context
-                    .accept_task(|| {
-                        later_calls += 1;
-                        Ok::<(), ()>(())
-                    })
-                    .expect("second task should be accepted");
+            |source, context| {
+                let first = source.next().expect("first task should be accepted");
+                let second = source.next().expect("second task should be accepted");
                 context.execute_task(first);
-                assert!(context.accept_task(|| Ok::<(), ()>(())).is_none());
+                assert!(source.next().is_none());
                 context.execute_task(second);
                 Ok::<(), std::convert::Infallible>(())
             },
         )
         .expect("task failure policy should return an outcome");
 
-    assert_eq!(later_calls, 1);
+    assert_eq!(later_calls.load(Ordering::Acquire), 1);
     assert_eq!(outcome.completed_count(), 2);
     assert_eq!(outcome.failed_count(), 1);
     assert_eq!(outcome.succeeded_count(), 1);
@@ -361,17 +384,13 @@ fn test_running_reporter_failure_stops_admission_and_drains_accepted_tokens() {
             let accepted = Arc::new(AtomicUsize::new(0));
 
             let error = coordinator
-                .execute(
-                    std::iter::empty::<()>(),
+                .execute_with_source(
+                    std::iter::repeat_with(|| CountingTask::new(Arc::clone(&completed))),
                     DECLARED_COUNT,
                     TaskFailurePolicy::Continue,
-                    |_, context| {
-                        let first = context
-                            .accept_task(CountingTask::new(Arc::clone(&completed)))
-                            .expect("first task should be accepted");
-                        let second = context
-                            .accept_task(CountingTask::new(Arc::clone(&completed)))
-                            .expect("second task should be accepted");
+                    |source, context| {
+                        let first = source.next().expect("first task should be accepted");
+                        let second = source.next().expect("second task should be accepted");
                         accepted.store(2, Ordering::Release);
                         let (worker_release_sender, worker_release_receiver) = mpsc::sync_channel(0);
                         let (worker_done_sender, worker_done_receiver) = mpsc::sync_channel(0);
@@ -399,8 +418,7 @@ fn test_running_reporter_failure_stops_admission_and_drains_accepted_tokens() {
                             let admission_probe = scope.spawn(|| {
                                 let mut probe_accepted = 0;
                                 loop {
-                                    let task = CountingTask::new(Arc::clone(&completed));
-                                    let Some(task) = context.accept_task(task) else {
+                                    let Some(task) = source.next() else {
                                         admission_stopped_sender
                                             .send(probe_accepted)
                                             .expect("scheduler should await the admission-stop acknowledgement");
@@ -429,7 +447,7 @@ fn test_running_reporter_failure_stops_admission_and_drains_accepted_tokens() {
                             worker.join().expect("accepted worker should join");
                             admission_probe.join().expect("admission probe should join");
                         });
-                        assert!(context.accept_task(CountingTask::new(Arc::clone(&completed))).is_none());
+                        assert!(source.next().is_none());
                         Ok::<(), std::convert::Infallible>(())
                     },
                 )

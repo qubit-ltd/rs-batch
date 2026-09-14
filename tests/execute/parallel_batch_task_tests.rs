@@ -20,16 +20,14 @@ use crate::support::TestTask;
 fn test_parallel_batch_task_is_created_and_consumed_by_context() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), std::time::Duration::ZERO);
     let outcome = coordinator
-        .execute(
+        .execute_with_source(
             [TestTask::succeed()],
             1,
             TaskFailurePolicy::Continue,
             |tasks, context| {
-                for task in tasks {
-                    let token: Option<ParallelBatchTask<_>> = context.accept_task(task);
-                    if let Some(token) = token {
-                        context.execute_task(token);
-                    }
+                for token in tasks {
+                    let token: ParallelBatchTask<_> = token;
+                    context.execute_task(token);
                 }
                 Ok::<(), std::convert::Infallible>(())
             },

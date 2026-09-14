@@ -19,6 +19,8 @@ pub(crate) struct ParallelBatchAcceptanceState {
     accepted_count: AtomicUsize,
     /// Whether new tasks are rejected after a failure-policy stop.
     stop_accepting: AtomicBool,
+    /// Whether the source iterator returned a real terminal `None`.
+    source_exhausted: AtomicBool,
 }
 
 impl ParallelBatchAcceptanceState {
@@ -35,6 +37,7 @@ impl ParallelBatchAcceptanceState {
             observed_count: AtomicUsize::new(0),
             accepted_count: AtomicUsize::new(0),
             stop_accepting: AtomicBool::new(false),
+            source_exhausted: AtomicBool::new(false),
         }
     }
 
@@ -64,6 +67,19 @@ impl ParallelBatchAcceptanceState {
     #[inline]
     pub(crate) fn should_stop(&self) -> bool {
         self.stop_accepting.load(Ordering::Acquire)
+    }
+
+    /// Returns whether the source iterator reached its terminal `None`.
+    #[must_use = "inspect the returned value"]
+    #[inline]
+    pub(crate) fn source_exhausted(&self) -> bool {
+        self.source_exhausted.load(Ordering::Acquire)
+    }
+
+    /// Records a real terminal `None` from the source iterator.
+    #[inline]
+    pub(crate) fn mark_source_exhausted(&self) {
+        self.source_exhausted.store(true, Ordering::Release);
     }
 
     /// Records one observed source task and returns the new total.
