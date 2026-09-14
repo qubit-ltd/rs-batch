@@ -47,7 +47,7 @@ loom-tests = ["dep:loom"]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(loom)"] }
 
 [dev-dependencies]
-criterion = { version = "0.8.2", default-features = false }
+criterion = { version = "^0.8", default-features = false }
 
 [[bench]]
 name = "batch_executor_bench"
