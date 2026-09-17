@@ -32,10 +32,10 @@ name = "qubit_batch"
 doctest = true
 
 [dependencies]
-crossbeam-queue = "0.3"
-crossbeam-channel = "0.5"
-thiserror = "2.0"
-loom = { version = "0.7", optional = true }
+crossbeam-queue = "^0.3"
+crossbeam-channel = "^0.5"
+thiserror = "^2.0"
+loom = { version = "^0.7", optional = true }
 qubit-atomic = "0.17"
 qubit-function = "0.18"
 qubit-progress = { version = "0.8", default-features = false }
