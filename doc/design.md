@@ -122,7 +122,7 @@ repeated index. The first range error remains the first in input order. Counter
 error ordering and callable-result error ordering are unchanged. Callers should
 update tests that relied on the old duplicate traversal order. The in-place
 validation change was introduced in qubit-batch 0.11. qubit-batch 0.13 retains
-that error ordering. The current companion is qubit-rayon-batch 0.11, which
+that error ordering. The current companion is qubit-rayon-batch 0.8, which
 depends on qubit-batch 0.13.
 
 ## Resource model and testing
