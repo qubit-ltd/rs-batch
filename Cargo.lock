@@ -356,7 +356,7 @@ dependencies = [
 
 [[package]]
 name = "qubit-batch"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "criterion",
  "crossbeam-channel",
@@ -382,9 +382,9 @@ checksum = "1f6ad59d1256f6c62bc2fe153bdd87f224d7cfd7fa81b58dd8ab03aa4836f21a"
 
 [[package]]
 name = "qubit-progress"
-version = "0.8.4"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ce65cbdf41dfdaea567cc98c9a3f4ef4817254e40156cc414c02294bfc02603"
+checksum = "3d10d16ca6635e68ad50425113e36a027d5a5e97f944550b419fed26764f7b17"
 dependencies = [
  "qubit-fast-cas",
 ]

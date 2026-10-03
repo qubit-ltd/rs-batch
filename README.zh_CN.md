@@ -15,12 +15,12 @@
 
 ```toml
 [dependencies]
-qubit-batch = "0.13"
+qubit-batch = "0.14"
 ```
 
 需要 Rust 1.94 或更高版本。直接实现 `Runnable`、`Callable` 或 `Consumer` 时需加入
 `qubit-function = "0.18"`；实现自定义进度上报器，或使用带有 `NoopReporter` 等
-上报器的公开并行执行 SPI 时，需加入 `qubit-progress = "0.8"`。
+上报器的公开并行执行 SPI 时，需加入 `qubit-progress = "0.9"`。
 
 ## 快速开始
 

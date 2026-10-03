@@ -2,7 +2,7 @@
 
 [English design](design.md) · [用户手册](user_guide.zh_CN.md) · [README](../README.zh_CN.md)
 
-本文描述 qubit-batch 0.13 的架构与契约，最低工具链仍为 Rust 1.94、edition 2024。
+本文描述 qubit-batch 0.14 的架构与契约，最低工具链仍为 Rust 1.94、edition 2024。
 标准线程执行器与配套 qubit-rayon-batch 共同遵守下述运行与结果约束。
 
 ## 职责与所有权
@@ -98,7 +98,7 @@ Outcome 校验不再分配 HashSet 保存下标：先检查聚合计数与越界
 多个非法条件同时存在时，错误选择有意改变：越界优先于重复，重复错误报告最小
 重复下标；多个越界项仍报告原输入顺序中的第一个。聚合计数错误与 callable 结果
 错误的优先级保持不变。原地校验与错误优先级变化最早随 qubit-batch 0.11 引入；
-当前 0.13 沿用该行为。当前配套版本为 qubit-rayon-batch 0.8，依赖 qubit-batch 0.13。
+当前 0.14 沿用该行为。当前配套版本为 qubit-rayon-batch 0.8，依赖 qubit-batch 0.14。
 
 ## 资源与验证
 

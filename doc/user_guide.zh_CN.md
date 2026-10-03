@@ -3,7 +3,7 @@
 [English user guide](user_guide.md) · [README](../README.zh_CN.md) ·
 [API 文档](https://docs.rs/qubit-batch)
 
-本文适用于 `qubit-batch` 0.13 和 Rust 1.94 及以上版本。面向需要立刻处理一批有限
+本文适用于 `qubit-batch` 0.14 和 Rust 1.94 及以上版本。面向需要立刻处理一批有限
 数据、并希望拿到可审计结果的应用或库作者；它不用于构建常驻队列、调度器或 worker pool。
 
 ## 手册目标与读者
@@ -36,7 +36,7 @@
 
 ```toml
 [dependencies]
-qubit-batch = "0.13"
+qubit-batch = "0.14"
 ```
 
 ## 核心工作流
@@ -230,7 +230,7 @@ worker；任意任务依赖或跨池循环等待仍需由应用设计处理。
 并把来源真正返回 `None` 与准入停止分别记录：
 
 这个 SPI 示例会直接构造 `NoopReporter`，因此还需在应用中声明
-`qubit-progress = { version = "0.8", default-features = false }` 依赖。
+`qubit-progress = { version = "0.9", default-features = false }` 依赖。
 
 ```rust
 use std::{convert::Infallible, sync::Arc, time::Duration};
@@ -314,8 +314,8 @@ assert_eq!(result.outputs().len(), 2);
 
 ```toml
 [dependencies]
-qubit-batch = "0.13"
-qubit-progress = { version = "0.8", default-features = false }
+qubit-batch = "0.14"
+qubit-progress = { version = "0.9", default-features = false }
 ```
 
 ```rust

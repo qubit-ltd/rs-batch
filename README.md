@@ -15,12 +15,12 @@ without coupling a shared library to a particular async runtime.
 
 ```toml
 [dependencies]
-qubit-batch = "0.13"
+qubit-batch = "0.14"
 ```
 
 Use Rust 1.94 or later. Add `qubit-function = "0.18"` when implementing
 `Runnable`, `Callable`, or `Consumer` types directly. Add `qubit-progress =
-"0.8"` when implementing a custom progress reporter or using the public
+"0.9"` when implementing a custom progress reporter or using the public
 parallel execution SPI with a reporter such as `NoopReporter`.
 
 ## Quick Start
