@@ -2,7 +2,7 @@
 
 [中文设计说明](design.zh_CN.md) · [User guide](user_guide.md) · [README](../README.md)
 
-This document describes qubit-batch 0.13. Rust 1.94 and edition 2024 remain the
+This document describes qubit-batch 0.14. Rust 1.94 and edition 2024 remain the
 minimum toolchain contract. It records the runtime and result invariants used
 by the standard-thread implementation and the qubit-rayon-batch companion.
 
@@ -121,9 +121,9 @@ all range errors precede duplicate errors, and duplicates report the smallest
 repeated index. The first range error remains the first in input order. Counter
 error ordering and callable-result error ordering are unchanged. Callers should
 update tests that relied on the old duplicate traversal order. The in-place
-validation change was introduced in qubit-batch 0.11. qubit-batch 0.13 retains
+validation change was introduced in qubit-batch 0.11. qubit-batch 0.14 retains
 that error ordering. The current companion is qubit-rayon-batch 0.8, which
-depends on qubit-batch 0.13.
+depends on qubit-batch 0.14.
 
 ## Resource model and testing
 

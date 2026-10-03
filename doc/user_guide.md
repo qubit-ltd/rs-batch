@@ -3,7 +3,7 @@
 [中文用户手册](user_guide.zh_CN.md) · [README](../README.md) ·
 [API documentation](https://docs.rs/qubit-batch)
 
-Applies to `qubit-batch` 0.13 and Rust 1.94 or later. This guide is for an
+Applies to `qubit-batch` 0.14 and Rust 1.94 or later. This guide is for an
 application or library author who has one finite collection to handle now and
 needs an auditable outcome, rather than a persistent queue, scheduler, or
 worker pool.
@@ -42,7 +42,7 @@ attempted rows, two successes, and one failure at index 1.
 
 ```toml
 [dependencies]
-qubit-batch = "0.13"
+qubit-batch = "0.14"
 ```
 
 ## Core Workflow
@@ -253,7 +253,7 @@ Runtime-specific schedulers use `execute_with_source`. Its supplied
 source admits tasks and records a real source `None` separately from an
 admission stop:
 
-This SPI example also requires `qubit-progress = { version = "0.8", default-features = false }`
+This SPI example also requires `qubit-progress = { version = "0.9", default-features = false }`
 as a direct dependency because it constructs `NoopReporter`.
 
 ```rust
@@ -344,8 +344,8 @@ events may be coalesced on parallel paths; only lifecycle ordering is asserted.
 
 ```toml
 [dependencies]
-qubit-batch = "0.13"
-qubit-progress = { version = "0.8", default-features = false }
+qubit-batch = "0.14"
+qubit-progress = { version = "0.9", default-features = false }
 ```
 
 ```rust
