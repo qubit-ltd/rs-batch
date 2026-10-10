@@ -169,7 +169,7 @@ impl<E> ParallelBatchExecutionContext<E> {
         if observed_count > self.state.task_count() {
             return None;
         }
-        self.state.record_task_accepted();
+        let _ = self.state.record_task_accepted();
         Some(ParallelBatchTask::new(self.execution_id, observed_count - 1, task))
     }
 
