@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+
 use std::panic::AssertUnwindSafe;
 use std::panic::catch_unwind;
 use std::sync::Mutex;
@@ -34,6 +35,10 @@ pub(crate) const EXECUTION_PROGRESS_METRIC_ID: &str = "tasks";
 pub(crate) const EXECUTION_PROGRESS_METRIC_NAME: &str = "Tasks";
 
 /// Shared state collected while a batch executor is running.
+///
+/// # Type Parameters
+///
+/// * `E` - Error value returned by tasks and retained in the final outcome.
 pub(crate) struct BatchExecutionState<E> {
     /// Atomic source-admission counters and stop state.
     acceptance: ParallelBatchAcceptanceState,
@@ -210,6 +215,7 @@ impl<E> BatchExecutionState<E> {
     /// # Returns
     ///
     /// The observed task count after this task was recorded.
+    #[must_use = "inspect the updated count"]
     #[inline]
     pub(crate) fn record_task_observed(&self) -> usize {
         self.acceptance.record_observed()
@@ -222,6 +228,7 @@ impl<E> BatchExecutionState<E> {
     ///
     /// `Some(count)` with the new observed count when admission is still open,
     /// or `None` when the failure policy has already stopped accepting tasks.
+    #[must_use = "inspect whether the task was recorded"]
     #[inline]
     pub(crate) fn try_record_task_observed(&self) -> Option<usize> {
         self.acceptance.try_record_observed()
@@ -232,6 +239,7 @@ impl<E> BatchExecutionState<E> {
     /// # Returns
     ///
     /// The accepted task count after this task was recorded.
+    #[must_use = "inspect the updated count"]
     #[inline]
     pub(crate) fn record_task_accepted(&self) -> usize {
         self.acceptance.record_accepted()

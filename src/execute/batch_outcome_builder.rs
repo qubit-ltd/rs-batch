@@ -25,11 +25,9 @@ use crate::BatchTermination;
 /// # Examples
 ///
 /// ```rust
-/// use qubit_batch::{
-///     BatchOutcomeBuilder,
-///     BatchTaskError,
-///     BatchTaskFailure,
-/// };
+/// use qubit_batch::BatchOutcomeBuilder;
+/// use qubit_batch::BatchTaskError;
+/// use qubit_batch::BatchTaskFailure;
 ///
 /// let outcome = BatchOutcomeBuilder::builder(2)
 ///     .completed_count(2)

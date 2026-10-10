@@ -50,10 +50,8 @@ use crate::process::PROCESS_PROGRESS_METRIC_NAME;
 /// # Examples
 ///
 /// ```rust
-/// use std::{
-///     num::NonZeroUsize,
-///     time::Duration,
-/// };
+/// use std::num::NonZeroUsize;
+/// use std::time::Duration;
 ///
 /// use qubit_batch::{
 ///     BatchProcessResult,
@@ -215,6 +213,7 @@ impl<P> ChunkedBatchProcessor<P> {
     /// # Returns
     ///
     /// The wrapped delegate processor.
+    #[must_use = "use the extracted delegate processor"]
     #[inline]
     pub fn into_delegate(self) -> P {
         self.delegate

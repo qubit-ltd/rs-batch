@@ -34,5 +34,9 @@ fn test_scoped_processing_does_not_pull_next_source_item_after_stop() {
         |_, _| {},
     );
 
-    assert_eq!(pulls.load(Ordering::Relaxed), 1);
+    assert_eq!(
+        pulls.load(Ordering::Relaxed),
+        1,
+        "the source should not be pulled again after processing stops"
+    );
 }

@@ -364,7 +364,10 @@ fn test_chunked_batch_process_error_helpers_and_display() {
     assert_eq!(invalid.result(), &result);
     assert_eq!(
         invalid.to_string(),
-        "batch chunk 1 returned invalid result at item 2: expected 2 completed items, got item_count 2, completed_count 1"
+        concat!(
+            "batch chunk 1 returned invalid result at item 2: expected 2 completed items, ",
+            "got item_count 2, completed_count 1"
+        )
     );
     assert!(invalid.source().is_none());
     assert_eq!(shortfall.into_result(), result.clone());

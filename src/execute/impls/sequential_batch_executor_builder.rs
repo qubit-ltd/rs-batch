@@ -92,7 +92,7 @@ impl SequentialBatchExecutorBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[inline]
+    #[must_use = "inspect the returned value"]
     pub fn reporter<R>(mut self, reporter: R) -> Self
     where
         R: Reporter + 'static,
@@ -122,7 +122,7 @@ impl SequentialBatchExecutorBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[inline]
+    #[must_use = "inspect the returned value"]
     pub fn no_reporter(mut self) -> Self {
         self.reporter = Arc::new(NoopReporter);
         self

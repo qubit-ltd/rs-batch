@@ -56,7 +56,20 @@ pub struct ParallelBatchSource<'ctx, I: IntoIterator, E> {
 }
 
 impl<'ctx, I: IntoIterator, E> ParallelBatchSource<'ctx, I, E> {
-    /// Creates a source for one coordinator invocation.
+    /// Creates a source for one coordinator invocation, retaining `input` until
+    /// iteration begins.
+    ///
+    /// # Parameters
+    ///
+    /// * `input` - User-provided items converted into an iterator on the first
+    ///   call to `next`.
+    /// * `context` - Execution context that decides whether each source item
+    ///   can be admitted.
+    ///
+    /// # Returns
+    ///
+    /// A source that owns `input` and borrows `context` for the lifetime
+    /// `'ctx`.
     pub(crate) fn new(input: I, context: &'ctx ParallelBatchExecutionContext<E>) -> Self {
         Self {
             input: Some(input),

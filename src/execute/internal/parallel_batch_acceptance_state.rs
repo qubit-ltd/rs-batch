@@ -109,6 +109,10 @@ impl ParallelBatchAcceptanceState {
     }
 
     /// Records one accepted source task and returns the new total.
+    ///
+    /// # Returns
+    ///
+    /// The accepted source-task count after recording the task.
     #[inline]
     pub(crate) fn record_accepted(&self) -> usize {
         self.accepted_count.fetch_add(1, Ordering::AcqRel) + 1

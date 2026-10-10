@@ -182,6 +182,7 @@ where
     /// # Returns
     ///
     /// Successful outputs sorted by their original zero-based callable index.
+    #[must_use = "use or drop the preserved callable outputs intentionally"]
     #[inline]
     pub fn into_outputs(self) -> Vec<BatchCallOutput<R>> {
         self.outputs
@@ -192,6 +193,7 @@ where
     /// # Returns
     ///
     /// The nested execution error and its preserved successful outputs.
+    #[must_use = "use or drop the preserved error and outputs intentionally"]
     #[inline]
     pub fn into_parts(self) -> (BatchExecutionError<E, S>, Vec<BatchCallOutput<R>>) {
         (*self.source, self.outputs)

@@ -392,6 +392,7 @@ impl ParallelBatchExecutionCoordinator {
     /// # Returns
     ///
     /// The elapsed duration and an optional secondary progress failure.
+    #[must_use = "handle the elapsed duration and any progress failure"]
     fn fail_progress(progress: Progress<'_>) -> (Duration, Option<Box<ProgressFailure>>) {
         let (elapsed, report_error) = ProgressFailure::fail_operation(progress);
         (elapsed, report_error.map(Box::new))

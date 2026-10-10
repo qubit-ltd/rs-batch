@@ -72,12 +72,6 @@ pub struct ParallelBatchExecutionContext<E> {
 }
 
 impl<E> ParallelBatchExecutionContext<E> {
-    /// Returns whether this execution can accept another source item.
-    #[inline]
-    pub(crate) fn is_accepting(&self) -> bool {
-        !self.state.source_exhausted() && !self.status.is_failed() && !self.state.should_stop_accepting()
-    }
-
     /// Creates worker-facing execution state for one active batch run.
     ///
     /// This constructor is only intended for runtime executors.
@@ -90,6 +84,10 @@ impl<E> ParallelBatchExecutionContext<E> {
     /// * `notifier` - Handle used to wake the running-progress reporter.
     /// * `status` - Shared reporter status used to stop admission after a
     ///   reporter failure.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Error type recorded for failed tasks in the shared batch state.
     #[inline]
     #[must_use = "use the constructed or borrowed value"]
     pub(crate) fn new(
@@ -103,6 +101,44 @@ impl<E> ParallelBatchExecutionContext<E> {
             notifier,
             status,
         }
+    }
+
+    /// Runs one accepted token and records its terminal task outcome.
+    ///
+    /// Task-returned errors and task panics are stored in the batch outcome;
+    /// they are not returned as this method's error.
+    ///
+    /// # Parameters
+    ///
+    /// * `task` - Token supplied by the coordinator-owned source.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Runnable task type stored in the accepted token.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the token does not represent a valid accepted task or if the
+    /// task accounting state violates its internal transition invariants.
+    pub fn execute_task<T>(&self, task: ParallelBatchTask<T>)
+    where
+        T: Runnable<E>,
+    {
+        let (execution_id, index, task) = task.into_parts();
+        assert_eq!(
+            execution_id, self.execution_id,
+            "parallel batch task belongs to a different execution context"
+        );
+        self.state
+            .execute_task(index, task)
+            .expect("accepted parallel batch task must have valid progress transitions");
+        self.notifier.notify();
+    }
+
+    /// Returns whether this execution can accept another source item.
+    #[inline]
+    pub(crate) fn is_accepting(&self) -> bool {
+        !self.state.source_exhausted() && !self.status.is_failed() && !self.state.should_stop_accepting()
     }
 
     /// Accepts one source task and assigns it a unique in-range token.
@@ -173,37 +209,5 @@ impl<E> ParallelBatchExecutionContext<E> {
                 None
             }
         }
-    }
-
-    /// Runs one accepted token and records its terminal task outcome.
-    ///
-    /// Task-returned errors and task panics are stored in the batch outcome;
-    /// they are not returned as this method's error.
-    ///
-    /// # Parameters
-    ///
-    /// * `task` - Token supplied by the coordinator-owned source.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `T` - Runnable task type stored in the accepted token.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the token does not represent a valid accepted task or if the
-    /// task accounting state violates its internal transition invariants.
-    pub fn execute_task<T>(&self, task: ParallelBatchTask<T>)
-    where
-        T: Runnable<E>,
-    {
-        let (execution_id, index, task) = task.into_parts();
-        assert_eq!(
-            execution_id, self.execution_id,
-            "parallel batch task belongs to a different execution context"
-        );
-        self.state
-            .execute_task(index, task)
-            .expect("accepted parallel batch task must have valid progress transitions");
-        self.notifier.notify();
     }
 }

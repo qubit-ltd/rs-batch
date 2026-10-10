@@ -71,7 +71,6 @@ impl BatchProcessState {
     ///
     /// The number of input items completed so far.
     #[must_use = "inspect the returned value"]
-    #[inline]
     pub(crate) fn completed_count(&self) -> usize {
         self.metric.snapshot().completed() as usize
     }
@@ -106,7 +105,6 @@ impl BatchProcessState {
     /// # Errors
     ///
     /// Returns a metric error when the lifecycle transition is rejected.
-    #[inline]
     pub(crate) fn record_item_started(&self) -> Result<(), MetricError> {
         self.metric.start(1)
     }
@@ -120,7 +118,6 @@ impl BatchProcessState {
     /// # Errors
     ///
     /// Returns a metric error when the lifecycle transition is rejected.
-    #[inline]
     pub(crate) fn record_item_processed(&self) -> Result<(), MetricError> {
         self.metric.succeed(1)
     }
@@ -144,7 +141,6 @@ impl BatchProcessState {
     ///
     /// Panics if `processed_count` exceeds `completed_count` and the remaining
     /// unclassified count would underflow.
-    #[inline]
     pub(crate) fn record_chunk_processed(
         &self,
         completed_count: usize,
@@ -171,7 +167,6 @@ impl BatchProcessState {
     /// # Returns
     ///
     /// A direct processor result containing the current counters.
-    #[inline]
     pub(crate) fn to_direct_result(&self, elapsed: Duration) -> BatchProcessResult {
         let snapshot = self.metric.snapshot();
         let processed_count = snapshot.succeeded() as usize;
@@ -193,7 +188,6 @@ impl BatchProcessState {
     /// # Returns
     ///
     /// A chunked processor result containing the current counters.
-    #[inline]
     pub(crate) fn to_chunked_result(&self, elapsed: Duration) -> BatchProcessResult {
         let snapshot = self.metric.snapshot();
         BatchProcessResult::builder(self.item_count)

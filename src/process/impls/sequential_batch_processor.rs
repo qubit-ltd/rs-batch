@@ -39,10 +39,8 @@ use crate::process::PROCESS_PROGRESS_METRIC_NAME;
 /// # Examples
 ///
 /// ```rust
-/// use qubit_batch::{
-///     BatchProcessor,
-///     SequentialBatchProcessor,
-/// };
+/// use qubit_batch::BatchProcessor;
+/// use qubit_batch::SequentialBatchProcessor;
 ///
 /// let mut processor = SequentialBatchProcessor::new(|item: &i32| {
 ///     assert!(*item > 0);
@@ -180,6 +178,7 @@ impl<Item, C> SequentialBatchProcessor<Item, C> {
     /// # Returns
     ///
     /// The consumer used by this processor.
+    #[must_use = "inspect the returned value"]
     #[inline]
     pub fn into_consumer(self) -> C {
         self.consumer

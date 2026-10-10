@@ -50,11 +50,9 @@ use super::BatchProcessResult;
 /// ```rust
 /// use std::time::Duration;
 ///
-/// use qubit_batch::{
-///     BatchProcessResult,
-///     BatchProcessResultBuilder,
-///     BatchProcessor,
-/// };
+/// use qubit_batch::BatchProcessResult;
+/// use qubit_batch::BatchProcessResultBuilder;
+/// use qubit_batch::BatchProcessor;
 ///
 /// struct CountItems;
 ///

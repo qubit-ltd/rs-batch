@@ -7,7 +7,9 @@
 // =============================================================================
 //! Tests for the typed task token used by parallel schedulers.
 
+use std::convert::Infallible;
 use std::sync::Arc;
+use std::time::Duration;
 
 use qubit_batch::TaskFailurePolicy;
 use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
@@ -18,7 +20,7 @@ use crate::support::TestTask;
 
 #[test]
 fn test_parallel_batch_task_is_created_and_consumed_by_context() {
-    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), std::time::Duration::ZERO);
+    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let outcome = coordinator
         .execute_with_source(
             [TestTask::succeed()],
@@ -29,10 +31,10 @@ fn test_parallel_batch_task_is_created_and_consumed_by_context() {
                     let token: ParallelBatchTask<_> = token;
                     context.execute_task(token);
                 }
-                Ok::<(), std::convert::Infallible>(())
+                Ok::<(), Infallible>(())
             },
         )
         .expect("accepted task token should execute successfully");
 
-    assert_eq!(outcome.completed_count(), 1);
+    assert_eq!(outcome.completed_count(), 1, "the accepted task should complete");
 }

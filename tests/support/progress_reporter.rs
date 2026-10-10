@@ -83,6 +83,7 @@ impl PhaseRecordingReporter {
     /// # Returns
     ///
     /// A cloned list of lifecycle phases.
+    #[must_use]
     pub fn phases(&self) -> Vec<Phase> {
         self.phases
             .lock()
@@ -126,6 +127,7 @@ impl RecordingReporter {
     /// # Returns
     ///
     /// A cloned list of progress events in callback order.
+    #[must_use]
     pub fn events(&self) -> Vec<ProgressEvent> {
         self.events
             .lock()

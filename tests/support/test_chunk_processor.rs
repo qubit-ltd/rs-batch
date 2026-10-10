@@ -10,6 +10,7 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::PoisonError;
 
 use qubit_batch::BatchProcessResult;
 use qubit_batch::BatchProcessor;
@@ -57,15 +58,12 @@ impl BatchProcessor<i32> for TestChunkProcessor {
     {
         let chunk = items.into_iter().collect::<Vec<_>>();
         assert_eq!(chunk.len(), count);
-        self.chunks
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .push(chunk);
+        self.chunks.lock().unwrap_or_else(PoisonError::into_inner).push(chunk);
 
         match self
             .outcomes
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .unwrap_or_else(PoisonError::into_inner)
             .pop_front()
             .unwrap_or(TestChunkOutcome::Success)
         {

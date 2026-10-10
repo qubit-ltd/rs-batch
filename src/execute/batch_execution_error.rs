@@ -28,11 +28,9 @@ use crate::ProgressFailure;
 /// # Examples
 ///
 /// ```rust
-/// use qubit_batch::{
-///     BatchExecutionError,
-///     BatchExecutor,
-///     SequentialBatchExecutor,
-/// };
+/// use qubit_batch::BatchExecutionError;
+/// use qubit_batch::BatchExecutor;
+/// use qubit_batch::SequentialBatchExecutor;
 ///
 /// let error = SequentialBatchExecutor::new()
 ///     .for_each_with_count([10, 20], 3, |_value| Ok::<(), &'static str>(()))

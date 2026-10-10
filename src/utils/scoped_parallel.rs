@@ -29,7 +29,8 @@ use super::internal::ScopedWorkItem;
 /// * `declared_count` - Declared number of items expected from `items`.
 /// * `worker_count` - Number of scoped worker threads to spawn.
 /// * `observe_item` - Callback invoked on the producer thread for each observed
-///   source item. It must return the observed count after recording the item.
+///   source item. It must return the one-based observed count after recording
+///   the item, starting at `1` for the first item.
 /// * `should_stop` - Callback checked before pulling or executing work.
 /// * `run_item` - Callback invoked by workers for each accepted item.
 ///
@@ -131,6 +132,11 @@ pub(crate) fn run_scoped_parallel<I, T, O, S, F>(
 /// * `W` - Accepted work token type.
 /// * `A` - Admission callback type.
 /// * `F` - Worker callback type.
+///
+/// # Panics
+///
+/// Panics if `worker_count` is zero. Propagates panics raised by worker
+/// threads.
 pub(crate) fn run_scoped_parallel_tasks<I, T, W, A, F>(items: I, worker_count: usize, accept_item: A, run_item: F)
 where
     I: IntoIterator<Item = T>,

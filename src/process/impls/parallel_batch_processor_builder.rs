@@ -69,7 +69,6 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     ///
     /// A builder initialized with default parallel processor settings.
     #[inline]
-    #[must_use = "use the constructed or borrowed value"]
     pub fn new<C>(consumer: C) -> Self
     where
         C: Consumer<Item> + Send + Sync + 'static,
@@ -92,7 +91,6 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub const fn thread_count(mut self, thread_count: usize) -> Self {
         self.thread_count = thread_count;
@@ -110,7 +108,6 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub const fn sequential_threshold(mut self, sequential_threshold: usize) -> Self {
         self.sequential_threshold = sequential_threshold;
@@ -129,7 +126,6 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub const fn report_interval(mut self, report_interval: Duration) -> Self {
         self.report_interval = report_interval;
@@ -168,7 +164,6 @@ impl<Item> ParallelBatchProcessorBuilder<Item> {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub fn reporter_arc(mut self, reporter: Arc<dyn Reporter>) -> Self {
         self.reporter = reporter;

@@ -19,10 +19,8 @@ use super::batch_task_error::BatchTaskError;
 /// # Examples
 ///
 /// ```rust
-/// use qubit_batch::{
-///     BatchTaskError,
-///     BatchTaskFailure,
-/// };
+/// use qubit_batch::BatchTaskError;
+/// use qubit_batch::BatchTaskFailure;
 ///
 /// let failure = BatchTaskFailure::new(2, BatchTaskError::Failed("invalid row"));
 ///

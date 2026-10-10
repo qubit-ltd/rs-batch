@@ -12,10 +12,8 @@ use thiserror::Error;
 /// # Examples
 ///
 /// ```rust
-/// use qubit_batch::{
-///     ParallelBatchExecutor,
-///     ParallelBatchExecutorBuildError,
-/// };
+/// use qubit_batch::ParallelBatchExecutor;
+/// use qubit_batch::ParallelBatchExecutorBuildError;
 ///
 /// let error = match ParallelBatchExecutor::builder().thread_count(0).build() {
 ///     Ok(_) => panic!("zero worker count should be rejected"),

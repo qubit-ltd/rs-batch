@@ -12,10 +12,8 @@ use thiserror::Error;
 /// # Examples
 ///
 /// ```rust
-/// use qubit_batch::{
-///     ParallelBatchProcessor,
-///     ParallelBatchProcessorBuildError,
-/// };
+/// use qubit_batch::ParallelBatchProcessor;
+/// use qubit_batch::ParallelBatchProcessorBuildError;
 ///
 /// let error = match ParallelBatchProcessor::builder(|_item: &i32| {})
 ///     .thread_count(0)

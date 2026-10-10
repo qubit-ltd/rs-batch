@@ -10,6 +10,12 @@ use std::sync::Arc;
 use qubit_function::Runnable;
 
 /// Runnable wrapper used by [`crate::execute::BatchExecutor::for_each`].
+///
+/// # Type Parameters
+///
+/// * `Item` - Value consumed by the shared action for this task.
+/// * `E` - Error type returned when the action fails.
+/// * `F` - Shared callable that processes one item and may return `E`.
 pub(crate) struct ForEachTask<Item, E, F>
 where
     F: Fn(Item) -> Result<(), E>,

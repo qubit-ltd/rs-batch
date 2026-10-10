@@ -26,15 +26,11 @@ use super::ChunkedBatchProcessor;
 /// # Examples
 ///
 /// ```rust
-/// use std::{
-///     num::NonZeroUsize,
-///     time::Duration,
-/// };
+/// use std::num::NonZeroUsize;
+/// use std::time::Duration;
 ///
-/// use qubit_batch::{
-///     ChunkedBatchProcessor,
-///     SequentialBatchProcessor,
-/// };
+/// use qubit_batch::ChunkedBatchProcessor;
+/// use qubit_batch::SequentialBatchProcessor;
 ///
 /// let delegate = SequentialBatchProcessor::new(|_item: &i32| {});
 /// let processor = ChunkedBatchProcessor::builder(

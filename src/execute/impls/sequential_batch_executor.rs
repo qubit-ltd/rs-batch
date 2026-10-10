@@ -39,10 +39,8 @@ use crate::execute::TaskExecutionStatus;
 /// # Examples
 ///
 /// ```rust
-/// use qubit_batch::{
-///     BatchExecutor,
-///     SequentialBatchExecutor,
-/// };
+/// use qubit_batch::BatchExecutor;
+/// use qubit_batch::SequentialBatchExecutor;
 ///
 /// let outcome = SequentialBatchExecutor::new()
 ///     .for_each(["a", "b", "c"], |item| {

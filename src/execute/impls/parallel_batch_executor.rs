@@ -120,7 +120,6 @@ impl ParallelBatchExecutor {
     ///
     /// The available CPU parallelism, or `1` if it cannot be detected.
     #[must_use = "use the constructed or borrowed value"]
-    #[inline]
     pub fn default_thread_count() -> usize {
         thread::available_parallelism().map(usize::from).unwrap_or(1)
     }

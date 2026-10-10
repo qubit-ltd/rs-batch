@@ -8,6 +8,8 @@
 //! Behavioral coverage for [`ProgressFailure`](qubit_batch::ProgressFailure).
 
 use std::error::Error;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use qubit_batch::ProgressFailure;
@@ -24,24 +26,20 @@ use qubit_progress::StartError;
 
 #[derive(Debug)]
 struct TerminalFailingReporter {
-    remaining_successes: std::sync::atomic::AtomicUsize,
+    remaining_successes: AtomicUsize,
 }
 
 impl TerminalFailingReporter {
     const fn new() -> Self {
         Self {
-            remaining_successes: std::sync::atomic::AtomicUsize::new(1),
+            remaining_successes: AtomicUsize::new(1),
         }
     }
 }
 
 impl Reporter for TerminalFailingReporter {
     fn report(&self, _event: &Event) -> Result<(), ReporterError> {
-        if self
-            .remaining_successes
-            .fetch_sub(1, std::sync::atomic::Ordering::SeqCst)
-            != 0
-        {
+        if self.remaining_successes.fetch_sub(1, Ordering::SeqCst) != 0 {
             Ok(())
         } else {
             Err(ReporterError::message("terminal report failed"))

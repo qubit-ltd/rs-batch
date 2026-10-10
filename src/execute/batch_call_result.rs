@@ -119,12 +119,14 @@ impl<R, E> BatchCallResult<R, E> {
     }
 
     /// Consumes this result and returns sparse successful outputs.
+    #[must_use = "use or drop the successful callable outputs intentionally"]
     #[inline]
     pub fn into_outputs(self) -> Vec<BatchCallOutput<R>> {
         self.outputs
     }
 
     /// Consumes this result and returns both stored parts.
+    #[must_use = "use or drop the execution outcome and successful outputs intentionally"]
     #[inline]
     pub fn into_parts(self) -> (BatchOutcome<E>, Vec<BatchCallOutput<R>>) {
         (self.outcome, self.outputs)

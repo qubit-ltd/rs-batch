@@ -59,7 +59,6 @@ impl<T> ParallelBatchTask<T> {
     ///
     /// An execution token owned by the scheduler.
     #[inline]
-    #[must_use = "use the constructed or borrowed value"]
     pub(crate) const fn new(execution_id: u64, index: usize, task: T) -> Self {
         Self {
             execution_id,
@@ -75,6 +74,7 @@ impl<T> ParallelBatchTask<T> {
     /// The execution identity, context-assigned task index, and runnable
     /// payload.
     #[inline]
+    #[must_use = "the execution parts are required to run the accepted task"]
     pub(crate) fn into_parts(self) -> (u64, usize, T) {
         (self.execution_id, self.index, self.task)
     }

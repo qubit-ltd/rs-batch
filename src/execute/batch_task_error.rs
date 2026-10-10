@@ -58,7 +58,6 @@ impl<E> BatchTaskError<E> {
     ///
     /// A panicked task error containing a string message when the payload
     /// carries one.
-    #[inline]
     pub fn from_panic_payload(payload: &(dyn Any + Send)) -> Self {
         match panic_payload_message(payload) {
             Some(message) => Self::panicked(message),

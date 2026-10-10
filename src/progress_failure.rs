@@ -122,6 +122,7 @@ impl ProgressFailure {
     /// # Returns
     ///
     /// A normalized progress failure retaining the underlying source error.
+    #[inline]
     pub fn from_finish_error(error: FinishError) -> Self {
         match error {
             FinishError::Incomplete { source, .. } => Self::Completion(source),
@@ -136,7 +137,6 @@ impl ProgressFailure {
     ///
     /// The terminal event's elapsed duration, or `None` when no terminal event
     /// was attempted.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub fn elapsed(&self) -> Option<Duration> {
         match self {

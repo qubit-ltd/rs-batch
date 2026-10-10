@@ -9,6 +9,8 @@
 
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::PoisonError;
+use std::thread::sleep;
 use std::time::Duration;
 
 use qubit_batch::BatchProcessError;
@@ -41,7 +43,7 @@ fn test_sequential_batch_processor_consumer_accessors() {
     let processor = SequentialBatchProcessor::new(move |item: &i32| {
         accepted_by_consumer
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .unwrap_or_else(PoisonError::into_inner)
             .push(*item);
     });
 
@@ -49,10 +51,7 @@ fn test_sequential_batch_processor_consumer_accessors() {
     let consumer = processor.into_consumer();
     consumer.accept(&6);
 
-    assert_eq!(
-        *accepted.lock().unwrap_or_else(std::sync::PoisonError::into_inner),
-        vec![5, 6]
-    );
+    assert_eq!(*accepted.lock().unwrap_or_else(PoisonError::into_inner), vec![5, 6]);
 }
 
 #[test]
@@ -77,7 +76,7 @@ fn test_sequential_batch_processor_processes_items_in_order() {
     let mut processor = SequentialBatchProcessor::new(move |item: &i32| {
         accepted_by_consumer
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .unwrap_or_else(PoisonError::into_inner)
             .push(*item);
     });
 
@@ -89,17 +88,14 @@ fn test_sequential_batch_processor_processes_items_in_order() {
     assert_eq!(result.completed_count(), 3);
     assert_eq!(result.processed_count(), 3);
     assert_eq!(result.chunk_count(), 1);
-    assert_eq!(
-        *accepted.lock().unwrap_or_else(std::sync::PoisonError::into_inner),
-        vec![1, 2, 3]
-    );
+    assert_eq!(*accepted.lock().unwrap_or_else(PoisonError::into_inner), vec![1, 2, 3]);
 }
 
 #[test]
 fn test_sequential_batch_processor_reports_progress() {
     let reporter = Arc::new(RecordingReporter::new());
     let mut processor = SequentialBatchProcessor::builder(|_item: &i32| {
-        std::thread::sleep(Duration::from_millis(2));
+        sleep(Duration::from_millis(2));
     })
     .reporter_arc(reporter.clone())
     .report_interval(Duration::from_millis(1))
@@ -173,7 +169,7 @@ fn test_sequential_batch_processor_reports_count_exceeded() {
     let mut processor = SequentialBatchProcessor::new(move |item: &i32| {
         accepted_by_consumer
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .unwrap_or_else(PoisonError::into_inner)
             .push(*item);
     });
 
@@ -196,10 +192,7 @@ fn test_sequential_batch_processor_reports_count_exceeded() {
         }
         other => panic!("unexpected error: {other:?}"),
     }
-    assert_eq!(
-        *accepted.lock().unwrap_or_else(std::sync::PoisonError::into_inner),
-        vec![1, 2]
-    );
+    assert_eq!(*accepted.lock().unwrap_or_else(PoisonError::into_inner), vec![1, 2]);
 }
 
 #[test]
@@ -209,7 +202,7 @@ fn test_sequential_batch_processor_reports_count_shortfall() {
     let mut processor = SequentialBatchProcessor::new(move |item: &i32| {
         accepted_by_consumer
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .unwrap_or_else(PoisonError::into_inner)
             .push(*item);
     });
 
@@ -232,8 +225,5 @@ fn test_sequential_batch_processor_reports_count_shortfall() {
         }
         other => panic!("unexpected error: {other:?}"),
     }
-    assert_eq!(
-        *accepted.lock().unwrap_or_else(std::sync::PoisonError::into_inner),
-        vec![1, 2]
-    );
+    assert_eq!(*accepted.lock().unwrap_or_else(PoisonError::into_inner), vec![1, 2]);
 }

@@ -75,6 +75,7 @@ impl<R> BatchCallOutput<R> {
     /// # Returns
     ///
     /// The callable value without its index.
+    #[must_use = "use the extracted callable value"]
     #[inline]
     pub fn into_value(self) -> R {
         self.value
@@ -85,6 +86,7 @@ impl<R> BatchCallOutput<R> {
     /// # Returns
     ///
     /// A tuple containing the original index and successful value.
+    #[must_use = "use the extracted index and callable value"]
     #[inline]
     pub fn into_parts(self) -> (usize, R) {
         (self.index, self.value)

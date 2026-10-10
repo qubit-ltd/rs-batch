@@ -172,7 +172,6 @@ impl<E> ChunkedBatchProcessError<E> {
     ///
     /// `Some` contains the primary progress error or a secondary terminal
     /// error; `None` means reporting succeeded.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub fn progress_report_error(&self) -> Option<&ProgressFailure> {
         match self {

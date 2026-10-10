@@ -20,11 +20,9 @@ use crate::ProgressFailure;
 /// # Examples
 ///
 /// ```rust
-/// use qubit_batch::{
-///     BatchProcessError,
-///     BatchProcessor,
-///     SequentialBatchProcessor,
-/// };
+/// use qubit_batch::BatchProcessError;
+/// use qubit_batch::BatchProcessor;
+/// use qubit_batch::SequentialBatchProcessor;
 ///
 /// let mut processor = SequentialBatchProcessor::new(|_item: &i32| {});
 /// let error = processor
@@ -103,7 +101,6 @@ impl BatchProcessError {
     ///
     /// `Some` contains the primary progress error or a secondary terminal
     /// error; `None` means reporting succeeded.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub fn progress_report_error(&self) -> Option<&ProgressFailure> {
         match self {

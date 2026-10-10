@@ -14,11 +14,9 @@
 //! executor trait, result type, and concrete implementation together.
 //!
 //! ```rust
-//! use qubit_batch::{
-//!     BatchExecutor,
-//!     BatchOutcome,
-//!     SequentialBatchExecutor,
-//! };
+//! use qubit_batch::BatchExecutor;
+//! use qubit_batch::BatchOutcome;
+//! use qubit_batch::SequentialBatchExecutor;
 //!
 //! let outcome: BatchOutcome<&'static str> = SequentialBatchExecutor::new()
 //!     .for_each([1, 2, 3], |value| {

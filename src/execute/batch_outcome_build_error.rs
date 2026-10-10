@@ -12,10 +12,8 @@ use thiserror::Error;
 /// # Examples
 ///
 /// ```rust
-/// use qubit_batch::{
-///     BatchOutcomeBuildError,
-///     BatchOutcomeBuilder,
-/// };
+/// use qubit_batch::BatchOutcomeBuildError;
+/// use qubit_batch::BatchOutcomeBuilder;
 ///
 /// let error = BatchOutcomeBuilder::<&'static str>::builder(1)
 ///     .completed_count(2)
