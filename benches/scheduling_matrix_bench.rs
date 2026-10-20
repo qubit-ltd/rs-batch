@@ -217,7 +217,7 @@ fn register_gate<E: BatchExecutor>(c: &mut Criterion, label: &str, executor: &E)
                         Ok::<(), ()>(())
                     },
                 )
-                .expect("gate batch")
+                .expect("gate benchmark batch should succeed")
         };
         assert_eq!(run().completed_count(), 1024);
         group.bench_function(name, |b| b.iter(|| black_box(run())));
