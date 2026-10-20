@@ -85,7 +85,6 @@ where
     ///
     /// A callable error preserving both execution metadata and sparse outputs.
     #[inline]
-    #[must_use = "use the constructed or borrowed value"]
     pub(crate) fn new(source: BatchExecutionError<E, S>, outputs: Vec<BatchCallOutput<R>>) -> Self {
         Self {
             source: Box::new(source),

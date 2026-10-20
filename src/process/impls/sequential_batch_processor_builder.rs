@@ -66,7 +66,6 @@ impl<Item> SequentialBatchProcessorBuilder<Item> {
     ///
     /// A builder initialized with default sequential processor settings.
     #[inline]
-    #[must_use = "use the constructed or borrowed value"]
     pub fn new<C>(consumer: C) -> Self
     where
         C: Consumer<Item> + 'static,
@@ -96,7 +95,6 @@ impl<Item> SequentialBatchProcessorBuilder<Item> {
     ///
     /// A builder initialized with default sequential processor settings.
     #[inline]
-    #[must_use = "use the constructed or borrowed value"]
     pub fn with_consumer<C>(consumer: C) -> SequentialBatchProcessorBuilder<Item, C>
     where
         C: Consumer<Item>,
@@ -122,7 +120,6 @@ impl<Item, C> SequentialBatchProcessorBuilder<Item, C> {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub const fn report_interval(mut self, report_interval: Duration) -> Self {
         self.report_interval = report_interval;
@@ -161,7 +158,6 @@ impl<Item, C> SequentialBatchProcessorBuilder<Item, C> {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub fn reporter_arc(mut self, reporter: Arc<dyn Reporter>) -> Self {
         self.reporter = reporter;

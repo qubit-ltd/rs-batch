@@ -213,6 +213,7 @@ impl<E> BatchOutcome<E> {
     ///
     /// The detailed failure records collected during execution.
     #[inline]
+    #[must_use = "inspect the returned value"]
     pub fn into_failures(self) -> Vec<BatchTaskFailure<E>> {
         self.failures
     }

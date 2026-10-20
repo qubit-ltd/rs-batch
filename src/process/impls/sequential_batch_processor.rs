@@ -115,13 +115,13 @@ impl<Item> SequentialBatchProcessor<Item> {
     /// be `'static`, so it can borrow caller-owned state for the processor's
     /// lifetime.
     ///
-    /// # Parameters
-    ///
-    /// * `consumer` - Consumer invoked once for each input item.
-    ///
     /// # Type Parameters
     ///
     /// * `C` - Consumer type stored directly by the processor.
+    ///
+    /// # Parameters
+    ///
+    /// * `consumer` - Consumer invoked once for each input item.
     ///
     /// # Returns
     ///
