@@ -40,7 +40,7 @@ fn coordinator() -> ParallelBatchExecutionCoordinator {
 }
 
 #[test]
-fn source_consumption_proves_exhaustion() {
+fn test_source_consumption_proves_exhaustion() {
     let outcome = coordinator()
         .execute_with_source(
             [|| Ok::<(), ()>(())],
@@ -58,7 +58,7 @@ fn source_consumption_proves_exhaustion() {
 }
 
 #[test]
-fn source_scheduler_return_without_exhaustion_is_incomplete() {
+fn test_source_scheduler_return_without_exhaustion_is_incomplete() {
     let error = coordinator()
         .execute_with_source(
             [|| Ok::<(), ()>(())],

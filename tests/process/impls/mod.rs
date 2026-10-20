@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+mod chunk_buffer_reuse_tests;
 mod chunked_batch_processor_builder_tests;
 mod chunked_batch_processor_tests;
 mod parallel_batch_processor_build_error_tests;
