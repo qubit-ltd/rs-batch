@@ -228,7 +228,6 @@ impl<E> BatchExecutionState<E> {
     ///
     /// `Some(count)` with the new observed count when admission is still open,
     /// or `None` when the failure policy has already stopped accepting tasks.
-    #[must_use = "inspect whether the task was recorded"]
     #[inline]
     pub(crate) fn try_record_task_observed(&self) -> Option<usize> {
         self.acceptance.try_record_observed()

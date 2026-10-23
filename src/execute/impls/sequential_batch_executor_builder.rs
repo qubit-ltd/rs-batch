@@ -54,7 +54,6 @@ impl SequentialBatchExecutorBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub const fn report_interval(mut self, report_interval: Duration) -> Self {
         self.report_interval = report_interval;
@@ -71,7 +70,6 @@ impl SequentialBatchExecutorBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub const fn task_failure_policy(mut self, task_failure_policy: TaskFailurePolicy) -> Self {
         self.task_failure_policy = task_failure_policy;
@@ -92,7 +90,6 @@ impl SequentialBatchExecutorBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[must_use = "inspect the returned value"]
     pub fn reporter<R>(mut self, reporter: R) -> Self
     where
         R: Reporter + 'static,
@@ -110,7 +107,6 @@ impl SequentialBatchExecutorBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub fn reporter_arc(mut self, reporter: Arc<dyn Reporter>) -> Self {
         self.reporter = reporter;
@@ -122,7 +118,6 @@ impl SequentialBatchExecutorBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
-    #[must_use = "inspect the returned value"]
     pub fn no_reporter(mut self) -> Self {
         self.reporter = Arc::new(NoopReporter);
         self

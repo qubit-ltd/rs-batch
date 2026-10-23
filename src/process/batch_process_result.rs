@@ -69,7 +69,6 @@ impl BatchProcessResult {
     /// # Returns
     ///
     /// A result builder initialized with zero counters and zero elapsed time.
-    #[must_use = "use the constructed or borrowed value"]
     #[inline]
     pub const fn builder(item_count: usize) -> BatchProcessResultBuilder {
         BatchProcessResultBuilder::builder(item_count)

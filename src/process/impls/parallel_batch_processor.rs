@@ -137,7 +137,6 @@ impl<Item> ParallelBatchProcessor<Item> {
     /// # Returns
     ///
     /// A builder initialized with default settings.
-    #[must_use = "use the constructed or borrowed value"]
     #[inline]
     pub fn builder<C>(consumer: C) -> ParallelBatchProcessorBuilder<Item>
     where

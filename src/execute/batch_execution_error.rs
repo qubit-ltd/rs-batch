@@ -146,28 +146,6 @@ where
         }
     }
 
-    /// Returns whether this error represents a task-count shortfall.
-    ///
-    /// # Returns
-    ///
-    /// `true` if this error is [`Self::CountShortfall`].
-    #[must_use = "inspect the returned value"]
-    #[inline]
-    pub const fn is_count_shortfall(&self) -> bool {
-        matches!(self, Self::CountShortfall { .. })
-    }
-
-    /// Returns whether this error represents a scheduler failure.
-    ///
-    /// # Returns
-    ///
-    /// `true` if this error is [`Self::ScheduleFailed`].
-    #[must_use = "inspect the returned value"]
-    #[inline]
-    pub const fn is_schedule_failed(&self) -> bool {
-        matches!(self, Self::ScheduleFailed { .. })
-    }
-
     /// Returns the scheduler error, when scheduling failed.
     ///
     /// # Returns
@@ -180,28 +158,6 @@ where
             Self::ScheduleFailed { source, .. } => Some(source),
             _ => None,
         }
-    }
-
-    /// Returns whether this error represents an oversized task source.
-    ///
-    /// # Returns
-    ///
-    /// `true` if this error is [`Self::CountExceeded`].
-    #[must_use = "inspect the returned value"]
-    #[inline]
-    pub const fn is_count_exceeded(&self) -> bool {
-        matches!(self, Self::CountExceeded { .. })
-    }
-
-    /// Returns whether this error represents an incomplete parallel schedule.
-    ///
-    /// # Returns
-    ///
-    /// `true` if this error is [`Self::IncompleteSchedule`].
-    #[must_use = "inspect the returned value"]
-    #[inline]
-    pub const fn is_incomplete_schedule(&self) -> bool {
-        matches!(self, Self::IncompleteSchedule { .. })
     }
 
     /// Returns the progress-reporting error associated with this error.
@@ -237,6 +193,50 @@ where
             | Self::CountExceeded { outcome, .. }
             | Self::IncompleteSchedule { outcome, .. } => outcome,
         }
+    }
+
+    /// Returns whether this error represents a task-count shortfall.
+    ///
+    /// # Returns
+    ///
+    /// `true` if this error is [`Self::CountShortfall`].
+    #[must_use = "inspect the returned value"]
+    #[inline]
+    pub const fn is_count_shortfall(&self) -> bool {
+        matches!(self, Self::CountShortfall { .. })
+    }
+
+    /// Returns whether this error represents a scheduler failure.
+    ///
+    /// # Returns
+    ///
+    /// `true` if this error is [`Self::ScheduleFailed`].
+    #[must_use = "inspect the returned value"]
+    #[inline]
+    pub const fn is_schedule_failed(&self) -> bool {
+        matches!(self, Self::ScheduleFailed { .. })
+    }
+
+    /// Returns whether this error represents an oversized task source.
+    ///
+    /// # Returns
+    ///
+    /// `true` if this error is [`Self::CountExceeded`].
+    #[must_use = "inspect the returned value"]
+    #[inline]
+    pub const fn is_count_exceeded(&self) -> bool {
+        matches!(self, Self::CountExceeded { .. })
+    }
+
+    /// Returns whether this error represents an incomplete parallel schedule.
+    ///
+    /// # Returns
+    ///
+    /// `true` if this error is [`Self::IncompleteSchedule`].
+    #[must_use = "inspect the returned value"]
+    #[inline]
+    pub const fn is_incomplete_schedule(&self) -> bool {
+        matches!(self, Self::IncompleteSchedule { .. })
     }
 
     /// Maps the scheduler error while preserving the attached outcome.

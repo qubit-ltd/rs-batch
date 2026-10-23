@@ -70,6 +70,8 @@ impl<'ctx, I: IntoIterator, E> ParallelBatchSource<'ctx, I, E> {
     ///
     /// A source that owns `input` and borrows `context` for the lifetime
     /// `'ctx`.
+    #[must_use = "the source must be iterated to schedule tasks"]
+    #[inline]
     pub(crate) fn new(input: I, context: &'ctx ParallelBatchExecutionContext<E>) -> Self {
         Self {
             input: Some(input),
@@ -83,6 +85,10 @@ impl<'ctx, I: IntoIterator, E> ParallelBatchSource<'ctx, I, E> {
 impl<I: IntoIterator, E> Iterator for ParallelBatchSource<'_, I, E> {
     type Item = ParallelBatchTask<I::Item>;
 
+    /// Returns the next admitted task, initializing the input iterator lazily.
+    ///
+    /// Returns `None` permanently after the input is exhausted or the execution
+    /// context stops accepting tasks.
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         if self.done || !self.context.is_accepting() {

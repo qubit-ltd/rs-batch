@@ -88,7 +88,6 @@ impl ParallelBatchExecutor {
     /// # Returns
     ///
     /// A builder initialized with default settings.
-    #[must_use = "use the constructed or borrowed value"]
     #[inline]
     pub fn builder() -> ParallelBatchExecutorBuilder {
         ParallelBatchExecutorBuilder::default()
@@ -108,7 +107,6 @@ impl ParallelBatchExecutor {
     ///
     /// Returns [`ParallelBatchExecutorBuildError::ZeroThreadCount`] when
     /// `thread_count` is zero.
-    #[must_use = "use the constructed or borrowed value"]
     #[inline]
     pub fn new(thread_count: usize) -> Result<Self, ParallelBatchExecutorBuildError> {
         Self::builder().thread_count(thread_count).build()

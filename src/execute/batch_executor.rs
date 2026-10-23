@@ -375,6 +375,7 @@ pub trait BatchExecutor: Send + Sync {
 /// # Panics
 ///
 /// Panics if callable wrappers still hold references to `outputs`.
+#[must_use = "use the collected callable outputs"]
 pub(crate) fn collect_call_outputs<R>(outputs: Arc<SegQueue<(usize, R)>>) -> Vec<BatchCallOutput<R>> {
     let outputs = match Arc::try_unwrap(outputs) {
         Ok(outputs) => outputs,

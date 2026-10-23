@@ -147,6 +147,7 @@ impl<P> ChunkedBatchProcessorBuilder<P> {
     /// # Returns
     ///
     /// A chunked batch processor with this builder's configuration.
+    #[must_use = "use the constructed processor"]
     #[inline]
     pub fn build(self) -> ChunkedBatchProcessor<P> {
         ChunkedBatchProcessor {

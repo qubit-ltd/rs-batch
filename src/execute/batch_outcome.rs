@@ -80,7 +80,6 @@ impl<E> BatchOutcome<E> {
     ///
     /// A fully populated batch outcome.
     #[inline]
-    #[must_use = "use the constructed or borrowed value"]
     pub(crate) fn new(builder: BatchOutcomeBuilder<E>) -> Self {
         Self {
             task_count: builder.task_count,

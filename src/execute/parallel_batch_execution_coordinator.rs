@@ -38,7 +38,10 @@ use crate::ProgressFailure;
 /// use qubit_batch::TaskFailurePolicy;
 /// use qubit_batch::execute::spi::ParallelBatchExecutionCoordinator;
 /// use qubit_progress::NoopReporter;
-/// let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
+/// let coordinator = ParallelBatchExecutionCoordinator::new(
+///     Arc::new(NoopReporter),
+///     Duration::ZERO,
+/// );
 /// let outcome = coordinator.execute_with_source([|| Ok::<(), &'static str>(())], 1,
 ///     TaskFailurePolicy::Continue, |source, context| {
 ///         for token in source {
@@ -162,7 +165,12 @@ impl ParallelBatchExecutionCoordinator {
         &self.reporter
     }
 
-    /// Executes a source-aware batch and validates its terminal state.
+    /// Starts progress reporting, runs the scheduler, and validates the
+    /// resulting task counts and source termination.
+    ///
+    /// The scheduler receives the original input and execution context, so
+    /// runtime integrations can supply their own scheduling strategy while
+    /// sharing coordinator-owned progress and outcome handling.
     fn execute_inner<I, E, S, Schedule>(
         &self,
         tasks: I,

@@ -76,7 +76,6 @@ impl<E> BatchOutcomeBuilder<E> {
     /// A builder initialized with zero counters, zero elapsed time, and no
     /// failures.
     #[inline]
-    #[must_use = "use the constructed or borrowed value"]
     pub fn builder(task_count: usize) -> Self {
         Self {
             task_count,
@@ -99,7 +98,6 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub const fn completed_count(mut self, completed_count: usize) -> Self {
         self.completed_count = completed_count;
@@ -115,7 +113,6 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub const fn succeeded_count(mut self, succeeded_count: usize) -> Self {
         self.succeeded_count = succeeded_count;
@@ -131,7 +128,6 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub const fn failed_count(mut self, failed_count: usize) -> Self {
         self.failed_count = failed_count;
@@ -147,7 +143,6 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub const fn panicked_count(mut self, panicked_count: usize) -> Self {
         self.panicked_count = panicked_count;
@@ -163,7 +158,6 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub const fn termination(mut self, termination: BatchTermination) -> Self {
         self.termination = termination;
@@ -179,7 +173,6 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub const fn elapsed(mut self, elapsed: Duration) -> Self {
         self.elapsed = elapsed;
@@ -195,7 +188,6 @@ impl<E> BatchOutcomeBuilder<E> {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub fn failures(mut self, failures: Vec<BatchTaskFailure<E>>) -> Self {
         self.failures = failures;

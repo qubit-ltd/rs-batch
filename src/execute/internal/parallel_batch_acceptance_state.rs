@@ -30,7 +30,7 @@ impl ParallelBatchAcceptanceState {
     ///
     /// * `task_count` - Declared number of tasks in the batch.
     #[inline]
-    #[must_use = "use the constructed or borrowed value"]
+    #[must_use = "use the constructed state"]
     pub(crate) fn new(task_count: usize) -> Self {
         Self {
             task_count,

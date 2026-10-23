@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+
 use std::num::NonZeroUsize;
 
 /// Controls when an executor stops admitting source tasks after failures.
