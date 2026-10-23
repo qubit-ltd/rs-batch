@@ -20,8 +20,10 @@ use qubit_batch::BatchProcessor;
 use qubit_batch::ChunkedBatchProcessor;
 
 struct Consume;
+
 impl BatchProcessor<u64> for Consume {
     type Error = std::convert::Infallible;
+
     fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = u64>,
