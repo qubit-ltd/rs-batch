@@ -16,6 +16,8 @@ fn test_batch_process_result_build_error_displays_counter_context() {
         processed_count: 3,
     };
 
-    assert!(error.to_string().contains("completed_count 2"));
-    assert!(error.to_string().contains("processed_count 3"));
+    assert_eq!(
+        error.to_string(),
+        "processed item count must not exceed completed item count: completed_count 2, processed_count 3"
+    );
 }

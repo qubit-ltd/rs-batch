@@ -11,5 +11,9 @@ use qubit_batch::ParallelBatchExecutor;
 
 #[test]
 fn test_default_threshold_is_stable() {
-    assert_eq!(ParallelBatchExecutor::DEFAULT_SEQUENTIAL_THRESHOLD, 100);
+    assert_eq!(
+        ParallelBatchExecutor::DEFAULT_SEQUENTIAL_THRESHOLD,
+        100,
+        "default sequential threshold should remain stable"
+    );
 }

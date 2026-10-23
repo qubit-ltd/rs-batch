@@ -21,11 +21,13 @@ struct Item {
     index: usize,
     drops: Rc<RefCell<Vec<usize>>>,
 }
+
 impl Drop for Item {
     fn drop(&mut self) {
         self.drops.borrow_mut().push(self.index);
     }
 }
+
 #[derive(Clone, Copy)]
 enum Behavior {
     Full,
@@ -34,12 +36,15 @@ enum Behavior {
     ClaimPartial,
     Panic,
 }
+
 struct Delegate {
     behavior: Behavior,
     first_items: Vec<usize>,
 }
+
 impl BatchProcessor<Item> for Delegate {
     type Error = &'static str;
+
     fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
@@ -63,6 +68,7 @@ impl BatchProcessor<Item> for Delegate {
             .map_err(|_| "invalid result")
     }
 }
+
 /// Builds owned items and an independent destruction log.
 fn source() -> (Vec<Item>, Rc<RefCell<Vec<usize>>>) {
     let drops = Rc::new(RefCell::new(Vec::new()));
@@ -74,12 +80,14 @@ fn source() -> (Vec<Item>, Rc<RefCell<Vec<usize>>>) {
         .collect();
     (items, drops)
 }
+
 /// Verifies exactly-once destruction without promising destruction order.
 fn assert_drops(drops: &Rc<RefCell<Vec<usize>>>) {
     let mut actual = drops.borrow().clone();
     actual.sort_unstable();
     assert_eq!(actual, vec![0, 1, 2, 3, 4]);
 }
+
 #[test]
 fn test_full_and_claimed_chunks_keep_source_boundaries() {
     for behavior in [Behavior::Full, Behavior::ClaimFull] {
@@ -96,6 +104,7 @@ fn test_full_and_claimed_chunks_keep_source_boundaries() {
         assert_drops(&drops);
     }
 }
+
 #[test]
 fn test_partial_delegate_error_drops_every_item_once() {
     let (items, drops) = source();
@@ -122,6 +131,7 @@ fn test_partial_delegate_error_drops_every_item_once() {
     }
     assert_drops(&drops);
 }
+
 #[test]
 fn test_partial_success_is_rejected_without_aggregating_chunk() {
     let (items, drops) = source();
@@ -143,6 +153,7 @@ fn test_partial_success_is_rejected_without_aggregating_chunk() {
     }
     assert_drops(&drops);
 }
+
 #[test]
 fn test_delegate_panic_drops_remaining_items() {
     let (items, drops) = source();

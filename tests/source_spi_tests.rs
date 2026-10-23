@@ -100,7 +100,7 @@ fn test_extra_source_item_remains_unobserved_when_schedule_returns_early() {
 }
 
 #[test]
-fn source_scheduler_return_without_exhaustion_reports_failed_terminal() {
+fn test_source_scheduler_return_without_exhaustion_reports_failed_terminal() {
     let reporter = Arc::new(RecordingReporter::default());
     let coordinator = ParallelBatchExecutionCoordinator::new(reporter.clone(), Duration::ZERO);
     let error = coordinator
@@ -123,7 +123,7 @@ fn source_scheduler_return_without_exhaustion_reports_failed_terminal() {
 }
 
 #[test]
-fn empty_source_without_exhaustion_reports_failed_terminal() {
+fn test_empty_source_without_exhaustion_reports_failed_terminal() {
     let reporter = Arc::new(RecordingReporter::default());
     let coordinator = ParallelBatchExecutionCoordinator::new(reporter.clone(), Duration::ZERO);
     let error = coordinator
@@ -140,7 +140,7 @@ fn empty_source_without_exhaustion_reports_failed_terminal() {
 }
 
 #[test]
-fn exhausted_source_reports_succeeded_terminal() {
+fn test_exhausted_source_reports_succeeded_terminal() {
     let reporter = Arc::new(RecordingReporter::default());
     let coordinator = ParallelBatchExecutionCoordinator::new(reporter.clone(), Duration::ZERO);
     let outcome = coordinator
@@ -165,7 +165,7 @@ fn exhausted_source_reports_succeeded_terminal() {
 }
 
 #[test]
-fn policy_stop_does_not_require_exhaustion_probe() {
+fn test_policy_stop_does_not_require_exhaustion_probe() {
     let reporter = Arc::new(RecordingReporter::default());
     let coordinator = ParallelBatchExecutionCoordinator::new(reporter.clone(), Duration::ZERO);
     let outcome = coordinator
@@ -200,7 +200,7 @@ impl Reporter for RejectFailedReporter {
 }
 
 #[test]
-fn source_exhaustion_error_keeps_terminal_report_failure_secondary() {
+fn test_source_exhaustion_error_keeps_terminal_report_failure_secondary() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(RejectFailedReporter), Duration::ZERO);
     let error = coordinator
         .execute_with_source::<_, (), Infallible, _>(
@@ -220,7 +220,7 @@ fn source_exhaustion_error_keeps_terminal_report_failure_secondary() {
 }
 
 #[test]
-fn source_is_fused_after_admission_stop() {
+fn test_source_is_fused_after_admission_stop() {
     let outcome = coordinator()
         .execute_with_source(
             std::iter::repeat_with(|| || Err::<(), _>("stop")),
