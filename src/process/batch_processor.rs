@@ -71,7 +71,7 @@ use super::BatchProcessResult;
 ///         BatchProcessResultBuilder::builder(count)
 ///             .completed_count(processed)
 ///             .processed_count(processed)
-///             .chunk_count(1)
+///             .chunk_count(usize::from(processed != 0))
 ///             .elapsed(Duration::ZERO)
 ///             .build()
 ///             .map_err(|_| "invalid process result")
@@ -83,6 +83,13 @@ use super::BatchProcessResult;
 ///     .expect("array length should be exact");
 ///
 /// assert!(result.is_success());
+///
+/// let empty = CountItems.process([]).expect("empty batch must be valid");
+/// assert_eq!(empty.item_count(), 0);
+/// assert_eq!(empty.completed_count(), 0);
+/// assert_eq!(empty.processed_count(), 0);
+/// assert_eq!(empty.chunk_count(), 0);
+/// assert!(empty.is_success());
 /// ```
 pub trait BatchProcessor<Item> {
     /// Error returned by this processor.

@@ -77,7 +77,7 @@ use crate::process::PROCESS_PROGRESS_METRIC_NAME;
 ///         BatchProcessResultBuilder::builder(count)
 ///             .completed_count(processed)
 ///             .processed_count(processed)
-///             .chunk_count(1)
+///             .chunk_count(usize::from(processed != 0))
 ///             .elapsed(Duration::ZERO)
 ///             .build()
 ///             .map_err(|_| "invalid process result")

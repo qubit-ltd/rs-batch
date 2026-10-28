@@ -158,6 +158,12 @@ impl SequentialBatchExecutor {
     ///
     /// Returns [`BatchExecutionError`] when progress reporting fails or the
     /// source violates its exact-size contract.
+    ///
+    /// # Panics
+    ///
+    /// Task-body unwinds are captured in the outcome. Panics from source
+    /// conversion, iteration, synchronous reporter callbacks, or runnable
+    /// destruction may unwind the caller. Aborting panics cannot be captured.
     pub fn execute<T, E, I>(&self, tasks: I) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
         I: IntoIterator<Item = T>,
@@ -193,6 +199,12 @@ impl SequentialBatchExecutor {
     ///
     /// Returns [`BatchExecutionError`] when progress reporting fails or the
     /// source count differs from `count`.
+    ///
+    /// # Panics
+    ///
+    /// Task-body unwinds are captured in the outcome. Panics from source
+    /// conversion, iteration, synchronous reporter callbacks, or runnable
+    /// destruction may unwind the caller. Aborting panics cannot be captured.
     #[inline]
     pub fn execute_with_count<T, E, I>(&self, tasks: I, count: usize) -> Result<BatchOutcome<E>, BatchExecutionError<E>>
     where
@@ -223,6 +235,13 @@ impl SequentialBatchExecutor {
     ///
     /// Returns [`BatchCallError`] when execution reports progress or count
     /// failures.
+    ///
+    /// # Panics
+    ///
+    /// Panics from source conversion, iteration, or synchronous reporter
+    /// callbacks may unwind the caller. Callable execution and callable
+    /// destruction occur inside the captured action, so their unwinds are
+    /// recorded in the execution result. Aborting panics cannot be captured.
     pub fn call<C, R, E, I>(&self, tasks: I) -> Result<BatchCallResult<R, E>, BatchCallError<R, E>>
     where
         I: IntoIterator<Item = C>,
@@ -259,6 +278,13 @@ impl SequentialBatchExecutor {
     ///
     /// Returns [`BatchCallError`] when execution reports progress or count
     /// failures.
+    ///
+    /// # Panics
+    ///
+    /// Panics from source conversion, iteration, or synchronous reporter
+    /// callbacks may unwind the caller. Callable execution and callable
+    /// destruction occur inside the captured action, so their unwinds are
+    /// recorded in the execution result. Aborting panics cannot be captured.
     pub fn call_with_count<C, R, E, I>(
         &self,
         tasks: I,

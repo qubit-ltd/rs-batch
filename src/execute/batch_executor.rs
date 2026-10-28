@@ -96,8 +96,15 @@ pub trait BatchExecutor: Send + Sync {
     /// # Errors
     ///
     /// Returns [`BatchExecutionError::ProgressReport`] when progress reporting
-    /// fails, or a count-mismatch variant when the iterator violates its exact
-    /// length contract while being consumed.
+    /// fails; a count-mismatch variant when the iterator violates its exact
+    /// length contract while being consumed;
+    /// [`BatchExecutionError::ScheduleFailed`] when the selected scheduler
+    /// rejects work; or [`BatchExecutionError::IncompleteSchedule`] when
+    /// accepted work remains unfinished or a source-aware scheduler cannot
+    /// prove exhaustion. Batch errors retain the partial outcome; scheduler
+    /// errors also retain their source and any secondary reporter error.
+    /// Task failures and failure-policy stops remain normal outcomes, so
+    /// inspect their failures and termination.
     ///
     /// # Panics
     ///
@@ -145,9 +152,16 @@ pub trait BatchExecutor: Send + Sync {
     /// # Errors
     ///
     /// Returns [`BatchExecutionError::ProgressReport`] when progress reporting
-    /// fails, a count-mismatch variant when a fully consumed source task count
-    /// does not match `count`, or [`BatchExecutionError::IncompleteSchedule`]
-    /// when a parallel scheduler accepts a task without completing it.
+    /// fails; [`BatchExecutionError::CountShortfall`] or
+    /// [`BatchExecutionError::CountExceeded`] when a fully consumed source
+    /// count does not match `count`; [`BatchExecutionError::ScheduleFailed`]
+    /// when the selected scheduler rejects work; or
+    /// [`BatchExecutionError::IncompleteSchedule`] when accepted work remains
+    /// unfinished or a source-aware scheduler cannot prove exhaustion. These
+    /// errors retain the partial outcome; scheduling errors retain the
+    /// scheduler source and any secondary reporter error. A failure-policy
+    /// stop can return a normal partial outcome before the remaining source
+    /// count is validated.
     ///
     /// # Panics
     ///
@@ -187,15 +201,18 @@ pub trait BatchExecutor: Send + Sync {
     /// # Errors
     ///
     /// Returns [`BatchCallError`] when progress reporting fails, the iterator
-    /// violates its exact length contract, or a parallel scheduler leaves an
-    /// accepted callable incomplete. The error preserves values returned by
-    /// callables that completed before execution stopped.
+    /// violates its exact length contract, the selected scheduler rejects work,
+    /// or accepted work remains incomplete or source exhaustion cannot be
+    /// proved. The error preserves the partial outcome, any scheduler source
+    /// and secondary reporter error, and successful values collected during
+    /// this call. Task failures and failure-policy stops remain normal
+    /// outcomes in the returned [`BatchCallResult`].
     ///
     /// # Panics
     ///
     /// Panics from individual callables are captured in the execution result.
     /// Reporter callbacks invoked synchronously may panic; automatic reporter
-    /// failures are returned as [`BatchExecutionError::ProgressReport`].
+    /// failures are returned inside [`BatchCallError`].
     /// Implementations must not return while an accepted callable can still
     /// run; the adapter collects outputs immediately after this method
     /// returns.
@@ -234,15 +251,19 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns [`BatchCallError`] when progress reporting fails or when the
-    /// source callable count does not match `count`. The error preserves values
-    /// returned by callables that completed before execution stopped.
+    /// Returns [`BatchCallError`] when progress reporting fails; the source
+    /// count does not match `count`; the selected scheduler rejects work; or
+    /// accepted work remains incomplete or source exhaustion cannot be proved.
+    /// The error preserves the partial outcome, any scheduler source and
+    /// secondary reporter error, and successful values collected during this
+    /// call. A failure-policy stop can return a normal partial result before
+    /// the remaining source count is validated.
     ///
     /// # Panics
     ///
     /// Panics from individual callables are captured in the execution result.
     /// Reporter callbacks invoked synchronously may panic; automatic reporter
-    /// failures are returned as [`BatchExecutionError::ProgressReport`].
+    /// failures are returned inside [`BatchCallError`].
     /// Implementations must not return while an accepted callable can still
     /// run; the adapter collects outputs immediately after this method
     /// returns.
@@ -282,8 +303,15 @@ pub trait BatchExecutor: Send + Sync {
     /// # Errors
     ///
     /// Returns [`BatchExecutionError::ProgressReport`] when progress reporting
-    /// fails, or a count-mismatch variant when the iterator violates its exact
-    /// length contract while being consumed.
+    /// fails; a count-mismatch variant when the iterator violates its exact
+    /// length contract while being consumed;
+    /// [`BatchExecutionError::ScheduleFailed`] when the selected scheduler
+    /// rejects work; or [`BatchExecutionError::IncompleteSchedule`] when
+    /// accepted work remains unfinished or a source-aware scheduler cannot
+    /// prove exhaustion. These errors retain the partial outcome, and
+    /// scheduler errors retain their source and any secondary reporter
+    /// error. Task failures and failure-policy stops remain normal
+    /// outcomes; inspect their failures and termination.
     ///
     /// # Panics
     ///
@@ -330,8 +358,16 @@ pub trait BatchExecutor: Send + Sync {
     /// # Errors
     ///
     /// Returns [`BatchExecutionError::ProgressReport`] when progress reporting
-    /// fails, or a count-mismatch variant when the source item count does not
-    /// match `count`.
+    /// fails; [`BatchExecutionError::CountShortfall`] or
+    /// [`BatchExecutionError::CountExceeded`] when the source item count does
+    /// not match `count`; [`BatchExecutionError::ScheduleFailed`] when the
+    /// selected scheduler rejects work; or
+    /// [`BatchExecutionError::IncompleteSchedule`] when accepted work remains
+    /// unfinished or a source-aware scheduler cannot prove exhaustion. These
+    /// errors retain the partial outcome, and scheduler errors retain their
+    /// source and any secondary reporter error. A failure-policy stop can
+    /// return a normal partial outcome before the remaining source count is
+    /// validated.
     ///
     /// # Panics
     ///
