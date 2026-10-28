@@ -247,11 +247,18 @@ where
     /// # Errors
     ///
     /// Returns [`ChunkedBatchProcessError`] when the source count does not
-    /// match `count`, when the delegate fails for one chunk, or when a delegate
-    /// `Ok` result does not describe the submitted chunk. For a failed or
-    /// invalid delegate call, the attached result describes only the preceding
-    /// successful chunks and does not prove that the excluded chunk produced no
-    /// external side effects.
+    /// match `count`, progress reporting fails, the delegate fails for one
+    /// chunk, or a delegate `Ok` result does not describe the submitted chunk.
+    /// A progress failure after a chunk succeeds includes that chunk in the
+    /// result. For a failed or invalid delegate call, the attached result
+    /// describes only the preceding successful chunks and does not prove that
+    /// the excluded chunk produced no external side effects.
+    ///
+    /// # Panics
+    ///
+    /// Propagates panics from the delegate, the input iterator, and synchronous
+    /// progress reporter callbacks. Delegate panics are not converted into
+    /// task failures.
     fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,
@@ -351,11 +358,14 @@ impl<P> ChunkedBatchProcessor<P> {
     ///
     /// # Errors
     ///
-    /// Returns [`ChunkedBatchProcessError::ChunkFailed`] when the delegate
-    /// returns an error, or [`ChunkedBatchProcessError::InvalidChunkResult`]
-    /// when its successful result does not describe the submitted input. In
-    /// either case the attached aggregate stops before the current chunk even
-    /// if the delegate already produced external side effects.
+    /// Returns [`ChunkedBatchProcessError::ProgressReport`] when reporting
+    /// progress fails after recording a successful chunk,
+    /// [`ChunkedBatchProcessError::ChunkFailed`] when the delegate returns an
+    /// error, or [`ChunkedBatchProcessError::InvalidChunkResult`] when its
+    /// successful result does not describe the submitted input. For delegate
+    /// errors and invalid results, the attached aggregate stops before the
+    /// current chunk even if the delegate already produced external side
+    /// effects.
     #[allow(clippy::result_large_err)]
     fn process_chunk<'progress, Item>(
         &mut self,

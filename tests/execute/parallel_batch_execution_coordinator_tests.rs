@@ -90,6 +90,35 @@ fn test_parallel_batch_execution_coordinator_reports_count_shortfall() {
 }
 
 #[test]
+fn test_parallel_batch_execution_coordinator_early_return_before_count_is_shortfall() {
+    let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
+    let error = coordinator
+        .execute_with_source(
+            [TestTask::succeed(), TestTask::succeed()],
+            2,
+            TaskFailurePolicy::Continue,
+            |source, context| {
+                context.execute_task(source.next().expect("first task should exist"));
+                Ok::<(), Infallible>(())
+            },
+        )
+        .expect_err("returned schedule should retain count shortfall precedence");
+    match error {
+        BatchExecutionError::CountShortfall {
+            expected,
+            actual,
+            outcome,
+            ..
+        } => {
+            assert_eq!((expected, actual), (2, 1));
+            assert_eq!(outcome.completed_count(), 1);
+            assert_eq!(outcome.succeeded_count(), 1);
+        }
+        other => panic!("unexpected early-return classification: {other:?}"),
+    }
+}
+
+#[test]
 fn test_parallel_batch_execution_coordinator_reports_count_exceeded() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let error = coordinator

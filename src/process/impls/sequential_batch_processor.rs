@@ -210,10 +210,13 @@ where
     ///
     /// # Errors
     ///
-    /// Returns [`BatchProcessError::CountShortfall`] when the source ends
-    /// before `count`, or [`BatchProcessError::CountExceeded`] when the
+    /// Returns [`BatchProcessError::CountShortfall`] when fewer than `count`
+    /// items are observed, or [`BatchProcessError::CountExceeded`] when the
     /// source yields an extra item. Extra items are observed but not passed
-    /// to the consumer.
+    /// to the consumer. Returns [`BatchProcessError::ProgressReport`] when a
+    /// progress callback fails; its result is empty if starting progress
+    /// fails and otherwise preserves the items completed before the failure,
+    /// including when terminal reporting fails.
     ///
     /// # Panics
     ///

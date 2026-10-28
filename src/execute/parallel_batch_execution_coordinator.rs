@@ -99,8 +99,8 @@ impl ParallelBatchExecutionCoordinator {
     ///   task failures while accepted tasks finish.
     /// * `schedule` - Scheduler that consumes the supplied
     ///   [`ParallelBatchSource`] and executes every accepted token before
-    ///   returning. Returning early without a policy stop is an incomplete
-    ///   schedule, even after `count` tasks have completed.
+    ///   returning. Unless a task-failure policy stops admission, it must also
+    ///   consume the source through a real `None`.
     ///
     /// # Returns
     ///
@@ -110,12 +110,13 @@ impl ParallelBatchExecutionCoordinator {
     /// # Errors
     ///
     /// Returns a schedule, progress-report, or source-count error when the
-    /// corresponding operation fails. Returns
-    /// [`BatchExecutionError::IncompleteSchedule`] when accepted tasks remain
-    /// unfinished or the scheduler does not consume the source through a real
-    /// `None`, even if all declared tasks completed. A failed terminal report
-    /// is emitted before the latter error is returned; its failure is retained
-    /// as `report_error`.
+    /// corresponding operation fails. Unfinished accepted tasks produce
+    /// [`BatchExecutionError::IncompleteSchedule`] first. After overflow and
+    /// failure-policy-stop checks, observing fewer than `count` tasks produces
+    /// [`BatchExecutionError::CountShortfall`]. When the count is satisfied
+    /// but source exhaustion is unproven, the error is
+    /// [`BatchExecutionError::IncompleteSchedule`]. A failed terminal report
+    /// is retained as `report_error` for these finalization errors.
     ///
     /// # Panics
     ///

@@ -75,7 +75,7 @@ pub enum BatchExecutionError<E, S = Infallible> {
         report_error: Option<Box<ProgressFailure>>,
     },
 
-    /// The task source ended before the declared task count was reached.
+    /// Fewer source tasks were observed than the declared task count.
     #[error("batch task count shortfall: expected {expected}, actual {actual}")]
     CountShortfall {
         /// Declared task count.

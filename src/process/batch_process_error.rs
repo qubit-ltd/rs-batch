@@ -13,9 +13,10 @@ use crate::ProgressFailure;
 /// Error returned by built-in consumer-backed batch processors.
 ///
 /// The error variants report mismatches between the declared item count and the
-/// number of items yielded by the input source. Each variant carries the
-/// partial result accumulated before the mismatch was detected. Count-mismatch
-/// variants retain a terminal progress-report error when one occurs.
+/// number of items yielded by the input source, or failures delivering progress
+/// reports. Each variant carries the partial result accumulated before the
+/// error was reported. Count-mismatch variants retain a terminal
+/// progress-report error as secondary information when one occurs.
 ///
 /// # Examples
 ///
