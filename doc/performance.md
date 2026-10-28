@@ -4,6 +4,22 @@
 
 ## Failure-index validation
 
+### Historical snapshot record
+
+The recorded baseline is `20671729d7817576884632b18577ebff4ae2d716`
+(qubit-batch 0.10.0). The candidate is identified as the 0.11.0 in-place
+sorting implementation, but the measured candidate commit and its lockfile
+are not recorded. The baseline's committed `Cargo.lock` has blob
+`bb9963a3ee20b482f1bd888396e8d3e6973cad01`. The related implementation and
+benchmark record at
+`2ff051298354f747779c765986ecb02fa4cd27fc` documents that code history; it
+does not establish which checkout produced the measurements. The probe logic
+is preserved below, but its original temporary Cargo project, dependency
+lockfile, and raw measurement artifacts are not retained. Rust 1.94.0, release
+profile, Linux x86_64, and Intel Core i5-9600K are recorded. The workload can
+be reconstructed, but the historical values cannot be reproduced point for
+point from the retained source and dependency snapshots.
+
 Measured on 2026-09-07 with Rust 1.94.0, release profile, Linux x86_64,
 and an Intel Core i5-9600K (six cores). The baseline is commit `2067172`
 (qubit-batch 0.10.0); the candidate is the 0.11.0 in-place sorting implementation.
@@ -21,9 +37,12 @@ Each size was measured three times; all repeats gave the same values:
 | 100,000 | 1 | 1,179,664 | 0 | 0 |
 
 These are extra allocation requests during validation, not total result memory
-or resident memory. Results still own an O(F) failure vector. The reproducible
-allocation reduction justifies removing the auxiliary HashSet. Error precedence
-changes are documented in [the migration section](design.md#validation-and-migration-from-010).
+or resident memory. Results still own an O(F) failure vector. The historical
+note reports repeatable allocation savings and presents them as the reason for
+removing the auxiliary HashSet; because the measured candidate source is not
+identified, that attribution cannot be independently checked against the build.
+Error precedence changes are documented in
+[the migration section](design.md#validation-and-migration-from-010).
 
 Criterion timing was inconclusive: the 100,000-failure baseline point estimate
 was 2.0654 ms; candidate runs gave 0.3395 ms and 3.63 ms. This uncontrolled
@@ -99,12 +118,32 @@ These workloads do not measure Rayon; its benchmarks live in rs-rayon-batch.
 
 ## Callable fallback measurements (2026-09-09)
 
+### Historical snapshot record
+
+The recorded baselines are qubit-batch
+`62e2a3d47793a9035e475f09eedc9fe2dab5db15` and qubit-rayon-batch
+`99ce8c5457569dba6ab09db4144f57cca9e3b2f6`; the measured candidate hashes are
+not identified in the retained measurement record. Related callable and
+chunk-buffer implementation commits
+describe code history, not the measured builds. The benchmark source is
+described as a shared overlay, but its exact revision is unavailable. The
+baseline Cargo.lock blobs are `428a1682e750e5453aa5aa1069268e65f2ad1c46`
+(qubit-batch) and `678dc11bb095d3e84e8069ae78a7279be0d61b8f`
+(qubit-rayon-batch). The record names qubit-progress 0.8.3, but does not
+identify the measured candidate's dependency snapshot or lockfile. Rust 1.94.0 / LLVM 21.1.8, release profile, Linux
+x86_64 7.0.0-30-generic, Intel Core i5-9600K, and NoopReporter are recorded.
+The workload can be reconstructed from the description, but the historical
+comparison cannot be reproduced point for point. The original Criterion raw
+samples are not retained in the repository.
+
 Environment: Intel Core i5-9600K, six cores, Linux x86_64 7.0.0-30-generic,
 Rust 1.94.0 / LLVM 21.1.8, release profile, NoopReporter. Baselines are
 qubit-batch `62e2a3d` and qubit-rayon-batch `99ce8c5`, with the same new
 benchmark sources overlaid. Path dependency qubit-progress is 0.8.3 in both.
-The candidate adds direct sequential callable collection and reusable chunks;
-the production Rayon shared queue is unchanged.
+The historical note describes its candidate as adding direct sequential
+callable collection and reusable chunks, and says the production Rayon shared
+queue was unchanged. The candidate source is not identified, so the retained
+records cannot verify that this exact code was measured.
 
 `cargo bench --locked --bench call_fallback_bench` covers 0/1/32/100/101/1024
 items, scalar/String outputs, two workers with threshold 100 or 0, and one
@@ -125,10 +164,23 @@ Selected means and 95% confidence intervals, in microseconds:
 These are sequentially collected local measurements, not a portable speedup
 promise. Worker creation and system scheduling make tiny forced-parallel calls
 especially noisy. Do not change the default threshold of 100 from these data.
-Criterion raw estimates and sample data are emitted under `target/criterion`.
-Use the same benchmark source and dependency checkout for baseline comparison.
+A new run emits Criterion raw estimates and sample data under `target/criterion`;
+the original historical samples are not retained. Use the same benchmark source
+and dependency checkout for any new baseline comparison.
 
 ## Chunk buffer allocation requests
+
+### Historical snapshot record
+
+The record does not identify the baseline or candidate commit, exact probe
+source revision, dependency snapshot, or lockfile. The probe source below
+preserves the measurement procedure, but the temporary Cargo project and raw
+allocation output files are not retained. The historical document records the
+single-threaded setup and NoopReporter; it does not record the compiler version
+or machine environment for this allocation run. The workload is described,
+but the historical values cannot be reproduced point for point from the
+available source and dependency records. Related chunk-buffer implementation
+commits describe code history and do not identify the measured candidate.
 
 A single-threaded global allocator probe counted allocation/reallocation
 requests only during `process_with_count`, using a consuming u64 delegate and
@@ -148,8 +200,10 @@ the call, not resident memory or Vec-specific counts.
 | 65536 | 4096 | 173 | 1015804 | 8 | 33244 |
 
 `cargo bench --locked --bench chunk_buffer_bench` measures the same sizes with
-20 samples, 200 ms warmup and 500 ms requested measurement. Buffer reuse removes
-repeated chunk growth; it does not make progress setup allocation-free.
+20 samples, 200 ms warmup and 500 ms requested measurement. The historical note
+attributes the lower repeated allocation counts to buffer reuse, but the
+unidentified measured snapshots do not let that code-level explanation be
+independently verified. Progress setup still allocates.
 
 Reproduce the allocation experiment with the probe below in a standalone Cargo
 binary depending on the checkout under measurement, then `cargo run --release`.
@@ -202,6 +256,14 @@ fn main() {
 ```
 
 ### Tiny forced-parallel follow-up
+
+The follow-up record gives three interleaved rounds and says the order was
+reversed in round two, but does not identify the exact baseline/candidate
+checkouts, benchmark overlay revision, dependency snapshots, or lockfiles. It
+shares the callable section's recorded toolchain and machine description; no
+separate raw samples are retained. The related implementation history does not
+identify these measured builds, so the table records the reported values but
+cannot be replayed point for point.
 
 The initial single-item forced-parallel point was noisy. Three additional
 interleaved old/new runs (reversing order in round two) gave these means in
