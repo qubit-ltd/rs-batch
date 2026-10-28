@@ -25,6 +25,31 @@ use crate::support::RecordingReporter;
 use crate::support::TestChunkOutcome;
 use crate::support::TestChunkProcessor;
 
+#[derive(Default)]
+struct PartiallyProcessingDelegate {
+    chunks: Vec<Vec<i32>>,
+}
+
+impl BatchProcessor<i32> for PartiallyProcessingDelegate {
+    type Error = &'static str;
+
+    fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
+    where
+        I: IntoIterator<Item = i32>,
+    {
+        let chunk: Vec<_> = items.into_iter().collect();
+        assert_eq!(chunk.len(), count);
+        let processed = chunk.iter().filter(|item| **item % 2 == 0).count();
+        self.chunks.push(chunk);
+        BatchProcessResult::builder(count)
+            .completed_count(count)
+            .processed_count(processed)
+            .chunk_count(usize::from(count != 0))
+            .build()
+            .map_err(|_| "invalid delegate counters")
+    }
+}
+
 #[test]
 fn test_chunked_batch_processor_returns_progress_report_error() {
     let mut processor = ChunkedBatchProcessor::builder(
@@ -87,6 +112,25 @@ fn test_chunked_batch_processor_submits_items_in_chunks() {
         *chunks.lock().unwrap_or_else(std::sync::PoisonError::into_inner),
         vec![vec![1, 2], vec![3, 4], vec![5]]
     );
+}
+
+#[test]
+fn test_chunked_batch_processor_aggregates_partial_processed_counts() {
+    let mut processor = ChunkedBatchProcessor::new(
+        PartiallyProcessingDelegate::default(),
+        NonZeroUsize::new(2).expect("chunk size must be positive"),
+    );
+
+    let result = processor
+        .process([1, 2, 3, 4])
+        .expect("partial processed counts are valid completed chunks");
+
+    assert_eq!(result.item_count(), 4);
+    assert_eq!(result.completed_count(), 4);
+    assert_eq!(result.processed_count(), 2);
+    assert_eq!(result.chunk_count(), 2);
+    assert!(!result.is_success());
+    assert_eq!(processor.delegate().chunks, vec![vec![1, 2], vec![3, 4]]);
 }
 
 #[test]
