@@ -18,8 +18,6 @@ use std::sync::atomic::Ordering;
 use std::thread;
 use std::time::Duration;
 
-use qubit_atomic::ArcAtomic;
-use qubit_atomic::ArcAtomicCount;
 use qubit_atomic::AtomicCount;
 use qubit_batch::BatchProcessError;
 use qubit_batch::BatchProcessor;
@@ -498,15 +496,14 @@ impl Reporter for CoordinatedRecordingReporter {
 
 #[test]
 fn test_parallel_batch_processor_uses_sequential_threshold() {
-    let active_count = ArcAtomicCount::zero();
-    let max_active_count = ArcAtomic::new(0usize);
-    let active_by_consumer = active_count.clone();
-    let max_by_consumer = max_active_count.clone();
+    let caller_thread = thread::current().id();
+    let observed_threads = Arc::new(Mutex::new(Vec::new()));
+    let observed_by_consumer = Arc::clone(&observed_threads);
     let mut processor = ParallelBatchProcessor::builder(move |_item: &i32| {
-        let active = active_by_consumer.inc();
-        max_by_consumer.fetch_max(active);
-        thread::sleep(Duration::from_millis(1));
-        active_by_consumer.dec();
+        observed_by_consumer
+            .lock()
+            .expect("thread log should be healthy")
+            .push(thread::current().id());
     })
     .thread_count(2)
     .build()
@@ -521,7 +518,11 @@ fn test_parallel_batch_processor_uses_sequential_threshold() {
         ParallelBatchProcessor::<i32>::DEFAULT_SEQUENTIAL_THRESHOLD
     );
     assert_eq!(result.completed_count(), 6);
-    assert_eq!(max_active_count.load(), 1);
+    assert_eq!(result.processed_count(), 6);
+    assert_eq!(
+        *observed_threads.lock().expect("thread log should be healthy"),
+        vec![caller_thread; 6]
+    );
 }
 
 #[test]

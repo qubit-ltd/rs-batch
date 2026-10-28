@@ -105,3 +105,41 @@ fn test_batch_call_result_rejects_mismatched_success_output_count() {
         })
     );
 }
+
+#[test]
+fn test_batch_call_result_rejects_duplicate_output_indexes() {
+    let outcome = BatchOutcomeBuilder::<&'static str>::builder(2)
+        .completed_count(2)
+        .succeeded_count(2)
+        .build()
+        .expect("outcome should be valid");
+
+    let result = BatchCallResult::try_new(outcome, vec![BatchCallOutput::new(0, 10), BatchCallOutput::new(0, 20)]);
+
+    assert_eq!(
+        result,
+        Err(BatchCallResultBuildError::OutputIndexOutOfOrder {
+            previous_index: 0,
+            index: 0,
+        })
+    );
+}
+
+#[test]
+fn test_batch_call_result_rejects_descending_output_indexes() {
+    let outcome = BatchOutcomeBuilder::<&'static str>::builder(2)
+        .completed_count(2)
+        .succeeded_count(2)
+        .build()
+        .expect("outcome should be valid");
+
+    let result = BatchCallResult::try_new(outcome, vec![BatchCallOutput::new(1, 10), BatchCallOutput::new(0, 20)]);
+
+    assert_eq!(
+        result,
+        Err(BatchCallResultBuildError::OutputIndexOutOfOrder {
+            previous_index: 1,
+            index: 0,
+        })
+    );
+}
