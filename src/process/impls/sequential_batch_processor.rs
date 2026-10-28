@@ -100,7 +100,6 @@ impl<Item> SequentialBatchProcessor<Item> {
     /// # Returns
     ///
     /// A builder initialized with default settings.
-    #[must_use = "use the constructed or borrowed value"]
     #[inline]
     pub fn builder<C>(consumer: C) -> SequentialBatchProcessorBuilder<Item>
     where

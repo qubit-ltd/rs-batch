@@ -61,7 +61,6 @@ impl BatchProcessResultBuilder {
     ///
     /// A builder initialized with zero counters and zero elapsed time.
     #[inline]
-    #[must_use = "use the constructed or borrowed value"]
     pub const fn builder(item_count: usize) -> Self {
         Self {
             item_count,
@@ -82,7 +81,6 @@ impl BatchProcessResultBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub const fn completed_count(mut self, completed_count: usize) -> Self {
         self.completed_count = completed_count;
@@ -99,7 +97,6 @@ impl BatchProcessResultBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub const fn processed_count(mut self, processed_count: usize) -> Self {
         self.processed_count = processed_count;
@@ -117,7 +114,6 @@ impl BatchProcessResultBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub const fn chunk_count(mut self, chunk_count: usize) -> Self {
         self.chunk_count = chunk_count;
@@ -133,7 +129,6 @@ impl BatchProcessResultBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    #[must_use = "inspect the returned value"]
     #[inline]
     pub const fn elapsed(mut self, elapsed: Duration) -> Self {
         self.elapsed = elapsed;

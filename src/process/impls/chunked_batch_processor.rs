@@ -147,7 +147,6 @@ impl<P> ChunkedBatchProcessor<P> {
     /// # Returns
     ///
     /// A builder initialized with default settings.
-    #[must_use = "use the constructed or borrowed value"]
     #[inline]
     pub fn builder(delegate: P, chunk_size: NonZeroUsize) -> ChunkedBatchProcessorBuilder<P> {
         ChunkedBatchProcessorBuilder::new(delegate, chunk_size)

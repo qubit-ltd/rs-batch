@@ -85,7 +85,6 @@ impl BatchProcessResult {
     ///
     /// A fully populated batch process result.
     #[inline]
-    #[must_use = "use the constructed or borrowed value"]
     pub(crate) const fn new(builder: BatchProcessResultBuilder) -> Self {
         Self {
             item_count: builder.item_count,
