@@ -55,19 +55,27 @@ struct CpuTask {
     seed: u64,
 }
 
+impl CpuTask {
+    /// Returns the result of the fixed CPU workload.
+    fn result(&self) -> u64 {
+        let mut value = self.seed;
+        for _ in 0..256 {
+            value = value.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+            value = black_box(value);
+        }
+        value
+    }
+}
+
 impl Runnable<()> for CpuTask {
-    /// Performs a bounded CPU workload.
+    /// Performs a bounded CPU workload with an optimization barrier per step.
     ///
     /// # Returns
     ///
     /// Always returns `Ok(())` after black-boxing the calculated value.
     #[inline]
     fn run(&mut self) -> Result<(), ()> {
-        let mut value = self.seed;
-        for _ in 0..256 {
-            value = value.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
-        }
-        black_box(value);
+        black_box(self.result());
         Ok(())
     }
 }
@@ -175,6 +183,8 @@ fn benchmark_no_op_execution(criterion: &mut Criterion) {
 ///
 /// * `criterion` - Criterion registry receiving benchmark cases.
 fn benchmark_cpu_execution(criterion: &mut Criterion) {
+    assert_eq!(CpuTask { seed: 1 }.result(), 4_899_730_818_626_408_193);
+
     let sequential = SequentialBatchExecutor::new();
     let parallel = ParallelBatchExecutor::builder()
         .thread_count(4)
@@ -185,9 +195,33 @@ fn benchmark_cpu_execution(criterion: &mut Criterion) {
         .thread_count(4)
         .build()
         .expect("benchmark executor configuration should be valid");
-    let mut group = criterion.benchmark_group("batch_executor_cpu");
+    let mut group = criterion.benchmark_group("batch_executor_cpu_opaque_steps");
 
     for task_count in BATCH_SIZES {
+        let outcome = sequential
+            .execute_with_count((0..task_count).map(|seed| CpuTask { seed: seed as u64 }), task_count)
+            .expect("sequential CPU validation batch should succeed");
+        assert_eq!(outcome.task_count(), task_count);
+        assert_eq!(outcome.completed_count(), task_count);
+        assert_eq!(outcome.succeeded_count(), task_count);
+        assert_eq!(outcome.failure_count(), 0);
+
+        let outcome = parallel
+            .execute_with_count((0..task_count).map(|seed| CpuTask { seed: seed as u64 }), task_count)
+            .expect("parallel CPU validation batch should succeed");
+        assert_eq!(outcome.task_count(), task_count);
+        assert_eq!(outcome.completed_count(), task_count);
+        assert_eq!(outcome.succeeded_count(), task_count);
+        assert_eq!(outcome.failure_count(), 0);
+
+        let outcome = default_parallel
+            .execute_with_count((0..task_count).map(|seed| CpuTask { seed: seed as u64 }), task_count)
+            .expect("default CPU validation batch should succeed");
+        assert_eq!(outcome.task_count(), task_count);
+        assert_eq!(outcome.completed_count(), task_count);
+        assert_eq!(outcome.succeeded_count(), task_count);
+        assert_eq!(outcome.failure_count(), 0);
+
         group.bench_with_input(
             BenchmarkId::new("sequential", task_count),
             &task_count,

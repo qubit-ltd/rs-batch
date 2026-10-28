@@ -274,3 +274,55 @@ microseconds. The initial large regression did not reproduce.
 | 1 | 33.766 | 31.062 | 0.920 |
 | 2 | 31.067 | 31.832 | 1.025 |
 | 3 | 33.698 | 30.774 | 0.913 |
+
+## Opaque-step CPU workload (2026-10-28)
+
+The CPU group is now named `batch_executor_cpu_opaque_steps`. Each of its 256
+wrapping multiply-add steps passes the intermediate value through
+`black_box`; this prevents the compiler from combining adjacent steps. A small
+Rust 1.94.0 release probe confirmed the difference: the old loop performed
+eight recurrence steps per loop iteration, while the opaque-step loop retained
+one recurrence step per iteration. The returned value for seed 1 is
+`4899730818626408193`. The barrier has a cost of its own, so these numbers
+describe this controlled workload rather than general application CPU
+throughput. Before registering timed cases, the benchmark itself also checks
+that `CpuTask { seed: 1 }` produces this fixed result.
+
+Measured on 2026-10-28 with `rustc 1.94.0 (4a4ef493e 2026-03-02)`, LLVM 21.1.8,
+release profile, Linux x86_64 7.0.0-38-generic, and an Intel Core i5-9600K
+(six cores). The benchmark source was based on HEAD
+`bc25180e5c845bfaef30c5964838a0982a442b6f` with the local workload, group-name,
+and untimed-validation changes in `benches/batch_executor_bench.rs` (SHA-256
+`1c3cf5ce1c7b7aa6b78c26c688a81a8f54425880cad04691cc4fe8fdd18a6b04`). The
+`Cargo.lock` SHA-256 was
+`e63e6e0b44496482d2460b26f8a7c2bd2564bef938770437cd0b32993e517121`.
+
+Command: `cargo bench --locked --bench batch_executor_bench -- batch_executor_cpu_opaque_steps`.
+Criterion 0.8.2 used its defaults: 100 samples, 3 seconds warmup, 5 seconds
+requested measurement per point, 95% confidence intervals. The table reports
+the estimated time per batch in milliseconds with its 95% confidence interval.
+Some points could not fit 100 samples into the requested measurement time;
+Criterion reported wide intervals and outliers, particularly for parallel
+execution. Treat the values as a noisy local snapshot, not a reliable ranking.
+
+| Items | Sequential | Scoped parallel | Default threshold |
+| ---: | ---: | ---: | ---: |
+| 32 | 0.039 [0.035, 0.043] | 47.00 [41.64, 52.65] | 0.067 [0.057, 0.077] |
+| 64 | 0.102 [0.092, 0.113] | 0.313 [0.177, 0.577] | 0.256 [0.233, 0.281] |
+| 99 | 0.158 [0.142, 0.175] | 117.16 [97.23, 138.24] | 0.214 [0.188, 0.241] |
+| 100 | 0.119 [0.108, 0.131] | 90.55 [75.69, 105.83] | 0.301 [0.281, 0.323] |
+| 101 | 0.167 [0.154, 0.180] | 15.66 [13.15, 18.33] | 29.07 [23.46, 35.14] |
+| 128 | 0.114 [0.105, 0.124] | 0.171 [0.155, 0.189] | 22.85 [17.07, 29.11] |
+| 256 | 0.343 [0.303, 0.389] | 38.28 [26.49, 51.51] | 26.89 [19.94, 35.07] |
+
+Criterion estimates and raw samples are retained at
+`../.artifacts/rs-batch/rb-007-20261028/criterion/batch_executor_cpu_opaque_steps/`
+relative to the repository root.
+The final-source run wrote Criterion's `new` records; `base` contains the prior
+run of the same opaque-step workload before the fixed-result assertion was
+added. Their large swings (for example, scoped parallel / 32 increased from
+0.145 ms to 47.00 ms) show severe shared-machine interference. These records
+are not an old-workload comparison and do not support a reliable executor
+ranking. The renamed group's old `batch_executor_cpu` samples are not comparable
+to these results. The historical performance tables above were left unchanged,
+and the default threshold remains 100.
