@@ -220,7 +220,7 @@ where
 
 impl<R, E, S> std::error::Error for BatchCallError<R, E, S>
 where
-    E: std::error::Error + 'static,
+    E: fmt::Debug + 'static,
     S: std::error::Error + Send + Sync + 'static,
 {
     /// Returns the nested batch execution error as the source.
@@ -231,6 +231,6 @@ where
     /// call error.
     #[inline]
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&self.source)
+        Some(self.source.as_ref())
     }
 }
