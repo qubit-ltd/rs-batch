@@ -11,6 +11,9 @@ use std::fmt;
 use std::panic::AssertUnwindSafe;
 use std::panic::catch_unwind;
 use std::sync::Arc;
+use std::sync::Barrier;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use std::thread;
 use std::time::Duration;
 
@@ -35,6 +38,7 @@ use crate::support::ProgressPanicPhase;
 use crate::support::RecordingReporter;
 use crate::support::TestTask;
 use crate::support::panic_payload_message;
+use crate::support::run_with_watchdog;
 
 #[test]
 fn test_parallel_batch_executor_builds_default_and_custom_config() {
@@ -73,32 +77,53 @@ fn test_parallel_batch_executor_rejects_invalid_builder_config() {
 
 #[test]
 fn test_parallel_batch_executor_executes_with_configured_parallelism() {
-    let executor = ParallelBatchExecutor::builder()
-        .thread_count(2)
-        .sequential_threshold(1)
-        .build()
-        .expect("parallel executor should build");
-    let active_count = ArcAtomicCount::zero();
-    let max_active_count = ArcAtomic::new(0usize);
-    let tasks = (0..6)
-        .map(|_| {
-            ActiveTrackingTask::new(
-                active_count.clone(),
-                max_active_count.clone(),
-                Duration::from_millis(20),
-            )
-        })
-        .collect::<Vec<_>>();
+    run_with_watchdog(
+        concat!(
+            module_path!(),
+            "::test_parallel_batch_executor_executes_with_configured_parallelism"
+        ),
+        || {
+            let executor = ParallelBatchExecutor::builder()
+                .thread_count(2)
+                .sequential_threshold(1)
+                .build()
+                .expect("parallel executor should build");
+            let active = Arc::new(AtomicUsize::new(0));
+            let maximum = Arc::new(AtomicUsize::new(0));
+            let entered = Arc::new(Barrier::new(2));
+            let release = Arc::new(Barrier::new(2));
+            let work = {
+                let active = Arc::clone(&active);
+                let maximum = Arc::clone(&maximum);
+                move |index: usize| {
+                    let now = active.fetch_add(1, Ordering::SeqCst) + 1;
+                    maximum.fetch_max(now, Ordering::SeqCst);
+                    if index < 2 {
+                        entered.wait();
+                        maximum.fetch_max(active.load(Ordering::SeqCst), Ordering::SeqCst);
+                        release.wait();
+                    }
+                    active.fetch_sub(1, Ordering::SeqCst);
+                }
+            };
+            let tasks = (0usize..6).map(|index| {
+                let work = &work;
+                move || {
+                    work(index);
+                    Ok::<(), ()>(())
+                }
+            });
+            let result = executor
+                .execute_with_count(tasks, 6)
+                .expect("parallel work should finish");
 
-    let result = executor
-        .execute_with_count(tasks, 6)
-        .expect("parallel batch should succeed");
-
-    assert_eq!(result.completed_count(), 6);
-    assert_eq!(result.succeeded_count(), 6);
-    assert_eq!(result.failure_count(), 0);
-    assert!(max_active_count.load() > 1);
-    assert!(max_active_count.load() <= 2);
+            assert_eq!(result.completed_count(), 6);
+            assert_eq!(result.succeeded_count(), 6);
+            assert_eq!(result.failure_count(), 0);
+            assert_eq!(maximum.load(Ordering::SeqCst), 2);
+            assert_eq!(active.load(Ordering::SeqCst), 0);
+        },
+    );
 }
 
 #[test]
