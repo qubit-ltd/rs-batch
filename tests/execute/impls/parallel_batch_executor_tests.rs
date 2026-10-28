@@ -12,8 +12,11 @@ use std::panic::AssertUnwindSafe;
 use std::panic::catch_unwind;
 use std::sync::Arc;
 use std::sync::Barrier;
+use std::sync::Condvar;
+use std::sync::Mutex;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
+use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
@@ -22,6 +25,7 @@ use qubit_atomic::ArcAtomicCount;
 use qubit_atomic::AtomicCount;
 use qubit_batch::BatchExecutionError;
 use qubit_batch::BatchExecutor;
+use qubit_batch::BatchOutcome;
 use qubit_batch::BatchTermination;
 use qubit_batch::ParallelBatchExecutor;
 use qubit_batch::ParallelBatchExecutorBuildError;
@@ -29,7 +33,10 @@ use qubit_batch::ProgressFailure;
 use qubit_batch::TaskFailurePolicy;
 use qubit_function::Runnable;
 use qubit_progress::AutoReporterError;
+use qubit_progress::Event;
 use qubit_progress::Phase;
+use qubit_progress::Reporter;
+use qubit_progress::ReporterError;
 
 use crate::support::PanickingReporter;
 use crate::support::PhaseRecordingReporter;
@@ -199,26 +206,27 @@ fn test_parallel_batch_executor_collects_failures_and_panics() {
 
 #[test]
 fn test_parallel_batch_executor_stops_accepting_after_first_failure() {
-    let executor = ParallelBatchExecutor::builder()
-        .thread_count(2)
-        .sequential_threshold(0)
-        .task_failure_policy(TaskFailurePolicy::StopOnFirstFailure)
-        .build()
-        .expect("parallel executor should build");
-    let outcome = executor
-        .for_each_with_count(0..100, 100, |value| {
-            if value == 0 {
-                Err::<(), _>("failed")
-            } else {
-                std::thread::sleep(std::time::Duration::from_millis(1));
-                Ok(())
-            }
-        })
-        .expect("task failure policy should return a partial outcome");
+    run_with_watchdog(
+        concat!(
+            module_path!(),
+            "::test_parallel_batch_executor_stops_accepting_after_first_failure"
+        ),
+        || {
+            let executor = ParallelBatchExecutor::builder()
+                .thread_count(2)
+                .sequential_threshold(0)
+                .task_failure_policy(TaskFailurePolicy::StopOnFirstFailure)
+                .build()
+                .expect("parallel executor must build");
+            let outcome = executor
+                .for_each_with_count(0..100, 100, |_| Err::<(), _>("failed"))
+                .expect("failure policy must return a partial outcome");
 
-    assert_eq!(outcome.termination(), BatchTermination::StoppedByTaskFailurePolicy);
-    assert!(outcome.completed_count() < 100);
-    assert!(outcome.failure_count() >= 1);
+            assert_eq!(outcome.termination(), BatchTermination::StoppedByTaskFailurePolicy);
+            assert!(outcome.completed_count() > 0 && outcome.completed_count() < 100);
+            assert_eq!(outcome.failure_count(), outcome.completed_count());
+        },
+    );
 }
 
 #[test]
@@ -297,39 +305,28 @@ fn test_parallel_batch_executor_reports_count_exceeded() {
 
 #[test]
 fn test_parallel_batch_executor_reports_progress() {
-    let reporter = Arc::new(RecordingReporter::new());
-    let executor = ParallelBatchExecutor::builder()
-        .thread_count(2)
-        .sequential_threshold(1)
-        .reporter_arc(reporter.clone())
-        .report_interval(Duration::from_millis(10))
-        .build()
-        .expect("parallel executor should build");
-    let tasks = vec![
-        TestTask::sleep_success(Duration::from_millis(20)),
-        TestTask::sleep_success(Duration::from_millis(20)),
-        TestTask::sleep_success(Duration::from_millis(20)),
-    ];
+    run_with_watchdog(
+        concat!(module_path!(), "::test_parallel_batch_executor_reports_progress"),
+        || {
+            let (result, events) = run_coordinated_progress_batch(None);
+            let outcome = result.expect("parallel batch should succeed");
 
-    let result = executor
-        .execute_with_count(tasks, 3)
-        .expect("parallel batch should succeed");
-    let events = reporter.events();
-
-    assert_eq!(result.completed_count(), 3);
-    assert!(matches!(events.first(), Some(ProgressEvent::Start { total_count: 3 })));
-    assert!(events.iter().any(|event| matches!(
-        event,
-        ProgressEvent::Process {
-            total_count: 3,
-            active_count,
-            completed_count,
-        } if *active_count > 0 || *completed_count > 0
-    )));
-    assert!(matches!(
-        events.last(),
-        Some(ProgressEvent::Finish { total_count: 3, .. })
-    ));
+            assert_eq!(outcome.completed_count(), 3);
+            assert!(matches!(events.first(), Some(ProgressEvent::Start { total_count: 3 })));
+            assert!(events.iter().any(|event| matches!(
+                event,
+                ProgressEvent::Process {
+                    total_count: 3,
+                    active_count,
+                    completed_count,
+                } if *active_count > 0 || *completed_count > 0
+            )));
+            assert!(matches!(
+                events.last(),
+                Some(ProgressEvent::Finish { total_count: 3, .. })
+            ));
+        },
+    );
 }
 
 #[test]
@@ -379,29 +376,92 @@ fn test_parallel_batch_executor_propagates_progress_reporter_finish_panic() {
 
 #[test]
 fn test_parallel_batch_executor_propagates_progress_reporter_process_panic() {
-    const PANIC_MESSAGE: &str = "parallel progress process panic";
+    run_with_watchdog(
+        concat!(
+            module_path!(),
+            "::test_parallel_batch_executor_propagates_progress_reporter_process_panic"
+        ),
+        || {
+            const PANIC_MESSAGE: &str = "parallel progress process panic";
+            let (result, _) = run_coordinated_progress_batch(Some(PANIC_MESSAGE));
+            let error = result.expect_err("progress reporter process panic should be returned");
+            let BatchExecutionError::ProgressReport { source, .. } = error else {
+                panic!("progress reporter panic should be a progress report error");
+            };
+            let ProgressFailure::AutoReporter(AutoReporterError::Panicked(panic)) = source.as_ref() else {
+                panic!("progress reporter panic should preserve structured panic information");
+            };
+            assert_eq!(panic.message(), Some(PANIC_MESSAGE));
+        },
+    );
+}
+
+type ReleaseGate = Arc<(Mutex<bool>, Condvar)>;
+
+fn wait_for_release(gate: &ReleaseGate) {
+    let (lock, changed) = gate.as_ref();
+    let mut released = lock.lock().expect("release gate must be healthy");
+    while !*released {
+        released = changed.wait(released).expect("release gate must be healthy");
+    }
+}
+
+fn release_workers(gate: &ReleaseGate) {
+    let (lock, changed) = gate.as_ref();
+    *lock.lock().expect("release gate must be healthy") = true;
+    changed.notify_all();
+}
+
+struct CoordinatedRunningReporter {
+    recorded: RecordingReporter,
+    running: mpsc::SyncSender<()>,
+    panic_message: Option<&'static str>,
+}
+
+impl Reporter for CoordinatedRunningReporter {
+    fn report(&self, event: &Event) -> Result<(), ReporterError> {
+        self.recorded.report(event)?;
+        if event.phase() == Phase::Running && event.metrics().first().is_some_and(|metric| metric.active() > 0) {
+            // The caller releases gated tasks only after this active-task event is
+            // observed.
+            let _ = self.running.try_send(());
+            if let Some(message) = self.panic_message {
+                panic!("{message}");
+            }
+        }
+        Ok(())
+    }
+}
+
+fn run_coordinated_progress_batch(
+    panic_message: Option<&'static str>,
+) -> (Result<BatchOutcome<()>, BatchExecutionError<()>>, Vec<ProgressEvent>) {
+    let gate = Arc::new((Mutex::new(false), Condvar::new()));
+    let (running, observed_running) = mpsc::sync_channel(1);
+    let reporter = Arc::new(CoordinatedRunningReporter {
+        recorded: RecordingReporter::new(),
+        running,
+        panic_message,
+    });
     let executor = ParallelBatchExecutor::builder()
         .thread_count(2)
-        .sequential_threshold(1)
-        .report_interval(Duration::from_millis(1))
-        .reporter(PanickingReporter::new(ProgressPanicPhase::Process, PANIC_MESSAGE))
+        .sequential_threshold(0)
+        .report_interval(Duration::from_millis(10))
+        .reporter_arc(reporter.clone())
         .build()
-        .expect("parallel executor should build");
-    let tasks = vec![
-        TestTask::sleep_success(Duration::from_millis(50)),
-        TestTask::sleep_success(Duration::from_millis(50)),
-    ];
-
-    let error = executor
-        .execute_with_count(tasks, 2)
-        .expect_err("progress reporter process panic should be returned");
-    let BatchExecutionError::ProgressReport { source, .. } = error else {
-        panic!("progress reporter panic should be a progress report error");
-    };
-    let ProgressFailure::AutoReporter(AutoReporterError::Panicked(panic)) = source.as_ref() else {
-        panic!("progress reporter panic should preserve structured panic information");
-    };
-    assert_eq!(panic.message(), Some(PANIC_MESSAGE));
+        .expect("parallel executor must build");
+    let result = thread::scope(|scope| {
+        let batch = scope.spawn(|| {
+            executor.for_each(0..3, |_| {
+                wait_for_release(&gate);
+                Ok::<(), ()>(())
+            })
+        });
+        observed_running.recv().expect("running reporter must execute");
+        release_workers(&gate);
+        batch.join().expect("batch caller must join")
+    });
+    (result, reporter.recorded.events())
 }
 
 /// Task that records the maximum number of concurrently active tasks.

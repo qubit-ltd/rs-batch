@@ -22,6 +22,7 @@ use std::time::Instant;
 
 use qubit_batch::BatchExecutionError;
 use qubit_batch::BatchExecutor;
+use qubit_batch::BatchTaskError;
 use qubit_batch::BatchTermination;
 use qubit_batch::ParallelBatchExecutor;
 use qubit_batch::TaskFailurePolicy;
@@ -215,47 +216,138 @@ fn test_parallel_executor_keeps_concurrent_batch_outcomes_isolated() {
     run_with_watchdog(
         "test_parallel_executor_keeps_concurrent_batch_outcomes_isolated",
         || {
+            let gate_a = Arc::new((Mutex::new(false), Condvar::new()));
+            let gate_b = Arc::new((Mutex::new(false), Condvar::new()));
+            let seen_b = Mutex::new(Vec::new());
+            let reporter = Arc::new(IsolationReporter::default());
             let executor = ParallelBatchExecutor::builder()
                 .thread_count(2)
                 .sequential_threshold(0)
+                .task_failure_policy(TaskFailurePolicy::StopOnFirstFailure)
+                .reporter_arc(reporter.clone())
                 .build()
                 .expect("parallel executor should build");
-            let first_completed = AtomicUsize::new(0);
-            let second_completed = AtomicUsize::new(0);
+            let (started, observed_started) = mpsc::channel::<u8>();
 
             thread::scope(|scope| {
                 let first = scope.spawn(|| {
                     executor
-                        .for_each((0..64).map(|item| (0, item)), |(batch_id, _)| {
-                            assert_eq!(batch_id, 0);
-                            first_completed.fetch_add(1, Ordering::AcqRel);
-                            Ok::<(), ()>(())
+                        .for_each(0..100, |_| {
+                            started.send(0).expect("controller must remain alive");
+                            wait_for_release(&gate_a);
+                            Err::<(), &'static str>("batch-a-failed")
                         })
-                        .expect("first batch should complete")
+                        .map_err(Box::new)
                 });
                 let second = scope.spawn(|| {
                     executor
-                        .for_each((0..64).map(|item| (1, item)), |(batch_id, _)| {
-                            assert_eq!(batch_id, 1);
-                            second_completed.fetch_add(1, Ordering::AcqRel);
-                            Ok::<(), ()>(())
+                        .for_each(0..64, |index| {
+                            started.send(1).expect("controller must remain alive");
+                            wait_for_release(&gate_b);
+                            seen_b.lock().expect("batch B index log must be healthy").push(index);
+                            Ok::<(), &'static str>(())
                         })
-                        .expect("second batch should complete")
+                        .map_err(Box::new)
                 });
-                let first_outcome = first.join().expect("first producer should join");
-                let second_outcome = second.join().expect("second producer should join");
 
-                assert_eq!(first_outcome.task_count(), 64);
-                assert_eq!(first_outcome.completed_count(), 64);
-                assert!(first_outcome.is_success());
-                assert_eq!(second_outcome.task_count(), 64);
-                assert_eq!(second_outcome.completed_count(), 64);
-                assert!(second_outcome.is_success());
+                let mut entered = [false; 2];
+                while !entered.iter().all(|flag| *flag) {
+                    let batch = observed_started.recv().expect("both batches must enter a task");
+                    entered[usize::from(batch)] = true;
+                }
+
+                release_workers(&gate_a);
+                let first = first
+                    .join()
+                    .expect("batch A producer must join")
+                    .expect("policy stop should return an outcome");
+                assert_eq!(first.task_count(), 100);
+                assert_eq!(first.termination(), BatchTermination::StoppedByTaskFailurePolicy);
+                assert!(first.completed_count() > 0 && first.completed_count() < 100);
+                assert_eq!(first.failed_count(), first.completed_count());
+                assert_eq!(first.succeeded_count(), 0);
+                assert_eq!(first.panicked_count(), 0);
+                assert!(
+                    first
+                        .failures()
+                        .windows(2)
+                        .all(|pair| pair[0].index() < pair[1].index())
+                );
+                assert!(first.failures().iter().all(|failure| {
+                    failure.index() < 100 && matches!(failure.error(), BatchTaskError::Failed("batch-a-failed"))
+                }));
+
+                release_workers(&gate_b);
+                let second = second
+                    .join()
+                    .expect("batch B producer must join")
+                    .expect("batch B should finish successfully");
+                assert_eq!(second.termination(), BatchTermination::Finished);
+                assert_eq!(second.task_count(), 64);
+                assert_eq!(second.completed_count(), 64);
+                assert_eq!(second.failure_count(), 0);
+                assert!(second.is_success());
             });
-            assert_eq!(first_completed.load(Ordering::Acquire), 64);
-            assert_eq!(second_completed.load(Ordering::Acquire), 64);
+
+            let mut seen_b = seen_b.into_inner().expect("batch B index log must be healthy");
+            seen_b.sort_unstable();
+            assert_eq!(seen_b, (0..64).collect::<Vec<_>>());
+            let events = reporter.events();
+            assert_batch_reporter_lifecycle(&events, 100, Phase::Failed);
+            assert_batch_reporter_lifecycle(&events, 64, Phase::Succeeded);
         },
     );
+}
+
+/// Waits until the controller releases one batch's worker gate.
+fn wait_for_release(gate: &Arc<(Mutex<bool>, Condvar)>) {
+    let (lock, changed) = gate.as_ref();
+    let mut released = lock.lock().expect("batch gate must be healthy");
+    while !*released {
+        released = changed.wait(released).expect("batch gate must remain healthy");
+    }
+}
+
+/// Releases workers waiting on one batch gate.
+fn release_workers(gate: &Arc<(Mutex<bool>, Condvar)>) {
+    let (lock, changed) = gate.as_ref();
+    *lock.lock().expect("batch gate must be healthy") = true;
+    changed.notify_all();
+}
+
+#[derive(Default)]
+struct IsolationReporter {
+    events: Mutex<Vec<(usize, Phase)>>,
+}
+
+impl IsolationReporter {
+    fn events(&self) -> Vec<(usize, Phase)> {
+        self.events.lock().expect("reporter event log must be healthy").clone()
+    }
+}
+
+impl Reporter for IsolationReporter {
+    fn report(&self, event: &Event) -> Result<(), ReporterError> {
+        let Some(metric) = event.metrics().first() else {
+            return Ok(());
+        };
+        let total = usize::try_from(metric.total().expect("batch isolation event should have a known total"))
+            .expect("batch reporter total should fit in usize");
+        self.events
+            .lock()
+            .expect("reporter event log must be healthy")
+            .push((total, event.phase()));
+        Ok(())
+    }
+}
+
+fn assert_batch_reporter_lifecycle(events: &[(usize, Phase)], total: usize, terminal: Phase) {
+    let phases: Vec<_> = events
+        .iter()
+        .filter_map(|(event_total, phase)| (*event_total == total).then_some(*phase))
+        .collect();
+    assert_eq!(phases.first(), Some(&Phase::Started));
+    assert_eq!(phases.last(), Some(&terminal));
 }
 
 #[test]

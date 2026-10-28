@@ -654,23 +654,31 @@ fn test_parallel_batch_processor_propagates_consumer_panic() {
 
 #[test]
 fn test_parallel_batch_processor_propagates_worker_panic_with_large_source() {
-    const PANIC_MESSAGE: &str = "parallel processor backpressure panic";
-    let mut processor = ParallelBatchProcessor::builder(|item: &i32| {
-        if *item == 0 {
-            panic!("{PANIC_MESSAGE}");
-        }
-    })
-    .thread_count(2)
-    .sequential_threshold(0)
-    .build()
-    .expect("parallel processor should build");
+    run_with_watchdog(
+        concat!(
+            module_path!(),
+            "::test_parallel_batch_processor_propagates_worker_panic_with_large_source"
+        ),
+        || {
+            const PANIC_MESSAGE: &str = "parallel processor backpressure panic";
+            let mut processor = ParallelBatchProcessor::builder(|item: &i32| {
+                if *item == 0 {
+                    panic!("{PANIC_MESSAGE}");
+                }
+            })
+            .thread_count(2)
+            .sequential_threshold(0)
+            .build()
+            .expect("parallel processor should build");
 
-    let payload = catch_unwind(AssertUnwindSafe(|| {
-        processor.process_with_count((0..64).collect::<Vec<_>>(), 64)
-    }))
-    .expect_err("worker panic should be propagated without blocking the producer");
+            let payload = catch_unwind(AssertUnwindSafe(|| {
+                processor.process_with_count((0..64).collect::<Vec<_>>(), 64)
+            }))
+            .expect_err("worker panic should be propagated without blocking the producer");
 
-    assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
+            assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
+        },
+    );
 }
 
 /// Test item borrowing a stack-owned counter.
