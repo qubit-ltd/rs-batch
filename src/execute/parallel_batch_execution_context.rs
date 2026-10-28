@@ -105,8 +105,10 @@ impl<E> ParallelBatchExecutionContext<E> {
 
     /// Runs one accepted token and records its terminal task outcome.
     ///
-    /// Task-returned errors and task panics are stored in the batch outcome;
-    /// they are not returned as this method's error.
+    /// Task-returned errors and task-body unwinds are stored in the batch
+    /// outcome; they are not returned as this method's error. Runnable
+    /// destruction occurs outside the captured action and may unwind the
+    /// caller. Aborting panics cannot be captured.
     ///
     /// # Parameters
     ///
@@ -120,6 +122,8 @@ impl<E> ParallelBatchExecutionContext<E> {
     ///
     /// Panics if the token does not represent a valid accepted task or if the
     /// task accounting state violates its internal transition invariants.
+    /// Runnable destruction occurs outside the captured action and may unwind
+    /// the caller. Aborting panics cannot be captured.
     pub fn execute_task<T>(&self, task: ParallelBatchTask<T>)
     where
         T: Runnable<E>,

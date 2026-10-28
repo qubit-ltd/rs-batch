@@ -108,9 +108,14 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// # Panics
     ///
-    /// Panics from individual tasks are captured in [`BatchOutcome`]. Reporter
-    /// callbacks invoked synchronously may panic; automatic reporter failures
-    /// are returned as [`BatchExecutionError::ProgressReport`].
+    /// Task-body unwinds are captured in the outcome. Panics from source
+    /// conversion, iteration, synchronous reporter callbacks, or runnable
+    /// destruction may unwind the caller. Aborting panics cannot be captured.
+    /// The exact length is obtained by calling `len()` on the converted
+    /// iterator, which may also panic. Automatic reporter failures are
+    /// returned as [`BatchExecutionError::ProgressReport`] with their details
+    /// in [`crate::ProgressFailure`]; captured task panics appear in the
+    /// outcome.
     /// Implementations must not return while an accepted task can still run.
     /// Runtime-specific schedulers should prefer
     /// [`crate::execute::spi::ParallelBatchExecutionCoordinator::execute_with_source`]
@@ -165,9 +170,12 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// # Panics
     ///
-    /// Panics from individual tasks are captured in [`BatchOutcome`]. Reporter
-    /// callbacks invoked synchronously may panic; automatic reporter failures
-    /// are returned as [`BatchExecutionError::ProgressReport`].
+    /// Task-body unwinds are captured in the outcome. Panics from source
+    /// conversion, iteration, synchronous reporter callbacks, or runnable
+    /// destruction may unwind the caller. Aborting panics cannot be captured.
+    /// Automatic reporter failures are returned as
+    /// [`BatchExecutionError::ProgressReport`] with their details in
+    /// [`crate::ProgressFailure`]; captured task panics appear in the outcome.
     /// Implementations must not return while an accepted task can still run.
     fn execute_with_count<T, E, I>(
         &self,
@@ -210,9 +218,15 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// # Panics
     ///
-    /// Panics from individual callables are captured in the execution result.
-    /// Reporter callbacks invoked synchronously may panic; automatic reporter
-    /// failures are returned inside [`BatchCallError`].
+    /// Panics from source conversion, iteration, or synchronous reporter
+    /// callbacks may unwind the caller. Callable execution and destruction
+    /// for executed callables occur inside the captured action, so their
+    /// unwinds are recorded in the execution result. Aborting panics cannot
+    /// be captured. The exact length is obtained by calling `len()` on the
+    /// converted iterator, which may also panic. Automatic reporter failures
+    /// are returned inside [`BatchCallError`] with their details in
+    /// [`crate::ProgressFailure`]; captured callable panics appear in the
+    /// execution result.
     /// Implementations must not return while an accepted callable can still
     /// run; the adapter collects outputs immediately after this method
     /// returns.
@@ -261,9 +275,13 @@ pub trait BatchExecutor: Send + Sync {
     ///
     /// # Panics
     ///
-    /// Panics from individual callables are captured in the execution result.
-    /// Reporter callbacks invoked synchronously may panic; automatic reporter
-    /// failures are returned inside [`BatchCallError`].
+    /// Panics from source conversion, iteration, or synchronous reporter
+    /// callbacks may unwind the caller. Callable execution and destruction
+    /// for executed callables occur inside the captured action, so their
+    /// unwinds are recorded in the execution result. Aborting panics cannot
+    /// be captured. Automatic reporter failures are returned inside
+    /// [`BatchCallError`] with their details in [`crate::ProgressFailure`];
+    /// captured callable panics appear in the execution result.
     /// Implementations must not return while an accepted callable can still
     /// run; the adapter collects outputs immediately after this method
     /// returns.
