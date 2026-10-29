@@ -260,7 +260,11 @@ where
     /// Propagates a panic raised by the stored consumer or by a synchronous
     /// progress callback. Panics from the automatic parallel progress
     /// reporter are converted to [`crate::ProgressFailure`] and returned as
-    /// [`BatchProcessError::ProgressReport`].
+    /// [`BatchProcessError::ProgressReport`]. On paths that create scoped
+    /// threads, failure by the operating system to create a worker or an
+    /// automatic reporter thread may panic. Such failures are not converted
+    /// into a batch error and do not return a structured partial result. Panics
+    /// caught while running reporter callbacks are handled separately.
     fn process_with_count<I>(&mut self, items: I, count: usize) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,

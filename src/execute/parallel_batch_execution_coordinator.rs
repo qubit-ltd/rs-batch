@@ -123,7 +123,12 @@ impl ParallelBatchExecutionCoordinator {
     /// # Panics
     ///
     /// Propagates panics from the scheduler, source iterator, and synchronous
-    /// reporter callbacks.
+    /// reporter callbacks. Failure by the operating system to create the
+    /// automatic reporter thread may also panic; it is not converted into a
+    /// batch error or a structured partial result. Errors and panics caught
+    /// while running reporter callbacks are handled separately. A scheduler
+    /// panic propagates to the caller; worker creation, if any, is owned by the
+    /// scheduler implementation.
     pub fn execute_with_source<I, E, S, Schedule>(
         &self,
         tasks: I,

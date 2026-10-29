@@ -80,6 +80,13 @@ Synchronous reporter, iterator, and task-destructor panics may unwind the call.
 Task-body unwinds are captured as failures; aborting panics cannot be caught.
 Automatic reporter errors and caught reporter panics become ProgressFailure.
 Consumers in processors do not have executor task-panic capture semantics.
+On paths that create scoped threads, operating-system failure to create a
+worker or automatic reporter may panic directly; it is not converted into a
+batch error and does not return a structured partial result. This is separate
+from errors or panics caught while reporter callbacks run. Sequential fallback
+does not create the parallel workers described here. Custom scheduler worker
+creation and resource handling depend on that scheduler; the coordinator only
+owns automatic reporter creation and propagates scheduler panics.
 
 A positive progress interval throttles running events; it is not a deadline.
 Sequential progress points are between items and chunk progress points are
@@ -136,6 +143,9 @@ the checked qubit-rayon-batch 0.9.0 depends on qubit-batch 0.14.
 Standard workers and their bounded queue scale with configured worker count;
 the current implementation bounds unfinished source observations by 2W + 1.
 This is a tested backend property, not a universal custom-scheduler promise.
+Successful configuration does not guarantee that thread resources will be
+available at execution time. Applications should choose per-batch worker
+counts and concurrent batch counts for the process's available resources.
 Failures retain O(F) data; callable results retain O(S + F) data. Explicit
 application chunks bound retained outputs but do not implement global policies.
 The default sequential threshold stays 100; benchmark the actual workload.

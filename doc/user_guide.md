@@ -248,6 +248,16 @@ sequential execution on the worker that made the nested call. This avoids
 waiting for the same pool's workers; arbitrary task dependencies or cross-pool
 cycles still require an application-level design.
 
+A successful build does not guarantee that the operating system can create
+threads when a batch runs. On a path that creates scoped
+threads, failure to create a worker or the automatic progress-reporter thread
+may panic directly; it is not returned as a batch error or structured partial
+result. Errors or panics caught while reporter callbacks run are handled
+separately. Sequential fallback creates no parallel workers. A custom
+scheduler's worker and resource behavior depends on its implementation. Choose
+worker counts and concurrent batch counts for the resources available to the
+process.
+
 ### Stop after task failures
 
 The default `TaskFailurePolicy::Continue` collects all task failures. Configure
@@ -510,7 +520,7 @@ transaction or idempotency contract to decide whether and how to retry.
 | `Ok` result has failures | `outcome.is_success()` and `failures()` | Handle each indexed task error or panic. |
 | `CountShortfall` | The external declared count and source producer | Correct the producer/count boundary; use `outcome()` for completed work. |
 | Small batches do not use workers | `sequential_threshold()` | Lower the threshold only after benchmarking. |
-| A task panic is not returned | Whether the panic came from a task body | Task-body panics are captured; progress-reporter and processor-consumer panics can propagate. |
+| A panic occurs during execution | Whether it came from a task body, callback, or thread creation | Task-body panics are captured; callback panics may propagate or be captured by the automatic reporter. Failure to create a scoped worker or automatic reporter thread may panic directly. |
 
 ## Limitations and Best Practices
 

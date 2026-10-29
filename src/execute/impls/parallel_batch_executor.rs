@@ -243,7 +243,12 @@ impl BatchExecutor for ParallelBatchExecutor {
     /// unwinds are recorded in the execution result. Aborting panics cannot
     /// be captured. Automatic reporter failures are returned inside
     /// [`BatchCallError`] with their details in [`crate::ProgressFailure`];
-    /// captured callable panics appear in the execution result.
+    /// captured callable panics appear in the execution result. On paths that
+    /// create scoped threads, failure by the operating system to create a
+    /// worker or an automatic reporter thread may panic. Such failures are not
+    /// converted into a batch error and do not return a structured partial
+    /// result. Panics caught while running reporter callbacks are handled
+    /// separately.
     fn call_with_count<C, R, E, I>(
         &self,
         tasks: I,
@@ -294,6 +299,11 @@ impl BatchExecutor for ParallelBatchExecutor {
     /// Automatic reporter failures are returned as
     /// [`BatchExecutionError::ProgressReport`] with their details in
     /// [`crate::ProgressFailure`]; captured task panics appear in the outcome.
+    /// On paths that create scoped threads, failure by the operating system to
+    /// create a worker or an automatic reporter thread may panic. Such failures
+    /// are not converted into a batch error and do not return a structured
+    /// partial result. Panics caught while running reporter callbacks are
+    /// handled separately.
     fn execute_with_count<T, E, I>(
         &self,
         tasks: I,

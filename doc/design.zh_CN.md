@@ -67,6 +67,11 @@ execute_with_source 是唯一公开调度入口。其 ParallelBatchSource 在共
 同步进度回调、迭代器和任务析构的 panic 可能传播到调用方。任务体的 unwind
 会被捕获，但 abort 模式的 panic 无法捕获。自动上报的错误与捕获到的 panic
 转换为 ProgressFailure。Processor consumer 不使用 executor 的任务 panic 捕获语义。
+在实际创建 scoped 线程的路径上，操作系统无法创建 worker 或自动 reporter 时可能直接
+panic；这不会转换为批次错误，也不会返回结构化部分结果。这与 reporter 回调运行期间被
+捕获的错误或 panic 属于不同阶段。顺序回退不会创建这里所述的并行 worker。自定义调度器
+负责其自身的 worker 创建与资源处理；coordinator 只负责创建自动 reporter，并传播
+scheduler 的 panic。
 
 正数进度间隔用于节流，不是定时投递保证。顺序路径在数据项之间报告，分块路径在
 成功块之间报告；并行路径使用 scoped reporter 线程。零间隔取消节流，通过完成
@@ -109,6 +114,8 @@ Outcome 校验不再分配 HashSet 保存下标：先检查聚合计数与越界
 
 标准 worker 及有界队列随线程数 W 增长；当前实现的未完成来源观察数上限为
 2W + 1。这是后端测试覆盖的实现属性，不是任意自定义调度器的统一保证。
+配置构建成功不保证执行时仍有可用线程资源。应用应根据进程可用资源选择单批 worker
+数和同时运行的批次数。
 失败明细占 O(F) 空间，callable 结果占 O(S + F)。应用显式分块可以限制输出保留量，
 但不提供跨块全局策略。默认顺序阈值保持 100，应根据真实负载测量后调整。
 

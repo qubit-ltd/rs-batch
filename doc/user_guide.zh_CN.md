@@ -224,6 +224,12 @@ assert!(outcome.is_success());
 线程池中嵌套调用时，会在发起嵌套调用的 worker 上回退到顺序执行，避免等待同一线程池的
 worker；任意任务依赖或跨池循环等待仍需由应用设计处理。
 
+配置构建成功不保证运行批次时操作系统仍能创建线程。在创建 scoped 线程的路径上，
+创建 worker 或自动进度 reporter 线程失败可能直接 panic；它不会作为批次错误或结构化
+部分结果返回。reporter 回调运行期间被捕获的错误或 panic 则单独处理。顺序回退不会创建
+并行 worker。自定义调度器的 worker 与资源处理行为由其实现决定。应根据进程可用资源
+选择 worker 数和同时运行的批次数。
+
 ### 在任务失败后提前停止
 
 默认的 `TaskFailurePolicy::Continue` 会收集全部任务失败。若达到阈值后不应继续接受
@@ -462,7 +468,7 @@ trait 的 `Send` 要求与稀疏、有序的结果契约保持不变。通用并
 | 返回 `Ok` 但仍有失败 | `outcome.is_success()` 与 `failures()` | 按下标处理任务错误或 panic。 |
 | 出现 `CountShortfall` | 外部声明数量和输入生产者 | 修正生产者或数量边界；通过 `outcome()` 获取已完成工作。 |
 | 小批次没有启用 worker | `sequential_threshold()` | 仅在基准测试后降低阈值。 |
-| panic 没有作为错误返回 | panic 是否发生在任务体中 | 任务体 panic 会被捕获；进度上报器和 processor consumer 的 panic 可能直接传播。 |
+| 执行期间发生 panic | 来源是任务体、回调还是线程创建 | 任务体 panic 会被捕获；回调 panic 可能传播，也可能由自动 reporter 捕获；创建 scoped worker 或自动 reporter 线程失败可能直接 panic。 |
 
 ## 限制与最佳实践
 
