@@ -484,11 +484,17 @@ validation and retained-result space is O(S + F). Do not use a task failure as
 a signal to retry the entire batch automatically: the crate does not know
 whether a task's side effects are idempotent.
 
-For `ChunkedBatchProcessor`, an error's attached result includes only chunks
-that completed successfully before the failed chunk. The failed chunk may have
-already caused external side effects. Chunk metadata locates the failed input,
-but does not prove a safe replay boundary; use the delegate's transaction or
-idempotency contract to decide whether and how to retry.
+For `ChunkedBatchProcessor`, inspect the error variant before interpreting
+its attached result. `ChunkFailed` and `InvalidChunkResult` include only
+preceding successful chunks; the excluded chunk may already have caused
+external side effects. Their chunk metadata locates the affected input but
+does not prove a safe replay boundary. `ProgressReport` preserves successful
+chunks already recorded before reporting failed, including the current chunk
+if it succeeded before the failure; a terminal-report failure can retain the
+entire processed batch. `CountShortfall` and `CountExceeded` also retain work
+already completed and aggregated. Do not assume every error has failed-chunk
+metadata. Use the attached result, the specific error, and the delegate's
+transaction or idempotency contract to decide whether and how to retry.
 
 ## Troubleshooting
 
