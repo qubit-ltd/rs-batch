@@ -73,6 +73,7 @@ impl PhaseRecordingReporter {
     /// # Returns
     ///
     /// A reporter with no stored lifecycle phases.
+    #[must_use]
     #[inline]
     pub fn new() -> Self {
         Self::default()
@@ -117,6 +118,7 @@ impl RecordingReporter {
     /// # Returns
     ///
     /// A recording reporter with no stored events.
+    #[must_use]
     #[inline]
     pub fn new() -> Self {
         Self::default()
@@ -172,6 +174,7 @@ impl Reporter for RecordingReporter {
 /// # Returns
 ///
 /// The same count represented as `usize`.
+#[must_use]
 fn progress_count_to_usize(count: u64) -> usize {
     usize::try_from(count).expect("test progress count should fit usize")
 }
@@ -196,6 +199,7 @@ impl PanickingReporter {
     /// # Returns
     ///
     /// A panicking progress reporter.
+    #[must_use]
     pub const fn new(phase: ProgressPanicPhase, message: &'static str) -> Self {
         Self { phase, message }
     }

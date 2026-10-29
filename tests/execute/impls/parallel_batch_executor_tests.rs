@@ -368,8 +368,10 @@ fn test_parallel_batch_executor_propagates_progress_reporter_finish_panic() {
         .expect("parallel executor should build");
     let tasks = vec![TestTask::succeed()];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
-        .expect_err("progress reporter finish panic should be propagated");
+    let payload = catch_unwind(AssertUnwindSafe(|| {
+        executor.execute_with_count(tasks, 1).expect("batch should complete")
+    }))
+    .expect_err("progress reporter finish panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }
@@ -452,16 +454,18 @@ fn run_coordinated_progress_batch(
         .expect("parallel executor must build");
     let result = thread::scope(|scope| {
         let batch = scope.spawn(|| {
-            executor.for_each(0..3, |_| {
-                wait_for_release(&gate);
-                Ok::<(), ()>(())
-            })
+            executor
+                .for_each(0..3, |_| {
+                    wait_for_release(&gate);
+                    Ok::<(), ()>(())
+                })
+                .map_err(Box::new)
         });
         observed_running.recv().expect("running reporter must execute");
         release_workers(&gate);
         batch.join().expect("batch caller must join")
     });
-    (result, reporter.recorded.events())
+    (result.map_err(|error| *error), reporter.recorded.events())
 }
 
 /// Task that records the maximum number of concurrently active tasks.

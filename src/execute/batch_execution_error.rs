@@ -134,7 +134,7 @@ where
     /// # Returns
     ///
     /// A shared reference to the attached batch outcome.
-    #[must_use = "inspect the returned value"]
+    #[must_use = "inspect the attached batch outcome"]
     #[inline]
     pub const fn outcome(&self) -> &BatchOutcome<E> {
         match self {
@@ -151,7 +151,7 @@ where
     /// # Returns
     ///
     /// `Some(error)` for [`Self::ScheduleFailed`], or `None` for other errors.
-    #[must_use = "inspect the returned value"]
+    #[must_use = "inspect the returned scheduler error"]
     #[inline]
     pub fn scheduler_error(&self) -> Option<&S> {
         match self {
@@ -167,7 +167,7 @@ where
     /// The reporter error for [`Self::ProgressReport`], an additional reporter
     /// error attached to a primary count/scheduler error, or `None` when
     /// reporting did not fail.
-    #[must_use = "inspect the returned value"]
+    #[must_use = "inspect the associated progress-reporting error"]
     #[inline]
     pub fn progress_report_error(&self) -> Option<&ProgressFailure> {
         match self {

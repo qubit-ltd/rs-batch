@@ -10,12 +10,10 @@
 use qubit_batch::BatchExecutionError;
 use qubit_batch::SequentialBatchExecutor;
 
-use crate::support::TestCallable;
-
 #[test]
 fn test_batch_call_output_exposes_index_and_value() {
     let error = SequentialBatchExecutor::new()
-        .call_with_count([TestCallable::returning(42)], 2)
+        .call_with_count([|| Ok::<_, ()>(42)], 2)
         .expect_err("declared shortfall should preserve one output");
     let output = error.into_outputs().pop().expect("one output should be present");
 
@@ -26,8 +24,9 @@ fn test_batch_call_output_exposes_index_and_value() {
 
 #[test]
 fn test_batch_call_error_returns_sparse_outputs() {
+    let successful_calls = [10, 20].map(|value| move || Ok::<_, ()>(value));
     let error = SequentialBatchExecutor::new()
-        .call_with_count([TestCallable::returning(10), TestCallable::returning(20)], 3)
+        .call_with_count(successful_calls, 3)
         .expect_err("declared shortfall should preserve successful outputs");
 
     assert!(matches!(error.source(), BatchExecutionError::CountShortfall { .. }));

@@ -21,6 +21,8 @@ pub struct FailingReporter {
 
 impl FailingReporter {
     /// Creates a reporter that fails after `successful_calls` reports.
+    #[must_use]
+    #[inline]
     pub const fn after_successes(successful_calls: usize) -> Self {
         Self {
             successful_calls,

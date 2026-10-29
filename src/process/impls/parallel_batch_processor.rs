@@ -216,7 +216,6 @@ impl<Item> ParallelBatchProcessor<Item> {
     /// # Returns
     ///
     /// The arc-backed consumer used by this processor.
-    #[must_use = "use the returned consumer"]
     #[inline]
     pub fn into_consumer(self) -> ArcConsumer<Item> {
         self.consumer

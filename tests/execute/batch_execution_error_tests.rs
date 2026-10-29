@@ -92,6 +92,7 @@ fn test_batch_execution_error_exceeded_helpers() {
 }
 
 /// Builds a real start failure without exposing any progress implementation.
+#[must_use]
 fn start_failure() -> Box<ProgressFailure> {
     let error = SequentialBatchExecutor::builder()
         .reporter(FailingReporter::after_successes(0))

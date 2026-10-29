@@ -25,7 +25,7 @@ fn test_sequential_for_each_borrows_mutable_local_state() {
             Ok::<(), ()>(())
         })
         .expect("exact-size input should execute successfully");
-    assert!(result.is_success());
+    assert!(result.is_success(), "all items should complete successfully");
     assert_eq!(values, [2, 4, 6]);
 }
 
@@ -98,7 +98,10 @@ fn test_callable_drop_panic_is_captured() {
     let result = result.expect("task panic should remain in the callable result");
 
     assert_eq!(result.outcome().panicked_count(), 1);
-    assert!(result.outputs().is_empty());
+    assert!(
+        result.outputs().is_empty(),
+        "a panicked callable should not produce an output"
+    );
 }
 
 struct DropPanickingRunnable;

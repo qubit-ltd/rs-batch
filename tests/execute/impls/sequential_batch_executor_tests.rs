@@ -393,8 +393,10 @@ fn test_sequential_batch_executor_propagates_progress_reporter_start_panic() {
         .build();
     let tasks = vec![TestTask::succeed()];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
-        .expect_err("progress reporter start panic should be propagated");
+    let payload = catch_unwind(AssertUnwindSafe(|| {
+        executor.execute_with_count(tasks, 1).expect("batch should complete")
+    }))
+    .expect_err("progress reporter start panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }
@@ -408,8 +410,10 @@ fn test_sequential_batch_executor_propagates_progress_reporter_process_panic() {
         .build();
     let tasks = vec![TestTask::sleep_success(Duration::from_millis(1))];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
-        .expect_err("progress reporter process panic should be propagated");
+    let payload = catch_unwind(AssertUnwindSafe(|| {
+        executor.execute_with_count(tasks, 1).expect("batch should complete")
+    }))
+    .expect_err("progress reporter process panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }
@@ -422,8 +426,10 @@ fn test_sequential_batch_executor_propagates_progress_reporter_finish_panic() {
         .build();
     let tasks = vec![TestTask::succeed()];
 
-    let payload = catch_unwind(AssertUnwindSafe(|| executor.execute_with_count(tasks, 1)))
-        .expect_err("progress reporter finish panic should be propagated");
+    let payload = catch_unwind(AssertUnwindSafe(|| {
+        executor.execute_with_count(tasks, 1).expect("batch should complete")
+    }))
+    .expect_err("progress reporter finish panic should be propagated");
 
     assert_eq!(panic_payload_message(payload.as_ref()), Some(PANIC_MESSAGE));
 }

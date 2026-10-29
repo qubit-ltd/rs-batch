@@ -8,6 +8,7 @@
 //! Implementation state and adapters owned by execute.
 
 mod batch_execution_state;
+mod batch_outcome_validation;
 mod callable_task;
 mod for_each_task;
 mod parallel_batch_acceptance_state;
@@ -16,6 +17,7 @@ mod task_execution_status;
 pub(crate) use batch_execution_state::BatchExecutionState;
 pub(crate) use batch_execution_state::EXECUTION_PROGRESS_METRIC_ID;
 pub(crate) use batch_execution_state::EXECUTION_PROGRESS_METRIC_NAME;
+pub(super) use batch_outcome_validation::validate_outcome_invariants;
 pub(crate) use callable_task::CallableTask;
 pub(crate) use for_each_task::ForEachTask;
 pub(crate) use parallel_batch_acceptance_state::ParallelBatchAcceptanceState;

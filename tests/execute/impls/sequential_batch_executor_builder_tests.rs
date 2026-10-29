@@ -18,5 +18,9 @@ fn test_sequential_batch_executor_builder_applies_report_interval() {
         .no_reporter()
         .build();
 
-    assert_eq!(executor.report_interval(), Duration::ZERO);
+    assert_eq!(
+        executor.report_interval(),
+        Duration::ZERO,
+        "builder should preserve the configured report interval"
+    );
 }

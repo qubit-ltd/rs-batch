@@ -408,6 +408,10 @@ impl ParallelBatchExecutionCoordinator {
     /// # Returns
     ///
     /// The elapsed duration and an optional secondary progress failure.
+    ///
+    /// The failure is `Some` when delivering the failed terminal event returns
+    /// a reporter error, and `None` when delivery succeeds. A panic from the
+    /// synchronous terminal reporter callback propagates to the caller.
     #[must_use = "handle the elapsed duration and any progress failure"]
     fn fail_progress(progress: Progress<'_>) -> (Duration, Option<Box<ProgressFailure>>) {
         let (elapsed, report_error) = ProgressFailure::fail_operation(progress);

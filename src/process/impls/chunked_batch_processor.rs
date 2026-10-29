@@ -204,7 +204,7 @@ impl<P> ChunkedBatchProcessor<P> {
     /// # Returns
     ///
     /// The wrapped delegate processor.
-    #[must_use]
+    #[must_use = "inspect the returned value"]
     #[inline]
     pub fn delegate_mut(&mut self) -> &mut P {
         &mut self.delegate

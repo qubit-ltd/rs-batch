@@ -12,6 +12,11 @@ use qubit_function::Callable;
 use qubit_function::Runnable;
 
 /// Runnable wrapper used by [`crate::execute::BatchExecutor::call`].
+///
+/// # Type Parameters
+///
+/// * `C` - Callable that produces a value of type `R` or an error.
+/// * `R` - Successful output enqueued after the callable succeeds.
 pub(crate) struct CallableTask<C, R> {
     /// Callable consumed and executed exactly once.
     callable: Option<C>,
@@ -34,7 +39,7 @@ impl<C, R> CallableTask<C, R> {
     ///
     /// A runnable wrapper that sends successful output with its `index`.
     #[inline]
-    #[must_use = "use the constructed or borrowed value"]
+    #[must_use = "the task must be executed by the batch executor"]
     pub(crate) fn new(callable: C, index: usize, outputs: Arc<SegQueue<(usize, R)>>) -> Self {
         Self {
             callable: Some(callable),

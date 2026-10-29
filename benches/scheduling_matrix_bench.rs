@@ -191,8 +191,8 @@ fn benchmarks(criterion: &mut Criterion) {
 }
 
 /// Selected gate workloads include a slow producer and skewed worker costs.
-fn register_gate<E: BatchExecutor>(c: &mut Criterion, label: &str, executor: &E) {
-    let mut group = c.benchmark_group(format!("gate-{label}"));
+fn register_gate<E: BatchExecutor>(criterion: &mut Criterion, label: &str, executor: &E) {
+    let mut group = criterion.benchmark_group(format!("gate-{label}"));
     group.sample_size(30);
     group.warm_up_time(Duration::from_millis(200));
     group.measurement_time(Duration::from_millis(500));

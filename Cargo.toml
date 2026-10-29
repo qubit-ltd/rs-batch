@@ -1,6 +1,6 @@
 [package]
 name = "qubit-batch"
-version = "0.14.2"
+version = "0.14.3"
 edition = "2024"
 rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
@@ -64,3 +64,7 @@ harness = false
 [[bench]]
 name = "chunk_buffer_bench"
 harness = false
+
+[[test]]
+name = "process"
+path = "tests/process/process_tests.rs"

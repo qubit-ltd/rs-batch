@@ -92,7 +92,8 @@ use super::BatchProcessResult;
 /// assert!(empty.is_success());
 /// ```
 pub trait BatchProcessor<Item> {
-    /// Error returned by this processor.
+    /// Implementation-defined error describing why this processor could not
+    /// process a batch.
     type Error;
 
     /// Processes `items` as one batch using its exact iterator length.
@@ -118,6 +119,7 @@ pub trait BatchProcessor<Item> {
     /// is responsible for supplying an iterator that upholds its exact-size
     /// contract; implementations may detect a violation, but the trait does
     /// not require a universal runtime check.
+    #[inline]
     fn process<I>(&mut self, items: I) -> Result<BatchProcessResult, Self::Error>
     where
         I: IntoIterator<Item = Item>,

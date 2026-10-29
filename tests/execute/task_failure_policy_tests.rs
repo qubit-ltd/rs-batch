@@ -139,6 +139,7 @@ impl CountingTaskIterator {
     /// # Returns
     ///
     /// An iterator that reports its pulls through `next_calls`.
+    #[must_use = "use the constructed iterator"]
     fn new<const N: usize>(next_calls: ArcAtomicCount, tasks: [TestTask; N]) -> Self {
         Self {
             next_calls,

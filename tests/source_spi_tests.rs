@@ -5,6 +5,8 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+//! Integration tests for source-driven scheduling through the SPI coordinator.
+
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -54,7 +56,7 @@ fn test_source_consumption_proves_exhaustion() {
             },
         )
         .expect("consuming source to None should complete the schedule");
-    assert!(outcome.is_success());
+    assert!(outcome.is_success(), "exhausting the source should succeed");
 }
 
 #[test]
@@ -70,7 +72,10 @@ fn test_source_scheduler_return_without_exhaustion_is_incomplete() {
             },
         )
         .expect_err("the source must be exhausted explicitly");
-    assert!(error.is_incomplete_schedule());
+    assert!(
+        error.is_incomplete_schedule(),
+        "returning before source exhaustion should be incomplete"
+    );
     assert_eq!(error.outcome().completed_count(), 1);
 }
 
@@ -91,7 +96,10 @@ fn test_extra_source_item_remains_unobserved_when_schedule_returns_early() {
         })
         .expect_err("an unobserved extra source item must not be accepted as success");
 
-    assert!(error.is_incomplete_schedule());
+    assert!(
+        error.is_incomplete_schedule(),
+        "returning before observing the extra item should be incomplete"
+    );
     assert_eq!(error.outcome().completed_count(), 1);
     assert_eq!(pulls.load(Ordering::Relaxed), 1);
     let phases = reporter.0.lock().expect("phase log lock must be healthy");
@@ -114,12 +122,18 @@ fn test_source_scheduler_return_without_exhaustion_reports_failed_terminal() {
             },
         )
         .expect_err("the source must be observed to exhaustion");
-    assert!(error.is_incomplete_schedule());
+    assert!(
+        error.is_incomplete_schedule(),
+        "returning before source exhaustion should be incomplete"
+    );
     assert_eq!(error.outcome().completed_count(), 1);
     let phases = reporter.0.lock().expect("phase log lock must be healthy");
     assert_eq!(phases.first(), Some(&Phase::Started));
     assert_eq!(phases.last(), Some(&Phase::Failed));
-    assert!(!phases.contains(&Phase::Succeeded));
+    assert!(
+        !phases.contains(&Phase::Succeeded),
+        "an incomplete source schedule must not report success"
+    );
 }
 
 #[test]
@@ -134,7 +148,10 @@ fn test_empty_source_without_exhaustion_reports_failed_terminal() {
             |_source, _context| Ok(()),
         )
         .expect_err("zero declared tasks do not prove source exhaustion");
-    assert!(error.is_incomplete_schedule());
+    assert!(
+        error.is_incomplete_schedule(),
+        "an empty source still requires an exhaustion observation"
+    );
     let phases = reporter.0.lock().expect("phase log lock must be healthy");
     assert_eq!(phases.as_slice(), [Phase::Started, Phase::Failed]);
 }
@@ -161,7 +178,10 @@ fn test_exhausted_source_reports_succeeded_terminal() {
     assert_eq!(phases.first(), Some(&Phase::Started));
     assert_eq!(phases.last(), Some(&Phase::Succeeded));
     assert_eq!(phases.iter().filter(|phase| **phase == Phase::Succeeded).count(), 1);
-    assert!(!phases.contains(&Phase::Failed));
+    assert!(
+        !phases.contains(&Phase::Failed),
+        "an exhausted source must not report failure"
+    );
 }
 
 #[test]
@@ -184,7 +204,10 @@ fn test_policy_stop_does_not_require_exhaustion_probe() {
     let phases = reporter.0.lock().expect("phase log lock must be healthy");
     assert_eq!(phases.first(), Some(&Phase::Started));
     assert_eq!(phases.last(), Some(&Phase::Failed));
-    assert!(!phases.contains(&Phase::Succeeded));
+    assert!(
+        !phases.contains(&Phase::Succeeded),
+        "stopping by policy must not report success"
+    );
 }
 
 struct RejectFailedReporter;
@@ -210,13 +233,16 @@ fn test_source_exhaustion_error_keeps_terminal_report_failure_secondary() {
             |_source, _context| Ok(()),
         )
         .expect_err("source exhaustion remains the primary error");
-    assert!(matches!(
-        error,
-        BatchExecutionError::IncompleteSchedule {
-            report_error: Some(_),
-            ..
-        }
-    ));
+    assert!(
+        matches!(
+            error,
+            BatchExecutionError::IncompleteSchedule {
+                report_error: Some(_),
+                ..
+            }
+        ),
+        "terminal report failure should remain secondary to source exhaustion"
+    );
 }
 
 #[test]
@@ -230,7 +256,10 @@ fn test_source_is_fused_after_admission_stop() {
                 if let Some(token) = source.next() {
                     context.execute_task(token);
                 }
-                assert!(source.next().is_none());
+                assert!(
+                    source.next().is_none(),
+                    "the source must be fused after admission stops"
+                );
                 Ok::<(), Infallible>(())
             },
         )

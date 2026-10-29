@@ -29,6 +29,11 @@ impl ParallelBatchAcceptanceState {
     /// # Parameters
     ///
     /// * `task_count` - Declared number of tasks in the batch.
+    ///
+    /// # Returns
+    ///
+    /// A state with zero observed and accepted tasks and no stop or exhaustion
+    /// flags set.
     #[inline]
     #[must_use = "use the constructed state"]
     pub(crate) fn new(task_count: usize) -> Self {
@@ -42,6 +47,10 @@ impl ParallelBatchAcceptanceState {
     }
 
     /// Returns the declared task count.
+    ///
+    /// # Returns
+    ///
+    /// The task count supplied when this state was constructed.
     #[must_use = "inspect the returned value"]
     #[inline]
     pub(crate) const fn task_count(&self) -> usize {
@@ -49,6 +58,10 @@ impl ParallelBatchAcceptanceState {
     }
 
     /// Returns the observed task count.
+    ///
+    /// # Returns
+    ///
+    /// The number of source tasks recorded by the scheduler.
     #[must_use = "inspect the returned value"]
     #[inline]
     pub(crate) fn observed_count(&self) -> usize {
@@ -56,6 +69,10 @@ impl ParallelBatchAcceptanceState {
     }
 
     /// Returns the accepted task count.
+    ///
+    /// # Returns
+    ///
+    /// The number of source tasks accepted for execution.
     #[must_use = "inspect the returned value"]
     #[inline]
     pub(crate) fn accepted_count(&self) -> usize {
@@ -63,6 +80,10 @@ impl ParallelBatchAcceptanceState {
     }
 
     /// Returns whether source admission has stopped.
+    ///
+    /// # Returns
+    ///
+    /// `true` after failure policy has stopped admission; otherwise, `false`.
     #[must_use = "inspect the returned value"]
     #[inline]
     pub(crate) fn should_stop(&self) -> bool {
@@ -70,6 +91,11 @@ impl ParallelBatchAcceptanceState {
     }
 
     /// Returns whether the source iterator reached its terminal `None`.
+    ///
+    /// # Returns
+    ///
+    /// `true` after the source iterator returned its terminal `None`;
+    /// otherwise, `false`.
     #[must_use = "inspect the returned value"]
     #[inline]
     pub(crate) fn source_exhausted(&self) -> bool {
@@ -92,13 +118,16 @@ impl ParallelBatchAcceptanceState {
         self.observed_count.fetch_add(1, Ordering::AcqRel) + 1
     }
 
-    /// Records an observation unless failure policy has already stopped
-    /// admission.
+    /// Records an observation when the stop flag is clear at the initial check.
+    ///
+    /// Because the stop check and counter increment are separate atomic
+    /// operations, a concurrent stop may race with this check and the
+    /// observation may still be recorded.
     ///
     /// # Returns
     ///
-    /// `Some(count)` with the new observed count, or `None` when admission has
-    /// already stopped.
+    /// `Some(count)` with the new observed count, or `None` when the initial
+    /// stop check finds admission stopped.
     #[inline]
     pub(crate) fn try_record_observed(&self) -> Option<usize> {
         if self.should_stop() {

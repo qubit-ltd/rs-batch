@@ -25,6 +25,11 @@ static NEXT_EXECUTION_ID: AtomicU64 = AtomicU64::new(1);
 ///
 /// A process-wide nonzero identity that is unique until the `u64` space is
 /// exhausted.
+///
+/// # Panics
+///
+/// Panics if no further nonzero execution identity can be allocated.
+#[must_use]
 #[inline]
 fn next_execution_id() -> u64 {
     NEXT_EXECUTION_ID
@@ -88,6 +93,15 @@ impl<E> ParallelBatchExecutionContext<E> {
     /// # Type Parameters
     ///
     /// * `E` - Error type recorded for failed tasks in the shared batch state.
+    ///
+    /// # Returns
+    ///
+    /// A context with a new process-wide execution identity and the supplied
+    /// shared execution state.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the process-wide execution identity space has been exhausted.
     #[inline]
     #[must_use = "use the constructed or borrowed value"]
     pub(crate) fn new(
@@ -140,6 +154,12 @@ impl<E> ParallelBatchExecutionContext<E> {
     }
 
     /// Returns whether this execution can accept another source item.
+    ///
+    /// # Returns
+    ///
+    /// `true` while the source is active, the reporter has not failed, and the
+    /// task failure policy still permits admission; otherwise, `false`.
+    #[must_use]
     #[inline]
     pub(crate) fn is_accepting(&self) -> bool {
         !self.state.source_exhausted() && !self.status.is_failed() && !self.state.should_stop_accepting()

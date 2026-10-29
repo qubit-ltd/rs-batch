@@ -160,6 +160,7 @@ impl ProgressFailure {
     /// # Panics
     ///
     /// Propagates a panic from the synchronous terminal reporter callback.
+    #[must_use = "handle terminal elapsed time and any progress failure"]
     pub(crate) fn fail_operation(progress: Progress<'_>) -> (Duration, Option<Self>) {
         match progress.fail() {
             Ok(elapsed) => (elapsed, None),

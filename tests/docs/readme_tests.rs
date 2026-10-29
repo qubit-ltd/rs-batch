@@ -20,17 +20,29 @@ fn test_readme_dependency_version_matches_cargo_toml() {
         extract_readme_dependency_version(README_EN).expect("Failed to extract version from README.md");
     let readme_zh_version =
         extract_readme_dependency_version(README_ZH).expect("Failed to extract version from README.zh_CN.md");
-    assert_eq!(readme_en_version, expected.as_str());
-    assert_eq!(readme_zh_version, expected.as_str());
+    assert_eq!(readme_en_version, expected.as_str(), "English README version");
+    assert_eq!(readme_zh_version, expected.as_str(), "Chinese README version");
 }
 
 /// Ensures both README files document the current executor types.
 #[test]
 fn test_readme_mentions_current_executor_types() {
-    assert!(README_EN.contains("SequentialBatchExecutor"));
-    assert!(README_EN.contains("ParallelBatchExecutor"));
-    assert!(README_ZH.contains("SequentialBatchExecutor"));
-    assert!(README_ZH.contains("ParallelBatchExecutor"));
+    assert!(
+        README_EN.contains("SequentialBatchExecutor"),
+        "English README must document SequentialBatchExecutor"
+    );
+    assert!(
+        README_EN.contains("ParallelBatchExecutor"),
+        "English README must document ParallelBatchExecutor"
+    );
+    assert!(
+        README_ZH.contains("SequentialBatchExecutor"),
+        "Chinese README must document SequentialBatchExecutor"
+    );
+    assert!(
+        README_ZH.contains("ParallelBatchExecutor"),
+        "Chinese README must document ParallelBatchExecutor"
+    );
 }
 
 /// Ensures license and repository links use the package-local documentation
@@ -38,14 +50,23 @@ fn test_readme_mentions_current_executor_types() {
 #[test]
 fn test_readmes_use_local_license_and_repository_links() {
     for readme in [README_EN, README_ZH] {
-        assert!(readme.contains("license-Apache%202.0-blue.svg)](LICENSE)"));
-        assert!(readme.contains("[LICENSE](LICENSE)"));
         assert!(
-            readme
-                .contains("Repository: [https://github.com/qubit-ltd/rs-batch](https://github.com/qubit-ltd/rs-batch)",)
-                || readme.contains(
-                    "仓库地址：[https://github.com/qubit-ltd/rs-batch](https://github.com/qubit-ltd/rs-batch)",
-                )
+            readme.contains("license-Apache%202.0-blue.svg)](LICENSE)"),
+            "README license badge must link to the local license"
+        );
+        assert!(
+            readme.contains("[LICENSE](LICENSE)"),
+            "README license link must be local"
+        );
+        assert!(
+            readme.contains(concat!(
+                "Repository: [https://github.com/qubit-ltd/rs-batch]",
+                "(https://github.com/qubit-ltd/rs-batch)"
+            )) || readme.contains(concat!(
+                "仓库地址：[https://github.com/qubit-ltd/rs-batch]",
+                "(https://github.com/qubit-ltd/rs-batch)"
+            )),
+            "README must link to the package repository"
         );
     }
 }

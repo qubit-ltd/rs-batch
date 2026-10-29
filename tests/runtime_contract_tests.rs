@@ -44,7 +44,8 @@ fn run_with_watchdog(test_name: &str, scenario: impl FnOnce()) {
         return;
     }
 
-    let mut child = Command::new(std::env::current_exe().expect("test executable should be available"))
+    let executable = std::env::current_exe().expect("test executable should be available");
+    let mut child = Command::new(executable)
         .arg("--exact")
         .arg(test_name)
         .arg("--nocapture")
@@ -118,7 +119,8 @@ impl Iterator for ObservedItems {
         let completed = self.completed.load(Ordering::Acquire);
         assert!(
             observed - completed <= self.max_unfinished,
-            "unfinished source observations exceeded {}: observed {observed}, completed {completed}",
+            "unfinished source observations exceeded {}: \
+             observed {observed}, completed {completed}",
             self.max_unfinished,
         );
         if observed - completed == self.max_unfinished
@@ -315,12 +317,14 @@ fn release_workers(gate: &Arc<(Mutex<bool>, Condvar)>) {
     changed.notify_all();
 }
 
+/// Records batch event phases so concurrent executions can be distinguished.
 #[derive(Default)]
 struct IsolationReporter {
     events: Mutex<Vec<(usize, Phase)>>,
 }
 
 impl IsolationReporter {
+    /// Returns a snapshot of the recorded batch totals and phases.
     fn events(&self) -> Vec<(usize, Phase)> {
         self.events.lock().expect("reporter event log must be healthy").clone()
     }
@@ -341,6 +345,7 @@ impl Reporter for IsolationReporter {
     }
 }
 
+/// Verifies that a batch reporter starts first and ends in its expected phase.
 fn assert_batch_reporter_lifecycle(events: &[(usize, Phase)], total: usize, terminal: Phase) {
     let phases: Vec<_> = events
         .iter()
@@ -511,9 +516,10 @@ fn test_running_reporter_failure_stops_admission_and_drains_accepted_tokens() {
                                 let mut probe_accepted = 0;
                                 loop {
                                     let Some(task) = source.next() else {
-                                        admission_stopped_sender
-                                            .send(probe_accepted)
-                                            .expect("scheduler should await the admission-stop acknowledgement");
+                                        admission_stopped_sender.send(probe_accepted).expect(
+                                            "scheduler should await the admission-stop \
+                                                 acknowledgement",
+                                        );
                                         return;
                                     };
                                     accepted.fetch_add(1, Ordering::AcqRel);

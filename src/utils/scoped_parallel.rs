@@ -178,7 +178,8 @@ where
     });
 }
 
-/// Runs one scoped worker until the work channel closes.
+/// Runs one scoped worker until the stop predicate returns `true` or the work
+/// channel closes.
 ///
 /// # Parameters
 ///

@@ -228,20 +228,22 @@ fn test_parallel_batch_execution_coordinator_reports_start_error_as_progress_rep
 fn test_parallel_batch_execution_coordinator_propagates_scheduler_panic() {
     let coordinator = ParallelBatchExecutionCoordinator::new(Arc::new(NoopReporter), Duration::ZERO);
     let payload = catch_unwind(AssertUnwindSafe(|| {
-        coordinator.execute_with_source(
-            std::array::from_fn::<_, 3, _>(|_| TestTask::succeed()),
-            3,
-            TaskFailurePolicy::Continue,
-            |tasks, context| {
-                for (index, task) in tasks.enumerate() {
-                    context.execute_task(task);
-                    if index == 1 {
-                        panic!("scheduler failure");
+        coordinator
+            .execute_with_source(
+                std::array::from_fn::<_, 3, _>(|_| TestTask::succeed()),
+                3,
+                TaskFailurePolicy::Continue,
+                |tasks, context| {
+                    for (index, task) in tasks.enumerate() {
+                        context.execute_task(task);
+                        if index == 1 {
+                            panic!("scheduler failure");
+                        }
                     }
-                }
-                Ok::<(), Infallible>(())
-            },
-        )
+                    Ok::<(), Infallible>(())
+                },
+            )
+            .expect("coordinator should complete")
     }))
     .expect_err("scheduler panic should be propagated");
 

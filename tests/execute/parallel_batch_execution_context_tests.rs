@@ -7,6 +7,7 @@
 // =============================================================================
 //! Behavioral coverage for [`ParallelBatchExecutionContext`].
 
+use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -38,7 +39,7 @@ fn test_parallel_batch_execution_context_execute_task_notifies_running_progress(
                 for task in tasks {
                     context.execute_task(task);
                 }
-                Ok::<(), std::convert::Infallible>(())
+                Ok::<(), Infallible>(())
             },
         )
         .expect("coordinator should complete");
@@ -69,7 +70,7 @@ fn test_parallel_batch_execution_context_rejects_tasks_after_declared_count() {
                 for task in tasks {
                     context.execute_task(task);
                 }
-                Ok::<(), std::convert::Infallible>(())
+                Ok::<(), Infallible>(())
             },
         )
         .expect_err("the second observed task should exceed the declared count");
@@ -93,7 +94,7 @@ fn test_parallel_batch_execution_context_auto_reporter_failure_is_reported_as_pr
                     std::thread::sleep(Duration::from_millis(1));
                 }
             }
-            Ok::<(), std::convert::Infallible>(())
+            Ok::<(), Infallible>(())
         },
     );
 

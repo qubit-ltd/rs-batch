@@ -19,6 +19,7 @@ mod batch_task_error_tests;
 mod batch_task_failure_tests;
 mod batch_termination_tests;
 mod impls;
+mod main_tests;
 mod parallel_batch_execution_context_tests;
 mod parallel_batch_execution_coordinator_tests;
 mod parallel_batch_task_tests;

@@ -180,6 +180,7 @@ impl<Item, C> SequentialBatchProcessorBuilder<Item, C> {
     /// # Returns
     ///
     /// A sequential batch processor with this builder's configuration.
+    #[must_use = "use the processor to process items"]
     #[inline]
     pub fn build(self) -> SequentialBatchProcessor<Item, C> {
         SequentialBatchProcessor {
