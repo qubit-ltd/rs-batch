@@ -33,6 +33,7 @@ use qubit_progress::Reporter;
 use qubit_progress::ReporterError;
 
 use crate::support::FailingReporter;
+use crate::support::PhaseRecordingReporter;
 use crate::support::ProgressEvent;
 use crate::support::RecordingReporter;
 use crate::support::panic_payload_message;
@@ -131,6 +132,53 @@ fn test_parallel_batch_processor_processes_items() {
     assert_eq!(
         processor.sequential_threshold(),
         ParallelBatchProcessor::<i32>::DEFAULT_SEQUENTIAL_THRESHOLD
+    );
+}
+
+#[test]
+fn test_parallel_batch_processor_terminal_phases_for_parallel_and_sequential_paths() {
+    run_with_watchdog(
+        concat!(
+            module_path!(),
+            "::test_parallel_batch_processor_terminal_phases_for_parallel_and_sequential_paths"
+        ),
+        || {
+            for threshold in [0usize, 100] {
+                let reporter = Arc::new(PhaseRecordingReporter::new());
+                let concurrent_items = Arc::new(Barrier::new(2));
+                let worker_barrier = Arc::clone(&concurrent_items);
+                let mut processor = ParallelBatchProcessor::builder(move |_item: &i32| {
+                    if threshold == 0 {
+                        worker_barrier.wait();
+                    }
+                })
+                .thread_count(2)
+                .sequential_threshold(threshold)
+                .reporter_arc(reporter.clone())
+                .build()
+                .expect("two-worker configuration should build");
+
+                let result = processor
+                    .process_with_count([1, 2], 2)
+                    .expect("exact source should succeed");
+
+                assert!(result.is_success());
+                assert_eq!(result.item_count(), 2);
+                assert_eq!(result.completed_count(), 2);
+                assert_eq!(result.processed_count(), 2);
+                let phases = reporter.phases();
+                assert_eq!(phases.first(), Some(&Phase::Started));
+                assert_eq!(phases.last(), Some(&Phase::Succeeded));
+                assert_eq!(phases.iter().filter(|phase| **phase == Phase::Started).count(), 1);
+                assert_eq!(
+                    phases
+                        .iter()
+                        .filter(|phase| matches!(phase, Phase::Succeeded | Phase::Failed | Phase::Cancelled))
+                        .count(),
+                    1
+                );
+            }
+        },
     );
 }
 
@@ -329,41 +377,64 @@ fn test_parallel_batch_processor_parallel_count_mismatches() {
             "::test_parallel_batch_processor_parallel_count_mismatches"
         ),
         || {
-            for (items, declared, expected_values, exceeded) in [
-                (vec![1, 2, 3], 2usize, vec![1, 2], true),
-                (vec![1, 2], 3usize, vec![1, 2], false),
-            ] {
-                let seen = Arc::new(Mutex::new(Vec::new()));
-                let recorded = Arc::clone(&seen);
-                let mut processor = ParallelBatchProcessor::builder(move |item: &i32| {
-                    recorded.lock().expect("value log should be healthy").push(*item);
-                })
-                .thread_count(2)
-                .sequential_threshold(0)
-                .build()
-                .expect("parallel processor should build");
-                let error = processor
-                    .process_with_count(items, declared)
-                    .expect_err("count should mismatch");
-                match &error {
-                    BatchProcessError::CountExceeded {
-                        expected,
-                        observed_at_least,
-                        ..
-                    } if exceeded => {
-                        assert_eq!((*expected, *observed_at_least), (2, 3));
+            for threshold in [0usize, 100] {
+                for (items, declared, expected_values, exceeded) in [
+                    (vec![1, 2, 3], 2usize, vec![1, 2], true),
+                    (vec![1, 2], 3usize, vec![1, 2], false),
+                ] {
+                    let seen = Arc::new(Mutex::new(Vec::new()));
+                    let recorded = Arc::clone(&seen);
+                    let reporter = Arc::new(PhaseRecordingReporter::new());
+                    let concurrent_items = Arc::new(Barrier::new(2));
+                    let worker_barrier = Arc::clone(&concurrent_items);
+                    let callback_count = Arc::new(AtomicUsize::new(0));
+                    let worker_callback_count = Arc::clone(&callback_count);
+                    let mut processor = ParallelBatchProcessor::builder(move |item: &i32| {
+                        recorded.lock().expect("value log should be healthy").push(*item);
+                        let callback_index = worker_callback_count.fetch_add(1, Ordering::SeqCst);
+                        if threshold == 0 && callback_index < 2 {
+                            worker_barrier.wait();
+                        }
+                    })
+                    .thread_count(2)
+                    .sequential_threshold(threshold)
+                    .reporter_arc(reporter.clone())
+                    .build()
+                    .expect("parallel processor should build");
+                    let error = processor
+                        .process_with_count(items, declared)
+                        .expect_err("count should mismatch");
+                    match &error {
+                        BatchProcessError::CountExceeded {
+                            expected,
+                            observed_at_least,
+                            ..
+                        } if exceeded => {
+                            assert_eq!((*expected, *observed_at_least), (2, 3));
+                        }
+                        BatchProcessError::CountShortfall { expected, actual, .. } if !exceeded => {
+                            assert_eq!((*expected, *actual), (3, 2));
+                        }
+                        other => panic!("unexpected count error: {other:?}"),
                     }
-                    BatchProcessError::CountShortfall { expected, actual, .. } if !exceeded => {
-                        assert_eq!((*expected, *actual), (3, 2));
-                    }
-                    other => panic!("unexpected count error: {other:?}"),
+                    assert_eq!(error.result().completed_count(), 2);
+                    assert_eq!(error.result().processed_count(), 2);
+                    assert_eq!(error.result().chunk_count(), 1);
+                    let phases = reporter.phases();
+                    assert_eq!(phases.first(), Some(&Phase::Started));
+                    assert_eq!(phases.last(), Some(&Phase::Failed));
+                    assert_eq!(phases.iter().filter(|phase| **phase == Phase::Started).count(), 1);
+                    assert_eq!(
+                        phases
+                            .iter()
+                            .filter(|phase| matches!(phase, Phase::Succeeded | Phase::Failed | Phase::Cancelled))
+                            .count(),
+                        1
+                    );
+                    let mut values = seen.lock().expect("value log should be healthy").clone();
+                    values.sort_unstable();
+                    assert_eq!(values, expected_values);
                 }
-                assert_eq!(error.result().completed_count(), 2);
-                assert_eq!(error.result().processed_count(), 2);
-                assert_eq!(error.result().chunk_count(), 1);
-                let mut values = seen.lock().expect("value log should be healthy").clone();
-                values.sort_unstable();
-                assert_eq!(values, expected_values);
             }
         },
     );

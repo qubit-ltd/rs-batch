@@ -17,13 +17,29 @@ use qubit_batch::BatchProcessResult;
 use qubit_batch::BatchProcessor;
 use qubit_batch::ChunkedBatchProcessError;
 use qubit_batch::ChunkedBatchProcessor;
+use qubit_progress::Phase;
 use qubit_progress::reporter::NoopReporter;
 
 use crate::support::FailingReporter;
+use crate::support::PhaseRecordingReporter;
 use crate::support::ProgressEvent;
 use crate::support::RecordingReporter;
 use crate::support::TestChunkOutcome;
 use crate::support::TestChunkProcessor;
+
+fn assert_phase_lifecycle(reporter: &PhaseRecordingReporter, terminal: Phase) {
+    let phases = reporter.phases();
+    assert_eq!(phases.first(), Some(&Phase::Started));
+    assert_eq!(phases.last(), Some(&terminal));
+    assert_eq!(phases.iter().filter(|phase| **phase == Phase::Started).count(), 1);
+    assert_eq!(
+        phases
+            .iter()
+            .filter(|phase| matches!(phase, Phase::Succeeded | Phase::Failed | Phase::Cancelled))
+            .count(),
+        1
+    );
+}
 
 #[derive(Default)]
 struct PartiallyProcessingDelegate {
@@ -98,7 +114,10 @@ fn test_chunked_batch_processor_accessors_and_delegate_mutation() {
 fn test_chunked_batch_processor_submits_items_in_chunks() {
     let delegate = TestChunkProcessor::success();
     let chunks = delegate.chunks();
-    let mut processor = ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"));
+    let reporter = Arc::new(PhaseRecordingReporter::new());
+    let mut processor = ChunkedBatchProcessor::builder(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"))
+        .reporter_arc(reporter.clone())
+        .build();
 
     let result = processor
         .process_with_count([1, 2, 3, 4, 5], 5)
@@ -112,14 +131,18 @@ fn test_chunked_batch_processor_submits_items_in_chunks() {
         *chunks.lock().unwrap_or_else(std::sync::PoisonError::into_inner),
         vec![vec![1, 2], vec![3, 4], vec![5]]
     );
+    assert_phase_lifecycle(&reporter, Phase::Succeeded);
 }
 
 #[test]
 fn test_chunked_batch_processor_aggregates_partial_processed_counts() {
-    let mut processor = ChunkedBatchProcessor::new(
+    let reporter = Arc::new(PhaseRecordingReporter::new());
+    let mut processor = ChunkedBatchProcessor::builder(
         PartiallyProcessingDelegate::default(),
         NonZeroUsize::new(2).expect("chunk size must be positive"),
-    );
+    )
+    .reporter_arc(reporter.clone())
+    .build();
 
     let result = processor
         .process([1, 2, 3, 4])
@@ -131,13 +154,18 @@ fn test_chunked_batch_processor_aggregates_partial_processed_counts() {
     assert_eq!(result.chunk_count(), 2);
     assert!(!result.is_success());
     assert_eq!(processor.delegate().chunks, vec![vec![1, 2], vec![3, 4]]);
+
+    assert_phase_lifecycle(&reporter, Phase::Succeeded);
 }
 
 #[test]
 fn test_chunked_batch_processor_accepts_empty_input() {
     let delegate = TestChunkProcessor::success();
     let chunks = delegate.chunks();
-    let mut processor = ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"));
+    let reporter = Arc::new(PhaseRecordingReporter::new());
+    let mut processor = ChunkedBatchProcessor::builder(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"))
+        .reporter_arc(reporter.clone())
+        .build();
 
     let result = processor.process_with_count([], 0).expect("empty batch should succeed");
 
@@ -151,6 +179,7 @@ fn test_chunked_batch_processor_accepts_empty_input() {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .is_empty()
     );
+    assert_phase_lifecycle(&reporter, Phase::Succeeded);
 }
 
 #[test]
@@ -211,7 +240,10 @@ fn test_chunked_batch_processor_skips_progress_before_interval() {
 #[test]
 fn test_chunked_batch_processor_reports_count_exceeded() {
     let delegate = TestChunkProcessor::success();
-    let mut processor = ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"));
+    let reporter = Arc::new(PhaseRecordingReporter::new());
+    let mut processor = ChunkedBatchProcessor::builder(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"))
+        .reporter_arc(reporter.clone())
+        .build();
 
     let error = processor
         .process_with_count([1, 2, 3], 2)
@@ -231,13 +263,17 @@ fn test_chunked_batch_processor_reports_count_exceeded() {
         }
         other => panic!("unexpected error: {other:?}"),
     }
+    assert_phase_lifecycle(&reporter, Phase::Failed);
 }
 
 #[test]
 fn test_chunked_batch_processor_flushes_tail_chunk_before_count_exceeded() {
     let delegate = TestChunkProcessor::success();
     let chunks = delegate.chunks();
-    let mut processor = ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"));
+    let reporter = Arc::new(PhaseRecordingReporter::new());
+    let mut processor = ChunkedBatchProcessor::builder(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"))
+        .reporter_arc(reporter.clone())
+        .build();
 
     let error = processor
         .process_with_count([1, 2, 3, 4], 3)
@@ -262,17 +298,21 @@ fn test_chunked_batch_processor_flushes_tail_chunk_before_count_exceeded() {
         }
         other => panic!("unexpected error: {other:?}"),
     }
+    assert_phase_lifecycle(&reporter, Phase::Failed);
 }
 
 #[test]
 fn test_chunked_batch_processor_propagates_tail_chunk_error_before_count_exceeded() {
-    let mut processor = ChunkedBatchProcessor::new(
+    let reporter = Arc::new(PhaseRecordingReporter::new());
+    let mut processor = ChunkedBatchProcessor::builder(
         TestChunkProcessor::outcomes([
             TestChunkOutcome::Success,
             TestChunkOutcome::Failure("tail insert failed"),
         ]),
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
-    );
+    )
+    .reporter_arc(reporter.clone())
+    .build();
 
     let error = processor
         .process_with_count([1, 2, 3, 4], 3)
@@ -296,12 +336,16 @@ fn test_chunked_batch_processor_propagates_tail_chunk_error_before_count_exceede
         }
         other => panic!("unexpected error: {other:?}"),
     }
+    assert_phase_lifecycle(&reporter, Phase::Failed);
 }
 
 #[test]
 fn test_chunked_batch_processor_reports_count_exceeded_before_first_chunk() {
     let delegate = TestChunkProcessor::success();
-    let mut processor = ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"));
+    let reporter = Arc::new(PhaseRecordingReporter::new());
+    let mut processor = ChunkedBatchProcessor::builder(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"))
+        .reporter_arc(reporter.clone())
+        .build();
 
     let error = processor
         .process_with_count([1], 0)
@@ -321,12 +365,16 @@ fn test_chunked_batch_processor_reports_count_exceeded_before_first_chunk() {
         }
         other => panic!("unexpected error: {other:?}"),
     }
+    assert_phase_lifecycle(&reporter, Phase::Failed);
 }
 
 #[test]
 fn test_chunked_batch_processor_reports_count_shortfall() {
     let delegate = TestChunkProcessor::success();
-    let mut processor = ChunkedBatchProcessor::new(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"));
+    let reporter = Arc::new(PhaseRecordingReporter::new());
+    let mut processor = ChunkedBatchProcessor::builder(delegate, NonZeroUsize::new(2).expect("chunk size is non-zero"))
+        .reporter_arc(reporter.clone())
+        .build();
 
     let error = processor
         .process_with_count([1, 2, 3], 5)
@@ -346,6 +394,7 @@ fn test_chunked_batch_processor_reports_count_shortfall() {
         }
         other => panic!("unexpected error: {other:?}"),
     }
+    assert_phase_lifecycle(&reporter, Phase::Failed);
 }
 
 #[test]
@@ -463,13 +512,16 @@ fn test_chunked_batch_processor_wraps_delegate_error() {
 
 #[test]
 fn test_chunked_batch_processor_wraps_partial_chunk_error() {
-    let mut processor = ChunkedBatchProcessor::new(
+    let reporter = Arc::new(PhaseRecordingReporter::new());
+    let mut processor = ChunkedBatchProcessor::builder(
         TestChunkProcessor::outcomes([
             TestChunkOutcome::Success,
             TestChunkOutcome::Failure("partial insert failed"),
         ]),
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
-    );
+    )
+    .reporter_arc(reporter.clone())
+    .build();
 
     let error = processor
         .process_with_count([1, 2, 3], 3)
@@ -493,14 +545,18 @@ fn test_chunked_batch_processor_wraps_partial_chunk_error() {
         }
         other => panic!("unexpected error: {other:?}"),
     }
+    assert_phase_lifecycle(&reporter, Phase::Failed);
 }
 
 #[test]
 fn test_chunked_batch_processor_rejects_invalid_delegate_result() {
-    let mut processor = ChunkedBatchProcessor::new(
+    let reporter = Arc::new(PhaseRecordingReporter::new());
+    let mut processor = ChunkedBatchProcessor::builder(
         TestChunkProcessor::outcomes([TestChunkOutcome::InvalidCompletedCount]),
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
-    );
+    )
+    .reporter_arc(reporter.clone())
+    .build();
 
     let error = processor
         .process_with_count([1, 2], 2)
@@ -527,14 +583,18 @@ fn test_chunked_batch_processor_rejects_invalid_delegate_result() {
         }
         other => panic!("unexpected error: {other:?}"),
     }
+    assert_phase_lifecycle(&reporter, Phase::Failed);
 }
 
 #[test]
 fn test_chunked_batch_processor_rejects_invalid_delegate_item_count() {
-    let mut processor = ChunkedBatchProcessor::new(
+    let reporter = Arc::new(PhaseRecordingReporter::new());
+    let mut processor = ChunkedBatchProcessor::builder(
         TestChunkProcessor::outcomes([TestChunkOutcome::InvalidItemCount]),
         NonZeroUsize::new(2).expect("chunk size is non-zero"),
-    );
+    )
+    .reporter_arc(reporter.clone())
+    .build();
 
     let error = processor
         .process_with_count([1, 2], 2)
@@ -561,4 +621,5 @@ fn test_chunked_batch_processor_rejects_invalid_delegate_item_count() {
         }
         other => panic!("unexpected error: {other:?}"),
     }
+    assert_phase_lifecycle(&reporter, Phase::Failed);
 }

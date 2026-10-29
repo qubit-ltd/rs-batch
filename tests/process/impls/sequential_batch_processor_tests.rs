@@ -17,8 +17,10 @@ use qubit_batch::BatchProcessError;
 use qubit_batch::BatchProcessor;
 use qubit_batch::SequentialBatchProcessor;
 use qubit_function::Consumer;
+use qubit_progress::Phase;
 
 use crate::support::FailingReporter;
+use crate::support::PhaseRecordingReporter;
 use crate::support::ProgressEvent;
 use crate::support::RecordingReporter;
 
@@ -73,12 +75,15 @@ fn test_sequential_batch_processor_accessors_and_value_reporter() {
 fn test_sequential_batch_processor_processes_items_in_order() {
     let accepted = Arc::new(Mutex::new(Vec::new()));
     let accepted_by_consumer = Arc::clone(&accepted);
-    let mut processor = SequentialBatchProcessor::new(move |item: &i32| {
+    let reporter = Arc::new(PhaseRecordingReporter::new());
+    let mut processor = SequentialBatchProcessor::builder(move |item: &i32| {
         accepted_by_consumer
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .push(*item);
-    });
+    })
+    .reporter_arc(reporter.clone())
+    .build();
 
     let result = processor
         .process_with_count(vec![1, 2, 3], 3)
@@ -88,7 +93,19 @@ fn test_sequential_batch_processor_processes_items_in_order() {
     assert_eq!(result.completed_count(), 3);
     assert_eq!(result.processed_count(), 3);
     assert_eq!(result.chunk_count(), 1);
+    assert!(result.is_success());
     assert_eq!(*accepted.lock().unwrap_or_else(PoisonError::into_inner), vec![1, 2, 3]);
+    let phases = reporter.phases();
+    assert_eq!(phases.first(), Some(&Phase::Started));
+    assert_eq!(phases.last(), Some(&Phase::Succeeded));
+    assert_eq!(phases.iter().filter(|phase| **phase == Phase::Started).count(), 1);
+    assert_eq!(
+        phases
+            .iter()
+            .filter(|phase| matches!(phase, Phase::Succeeded | Phase::Failed | Phase::Cancelled))
+            .count(),
+        1
+    );
 }
 
 #[test]
@@ -148,9 +165,12 @@ fn test_sequential_batch_processor_reports_progress_with_zero_interval() {
 
 #[test]
 fn test_sequential_batch_processor_accepts_empty_input() {
-    let mut processor = SequentialBatchProcessor::new(|_item: &i32| {
+    let reporter = Arc::new(PhaseRecordingReporter::new());
+    let mut processor = SequentialBatchProcessor::builder(|_item: &i32| {
         panic!("empty input should not call the consumer");
-    });
+    })
+    .reporter_arc(reporter.clone())
+    .build();
 
     let result = processor
         .process_with_count(Vec::<i32>::new(), 0)
@@ -160,18 +180,33 @@ fn test_sequential_batch_processor_accepts_empty_input() {
     assert_eq!(result.completed_count(), 0);
     assert_eq!(result.processed_count(), 0);
     assert_eq!(result.chunk_count(), 0);
+    assert!(result.is_success());
+    let phases = reporter.phases();
+    assert_eq!(phases.first(), Some(&Phase::Started));
+    assert_eq!(phases.last(), Some(&Phase::Succeeded));
+    assert_eq!(phases.iter().filter(|phase| **phase == Phase::Started).count(), 1);
+    assert_eq!(
+        phases
+            .iter()
+            .filter(|phase| matches!(phase, Phase::Succeeded | Phase::Failed | Phase::Cancelled))
+            .count(),
+        1
+    );
 }
 
 #[test]
 fn test_sequential_batch_processor_reports_count_exceeded() {
     let accepted = Arc::new(Mutex::new(Vec::new()));
     let accepted_by_consumer = Arc::clone(&accepted);
-    let mut processor = SequentialBatchProcessor::new(move |item: &i32| {
+    let reporter = Arc::new(PhaseRecordingReporter::new());
+    let mut processor = SequentialBatchProcessor::builder(move |item: &i32| {
         accepted_by_consumer
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .push(*item);
-    });
+    })
+    .reporter_arc(reporter.clone())
+    .build();
 
     let error = processor
         .process_with_count(vec![1, 2, 3], 2)
@@ -193,18 +228,32 @@ fn test_sequential_batch_processor_reports_count_exceeded() {
         other => panic!("unexpected error: {other:?}"),
     }
     assert_eq!(*accepted.lock().unwrap_or_else(PoisonError::into_inner), vec![1, 2]);
+    let phases = reporter.phases();
+    assert_eq!(phases.first(), Some(&Phase::Started));
+    assert_eq!(phases.last(), Some(&Phase::Failed));
+    assert_eq!(phases.iter().filter(|phase| **phase == Phase::Started).count(), 1);
+    assert_eq!(
+        phases
+            .iter()
+            .filter(|phase| matches!(phase, Phase::Succeeded | Phase::Failed | Phase::Cancelled))
+            .count(),
+        1
+    );
 }
 
 #[test]
 fn test_sequential_batch_processor_reports_count_shortfall() {
     let accepted = Arc::new(Mutex::new(Vec::new()));
     let accepted_by_consumer = Arc::clone(&accepted);
-    let mut processor = SequentialBatchProcessor::new(move |item: &i32| {
+    let reporter = Arc::new(PhaseRecordingReporter::new());
+    let mut processor = SequentialBatchProcessor::builder(move |item: &i32| {
         accepted_by_consumer
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .push(*item);
-    });
+    })
+    .reporter_arc(reporter.clone())
+    .build();
 
     let error = processor
         .process_with_count(vec![1, 2], 3)
@@ -226,4 +275,15 @@ fn test_sequential_batch_processor_reports_count_shortfall() {
         other => panic!("unexpected error: {other:?}"),
     }
     assert_eq!(*accepted.lock().unwrap_or_else(PoisonError::into_inner), vec![1, 2]);
+    let phases = reporter.phases();
+    assert_eq!(phases.first(), Some(&Phase::Started));
+    assert_eq!(phases.last(), Some(&Phase::Failed));
+    assert_eq!(phases.iter().filter(|phase| **phase == Phase::Started).count(), 1);
+    assert_eq!(
+        phases
+            .iter()
+            .filter(|phase| matches!(phase, Phase::Succeeded | Phase::Failed | Phase::Cancelled))
+            .count(),
+        1
+    );
 }
