@@ -392,6 +392,12 @@ pub trait BatchExecutor: Send + Sync {
     /// Panics from `action` are captured as task failures. Iterator and
     /// synchronous reporter callback panics are propagated. Automatic reporter
     /// failures are returned as [`BatchExecutionError::ProgressReport`].
+    ///
+    /// The default adapter defers the user's `IntoIterator::into_iter` call
+    /// until the executor first pulls the wrapped source. If the executor
+    /// returns without pulling it, the user conversion is not called. Dropping
+    /// an unused source can still run its destructor. Source-conversion panics
+    /// propagate when conversion is attempted.
     fn for_each_with_count<Item, E, I, F>(
         &self,
         items: I,
@@ -405,8 +411,8 @@ pub trait BatchExecutor: Send + Sync {
         E: Send,
     {
         let action = Arc::new(action);
-        let tasks = items
-            .into_iter()
+        let tasks = std::iter::once(items)
+            .flat_map(IntoIterator::into_iter)
             .map(move |item| ForEachTask::new(item, Arc::clone(&action)));
         self.execute_with_count(tasks, count)
     }
