@@ -1,6 +1,6 @@
 [package]
 name = "qubit-batch"
-version = "0.14.1"
+version = "0.14.2"
 edition = "2024"
 rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
@@ -36,9 +36,9 @@ crossbeam-queue = "^0.3"
 crossbeam-channel = "^0.5"
 thiserror = "^2.0"
 loom = { version = "^0.7", optional = true }
-qubit-atomic = "0.17"
-qubit-function = "0.18"
-qubit-progress = { version = "0.9", default-features = false }
+qubit-atomic = "^0.17"
+qubit-function = "^0.18"
+qubit-progress = { version = "^0.9", default-features = false }
 
 [features]
 loom-tests = ["dep:loom"]
