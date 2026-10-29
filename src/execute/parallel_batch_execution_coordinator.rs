@@ -110,9 +110,11 @@ impl ParallelBatchExecutionCoordinator {
     /// # Errors
     ///
     /// Returns a schedule, progress-report, or source-count error when the
-    /// corresponding operation fails. Unfinished accepted tasks produce
-    /// [`BatchExecutionError::IncompleteSchedule`] first. After overflow and
-    /// failure-policy-stop checks, observing fewer than `count` tasks produces
+    /// corresponding operation fails. After scheduler and automatic reporter
+    /// errors have been handled, unfinished accepted tasks produce
+    /// [`BatchExecutionError::IncompleteSchedule`] before the remaining
+    /// finalization checks. After overflow and failure-policy-stop checks,
+    /// observing fewer than `count` tasks produces
     /// [`BatchExecutionError::CountShortfall`]. When the count is satisfied
     /// but source exhaustion is unproven, the error is
     /// [`BatchExecutionError::IncompleteSchedule`]. A failed terminal report

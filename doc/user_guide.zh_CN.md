@@ -103,6 +103,11 @@ assert!(matches!(outcome.failures()[0].error(), BatchTaskError::Failed(_)));
 `processed_count <= completed_count <= item_count`。数据库受影响行数等业务指标属于
 processor 自己维护的独立状态；当它可能超过输入数量时，不能写入 `processed_count`。
 
+使用 `ChunkedBatchProcessor` 时，delegate 可以完成一个块，但只报告其中部分输入处理成功。
+如果整个调用结束时没有外层错误，调用仍可返回 `Ok` 并上报 `Succeeded`；该阶段不表示
+所有输入都已成功处理。应先检查外层 `Result`，再检查 `BatchProcessResult::is_success()`
+和各项计数。
+
 ### 直接使用 Processor
 
 如果批次操作由有状态 consumer 负责，并且应在调用线程中执行，可以使用

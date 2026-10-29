@@ -116,6 +116,13 @@ measurement such as affected database rows is separate state owned by the
 processor; it must not be stored in `processed_count` when it can exceed the
 number of inputs.
 
+With `ChunkedBatchProcessor`, a delegate may complete a chunk while reporting
+that only some of its inputs were processed successfully. The outer call can
+then return `Ok` and report `Succeeded` when processing ends without an outer
+error; that phase does not mean every input was processed successfully. Check
+the outer `Result` first, then inspect `BatchProcessResult::is_success()` and
+the counters.
+
 ### Use a processor directly
 
 Use `SequentialBatchProcessor` when a stateful consumer owns the batch

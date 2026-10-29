@@ -88,6 +88,9 @@ BatchProcessResult 满足 processed <= completed <= item_count。Processed 统�
 delegate 结果的 item_count 与 completed_count 等于提交块长度，但允许 processed
 更低。Delegate 失败或返回不合法成功结果时，外层只累计此前成功块；当前块可能
 已经产生副作用，delegate 自身的错误可以携带更详细的业务状态。
+所有块完成且没有外层处理错误后，分块调用可以返回 `Ok` 并上报 `Succeeded`，即使成功
+处理的输入少于全部输入。该阶段表示 processor 调用完成；调用方仍须先检查外层 `Result`，
+再检查 `BatchProcessResult::is_success()` 和各项计数。
 
 ## 校验与 0.10 迁移
 
@@ -98,7 +101,9 @@ Outcome 校验不再分配 HashSet 保存下标：先检查聚合计数与越界
 多个非法条件同时存在时，错误选择有意改变：越界优先于重复，重复错误报告最小
 重复下标；多个越界项仍报告原输入顺序中的第一个。聚合计数错误与 callable 结果
 错误的优先级保持不变。原地校验与错误优先级变化最早随 qubit-batch 0.11 引入；
-当前 0.14 沿用该行为。当前配套版本为 qubit-rayon-batch 0.8，依赖 qubit-batch 0.14。
+当前 0.14 沿用该行为。本文描述 qubit-batch 0.14 契约。配套 crate 的依赖约束以
+[`rs-rayon-batch/Cargo.toml`](https://github.com/qubit-ltd/rs-rayon-batch/blob/main/Cargo.toml)
+为准；已核对的 qubit-rayon-batch 0.9.0 依赖 qubit-batch 0.14。
 
 ## 资源与验证
 

@@ -32,11 +32,14 @@ use crate::process::PROCESS_PROGRESS_METRIC_NAME;
 /// The delegate must return a result whose `item_count` and `completed_count`
 /// match the submitted chunk length whenever it returns `Ok`. The delegate may
 /// still report a lower `processed_count` when some completed input items were
-/// not processed successfully. Domain measurements such as affected database
-/// rows must be tracked separately. If the delegate cannot reach a terminal
-/// outcome for every item in the chunk, it should return `Err`; inconsistent
-/// `Ok` results are returned as
-/// [`ChunkedBatchProcessError::InvalidChunkResult`].
+/// not processed successfully. In that case this processor can return `Ok`
+/// and report `Succeeded` after the full call completes; that phase does not
+/// mean every input item was processed successfully. Callers should inspect
+/// the outer `Result`, then check [`BatchProcessResult::is_success`] and its
+/// counters. Domain measurements such as affected database rows must be
+/// tracked separately. If the delegate cannot reach a terminal outcome for
+/// every item in the chunk, it should return `Err`; inconsistent `Ok` results
+/// are returned as [`ChunkedBatchProcessError::InvalidChunkResult`].
 ///
 /// The returned `chunk_count` counts chunks completed successfully by this
 /// wrapper. It does not sum chunk counts reported by a nested delegate and does

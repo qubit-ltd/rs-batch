@@ -107,7 +107,11 @@ requires an Ok delegate result to report the submitted item count and full
 completion. A lower processed count is allowed. On delegate error or invalid
 success, the outer result includes only preceding successful chunks; the
 excluded chunk may already have changed external state. The delegate error
-retains whatever additional detail the delegate chooses to provide.
+retains whatever additional detail the delegate chooses to provide. After all
+chunks complete without an outer processing error, the chunked call may return
+`Ok` and report `Succeeded` even when fewer than all inputs were processed
+successfully. That phase marks completion of the processor call; callers must
+check the outer `Result`, then `BatchProcessResult::is_success()` and counters.
 
 ## Validation and migration from 0.10
 
@@ -122,8 +126,10 @@ repeated index. The first range error remains the first in input order. Counter
 error ordering and callable-result error ordering are unchanged. Callers should
 update tests that relied on the old duplicate traversal order. The in-place
 validation change was introduced in qubit-batch 0.11. qubit-batch 0.14 retains
-that error ordering. The current companion is qubit-rayon-batch 0.8, which
-depends on qubit-batch 0.14.
+that error ordering. This document describes qubit-batch 0.14 contracts. The
+companion dependency constraint is maintained in
+[`rs-rayon-batch/Cargo.toml`](https://github.com/qubit-ltd/rs-rayon-batch/blob/main/Cargo.toml);
+the checked qubit-rayon-batch 0.9.0 depends on qubit-batch 0.14.
 
 ## Resource model and testing
 

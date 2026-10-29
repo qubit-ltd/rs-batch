@@ -157,6 +157,9 @@ impl BatchProcessResult {
     /// # Returns
     ///
     /// `true` when every declared item completed and was reported as processed.
+    /// A [`BatchProcessor`](crate::BatchProcessor) may return `Ok` with a
+    /// result for which this method is `false`; callers should check the
+    /// processor's outer `Result` before checking this value and the counters.
     #[must_use = "inspect the returned value"]
     #[inline]
     pub const fn is_success(&self) -> bool {
