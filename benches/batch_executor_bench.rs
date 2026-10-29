@@ -471,21 +471,36 @@ fn benchmark_call_validation(criterion: &mut Criterion) {
         });
 
         group.bench_function(BenchmarkId::new("all_failure", task_count), |bencher| {
+            let all_failure_input = || {
+                let failures = (0..task_count)
+                    .map(|index| BatchTaskFailure::new(index, BatchTaskError::Failed(())))
+                    .collect();
+                let outcome = BatchOutcomeBuilder::builder(task_count)
+                    .completed_count(task_count)
+                    .failed_count(task_count)
+                    .failures(failures)
+                    .build()
+                    .expect("all-failure outcome should be valid");
+                (outcome, Vec::<BatchCallOutput<usize>>::new())
+            };
+
+            let (outcome, outputs) = all_failure_input();
+            let validated = BatchCallResult::try_new(outcome, outputs).expect("all-failure result should be valid");
+            assert_eq!(validated.outcome().task_count(), task_count);
+            assert_eq!(validated.outcome().completed_count(), task_count);
+            assert_eq!(validated.outcome().succeeded_count(), 0);
+            assert_eq!(validated.outcome().failed_count(), task_count);
+            assert_eq!(validated.outcome().panicked_count(), 0);
+            assert_eq!(validated.outcome().failures().len(), task_count);
+            assert!(validated.outputs().is_empty());
+            drop(validated);
+
             bencher.iter_batched(
-                || {
-                    let failures = (0..task_count)
-                        .map(|index| BatchTaskFailure::new(index, BatchTaskError::Failed(())))
-                        .collect();
-                    let outcome = BatchOutcomeBuilder::builder(task_count)
-                        .completed_count(task_count)
-                        .failed_count(task_count)
-                        .failures(failures)
-                        .build()
-                        .expect("all-failure outcome should be valid");
-                    (outcome, Vec::<BatchCallOutput<usize>>::new())
-                },
+                all_failure_input,
                 |(outcome, outputs)| {
-                    let _ = black_box(BatchCallResult::try_new(outcome, outputs));
+                    let _ = black_box(
+                        BatchCallResult::try_new(outcome, outputs).expect("all-failure result should be valid"),
+                    );
                 },
                 BatchSize::LargeInput,
             );
