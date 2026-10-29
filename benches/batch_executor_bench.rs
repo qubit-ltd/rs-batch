@@ -134,6 +134,43 @@ fn benchmark_no_op_execution(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("batch_executor_no_op");
 
     for task_count in BATCH_SIZES {
+        {
+            let outcomes = [
+                (
+                    "sequential",
+                    sequential
+                        .execute_with_count((0..task_count).map(|_| NoOpTask), task_count)
+                        .expect("sequential no-op validation should succeed"),
+                ),
+                (
+                    "scoped_parallel",
+                    parallel
+                        .execute_with_count((0..task_count).map(|_| NoOpTask), task_count)
+                        .expect("parallel no-op validation should succeed"),
+                ),
+                (
+                    "default_threshold",
+                    default_parallel
+                        .execute_with_count((0..task_count).map(|_| NoOpTask), task_count)
+                        .expect("default no-op validation should succeed"),
+                ),
+            ];
+            for (backend, outcome) in outcomes {
+                assert_eq!(outcome.task_count(), task_count, "{backend}/{task_count}: task count");
+                assert_eq!(
+                    outcome.completed_count(),
+                    task_count,
+                    "{backend}/{task_count}: completed count"
+                );
+                assert_eq!(
+                    outcome.succeeded_count(),
+                    task_count,
+                    "{backend}/{task_count}: succeeded count"
+                );
+                assert_eq!(outcome.failure_count(), 0, "{backend}/{task_count}: failure count");
+                assert!(outcome.is_success(), "{backend}/{task_count}: expected success");
+            }
+        }
         group.bench_with_input(
             BenchmarkId::new("sequential", task_count),
             &task_count,
@@ -284,6 +321,53 @@ fn benchmark_callable_execution(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("batch_executor_callable");
 
     for task_count in BATCH_SIZES {
+        {
+            let results = [
+                (
+                    "sequential",
+                    sequential
+                        .call((0..task_count).map(|_| constant_callable))
+                        .expect("sequential callable validation should succeed"),
+                ),
+                (
+                    "scoped_parallel",
+                    parallel
+                        .call((0..task_count).map(|_| constant_callable))
+                        .expect("parallel callable validation should succeed"),
+                ),
+                (
+                    "default_threshold",
+                    default_parallel
+                        .call((0..task_count).map(|_| constant_callable))
+                        .expect("default callable validation should succeed"),
+                ),
+            ];
+            for (backend, result) in results {
+                let outcome = result.outcome();
+                assert_eq!(outcome.task_count(), task_count, "{backend}/{task_count}: task count");
+                assert_eq!(
+                    outcome.completed_count(),
+                    task_count,
+                    "{backend}/{task_count}: completed count"
+                );
+                assert_eq!(
+                    outcome.succeeded_count(),
+                    task_count,
+                    "{backend}/{task_count}: succeeded count"
+                );
+                assert_eq!(outcome.failure_count(), 0, "{backend}/{task_count}: failure count");
+                assert!(outcome.is_success(), "{backend}/{task_count}: expected success");
+                assert_eq!(
+                    result.outputs().len(),
+                    task_count,
+                    "{backend}/{task_count}: output count"
+                );
+                for (index, output) in result.outputs().iter().enumerate() {
+                    assert_eq!(output.index(), index, "{backend}/{task_count}: output index");
+                    assert_eq!(*output.value(), 1u64, "{backend}/{task_count}: output value at {index}");
+                }
+            }
+        }
         group.bench_with_input(
             BenchmarkId::new("sequential", task_count),
             &task_count,
@@ -581,6 +665,42 @@ fn benchmark_item_processing(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("batch_processor");
 
     for task_count in BATCH_SIZES {
+        {
+            let results = [
+                (
+                    "sequential",
+                    sequential
+                        .process_with_count((0..task_count).map(|value| value as u64), task_count)
+                        .expect("sequential processor validation should succeed"),
+                ),
+                (
+                    "scoped_parallel",
+                    parallel
+                        .process_with_count((0..task_count).map(|value| value as u64), task_count)
+                        .expect("parallel processor validation should succeed"),
+                ),
+                (
+                    "default_threshold",
+                    default_parallel
+                        .process_with_count((0..task_count).map(|value| value as u64), task_count)
+                        .expect("default processor validation should succeed"),
+                ),
+            ];
+            for (backend, result) in results {
+                assert_eq!(result.item_count(), task_count, "{backend}/{task_count}: item count");
+                assert_eq!(
+                    result.completed_count(),
+                    task_count,
+                    "{backend}/{task_count}: completed count"
+                );
+                assert_eq!(
+                    result.processed_count(),
+                    task_count,
+                    "{backend}/{task_count}: processed count"
+                );
+                assert!(result.is_success(), "{backend}/{task_count}: expected success");
+            }
+        }
         group.bench_with_input(
             BenchmarkId::new("sequential", task_count),
             &task_count,
