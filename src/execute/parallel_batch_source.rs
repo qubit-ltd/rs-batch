@@ -83,6 +83,7 @@ impl<'ctx, I: IntoIterator, E> ParallelBatchSource<'ctx, I, E> {
 }
 
 impl<I: IntoIterator, E> Iterator for ParallelBatchSource<'_, I, E> {
+    /// A one-shot token for a source item admitted by the execution context.
     type Item = ParallelBatchTask<I::Item>;
 
     /// Returns the next admitted task, initializing the input iterator lazily.

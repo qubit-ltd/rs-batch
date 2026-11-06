@@ -81,7 +81,6 @@ impl SequentialBatchExecutor {
     /// # Returns
     ///
     /// A builder initialized with default settings.
-    #[must_use = "use the constructed or borrowed value"]
     #[inline]
     pub fn builder() -> SequentialBatchExecutorBuilder {
         SequentialBatchExecutorBuilder::default()
@@ -595,6 +594,11 @@ impl BatchExecutor for SequentialBatchExecutor {
     /// * `E` - Task error type.
     /// * `I` - Task source type.
     ///
+    /// # Parameters
+    ///
+    /// * `tasks` - Task source consumed on the caller thread.
+    /// * `count` - Declared number of tasks expected from `tasks`.
+    ///
     /// # Returns
     ///
     /// The sequential execution outcome, or an execution error when progress
@@ -626,6 +630,11 @@ impl BatchExecutor for SequentialBatchExecutor {
     /// * `R` - Callable success value type.
     /// * `E` - Callable error type.
     /// * `I` - Callable source type.
+    ///
+    /// # Parameters
+    ///
+    /// * `tasks` - Callable source consumed on the caller thread.
+    /// * `count` - Declared number of callables expected from `tasks`.
     ///
     /// # Returns
     ///

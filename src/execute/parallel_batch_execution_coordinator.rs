@@ -179,6 +179,37 @@ impl ParallelBatchExecutionCoordinator {
     /// The scheduler receives the original input and execution context, so
     /// runtime integrations can supply their own scheduling strategy while
     /// sharing coordinator-owned progress and outcome handling.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `I` - Task source type passed to the scheduler.
+    /// * `E` - Task-specific error type stored in the execution outcome.
+    /// * `S` - Scheduler error type returned by the scheduling closure.
+    /// * `Schedule` - Closure that executes scheduling and reports its result.
+    ///
+    /// # Parameters
+    ///
+    /// * `tasks` - Original task source passed to the scheduler without
+    ///   materializing it in the coordinator.
+    /// * `count` - Declared number of tasks expected from the source.
+    /// * `task_failure_policy` - Policy governing whether task failures stop
+    ///   further source admission.
+    /// * `schedule` - Scheduler closure invoked with the source and execution
+    ///   context; it must complete every accepted task before returning.
+    ///
+    /// # Returns
+    ///
+    /// A validated outcome after scheduler execution and progress finalization.
+    ///
+    /// # Errors
+    ///
+    /// Returns scheduler, progress-reporting, or task-count validation errors.
+    ///
+    /// # Panics
+    ///
+    /// Propagates panics from the scheduler, source iterator, and synchronous
+    /// reporter callbacks. Failure to create the automatic reporter thread may
+    /// also panic.
     fn execute_inner<I, E, S, Schedule>(
         &self,
         tasks: I,
@@ -272,6 +303,10 @@ impl ParallelBatchExecutionCoordinator {
     /// # Parameters
     ///
     /// * `count` - Declared task count for the empty outcome.
+    ///
+    /// # Returns
+    ///
+    /// An outcome with no completed tasks and the declared task count.
     #[inline]
     fn empty_outcome<E>(count: usize) -> BatchOutcome<E> {
         BatchOutcomeBuilder::builder(count)

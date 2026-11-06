@@ -81,6 +81,10 @@ pub enum ProgressFailure {
 
 impl From<StartError> for ProgressFailure {
     /// Wraps a start failure.
+    ///
+    /// # Parameters
+    ///
+    /// * `error` - Start failure to preserve as a progress failure.
     #[inline]
     fn from(error: StartError) -> Self {
         Self::Start(error)
@@ -89,6 +93,10 @@ impl From<StartError> for ProgressFailure {
 
 impl From<EmissionError> for ProgressFailure {
     /// Wraps a running emission failure.
+    ///
+    /// # Parameters
+    ///
+    /// * `error` - Running emission failure to preserve.
     #[inline]
     fn from(error: EmissionError) -> Self {
         Self::Emission(error)
@@ -97,6 +105,10 @@ impl From<EmissionError> for ProgressFailure {
 
 impl From<AutoReporterError> for ProgressFailure {
     /// Wraps a scoped automatic reporter failure.
+    ///
+    /// # Parameters
+    ///
+    /// * `error` - Automatic reporter failure to preserve.
     #[inline]
     fn from(error: AutoReporterError) -> Self {
         Self::AutoReporter(error)
@@ -105,6 +117,10 @@ impl From<AutoReporterError> for ProgressFailure {
 
 impl From<TerminalError> for ProgressFailure {
     /// Wraps a terminal emission failure.
+    ///
+    /// # Parameters
+    ///
+    /// * `error` - Terminal emission failure to preserve.
     #[inline]
     fn from(error: TerminalError) -> Self {
         Self::Terminal(error)

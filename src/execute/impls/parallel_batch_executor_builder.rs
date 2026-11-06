@@ -150,6 +150,11 @@ impl ParallelBatchExecutorBuilder {
     /// Sets the policy that controls parallel source acceptance after task
     /// errors or captured panics.
     ///
+    /// # Parameters
+    ///
+    /// * `task_failure_policy` - Policy applied after a task returns an error
+    ///   or panics.
+    ///
     /// # Returns
     ///
     /// This builder for fluent configuration.
