@@ -149,7 +149,7 @@ caller-owned data when they satisfy `Send`, because the parallel path uses
 scoped workers. For consumer state, capture an owned value such as a cloned `Arc`:
 `Arc::clone` gives the consumer its own shared ownership, rather than extending
 the lifetime of a borrowed value. Use
-[`SequentialBatchProcessor::with_consumer`] when the consumer needs to borrow
+[`SequentialBatchProcessor::with_consumer`](https://docs.rs/qubit-batch/0.14.4/qubit_batch/process/impls/struct.SequentialBatchProcessor.html#method.with_consumer) when the consumer needs to borrow
 caller-owned state. The parallel processor uses sequential execution for small
 batches by default; configure `thread_count` and `sequential_threshold` after
 measuring the workload:
