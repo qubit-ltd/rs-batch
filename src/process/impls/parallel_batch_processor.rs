@@ -33,12 +33,17 @@ use crate::utils::run_scoped_parallel;
 /// Processes batch items with sequential fallback and scoped standard threads.
 ///
 /// The processor stores the supplied consumer as an [`ArcConsumer`] so every
-/// worker can share it safely. By default, small batches run sequentially to
-/// avoid thread setup overhead. Larger batches use scoped worker threads for
-/// each [`BatchProcessor::process`] call, therefore input items may borrow data
-/// from the caller as long as they are [`Send`]. Running progress is reported
-/// between items on the sequential path and from a scoped reporter thread on
-/// the parallel path.
+/// worker can share it safely. The stored consumer must be `Send + Sync +
+/// 'static`; it cannot capture a non-`'static` borrow of caller-owned local
+/// state. Input items may still borrow caller-owned data when they are
+/// [`Send`], because the parallel path in [`BatchProcessor::process`] uses
+/// scoped worker threads. Use
+/// [`crate::SequentialBatchProcessor::with_consumer`] when the consumer needs
+/// to borrow caller-owned state. For parallel consumer state, capture an owned
+/// value such as a cloned `Arc`; `Arc` shares ownership and does not extend the
+/// lifetime of a borrowed value. By default, small batches run sequentially to
+/// avoid thread setup overhead. Running progress is reported between items on
+/// the sequential path and from a scoped reporter thread on the parallel path.
 ///
 /// # Type Parameters
 ///
@@ -103,11 +108,14 @@ impl<Item> ParallelBatchProcessor<Item> {
     ///
     /// # Type Parameters
     ///
-    /// * `C` - Thread-safe consumer type.
+    /// * `C` - Consumer type that is `Send + Sync + 'static`.
     ///
     /// # Parameters
     ///
-    /// * `consumer` - Thread-safe consumer invoked once for each accepted item.
+    /// * `consumer` - `Send + Sync + 'static` consumer invoked once for each
+    ///   accepted item. Capture owned state, such as an `Arc`, to share state;
+    ///   borrowed consumer state can use
+    ///   [`crate::SequentialBatchProcessor::with_consumer`].
     ///
     /// # Returns
     ///
@@ -128,11 +136,14 @@ impl<Item> ParallelBatchProcessor<Item> {
     ///
     /// # Type Parameters
     ///
-    /// * `C` - Thread-safe consumer type.
+    /// * `C` - Consumer type that is `Send + Sync + 'static`.
     ///
     /// # Parameters
     ///
-    /// * `consumer` - Thread-safe consumer invoked once for each accepted item.
+    /// * `consumer` - `Send + Sync + 'static` consumer invoked once for each
+    ///   accepted item. Capture owned state, such as an `Arc`, to share state;
+    ///   borrowed consumer state can use
+    ///   [`crate::SequentialBatchProcessor::with_consumer`].
     ///
     /// # Returns
     ///

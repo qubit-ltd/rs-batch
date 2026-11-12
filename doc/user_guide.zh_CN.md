@@ -127,9 +127,13 @@ let result = processor
 assert!(result.is_success());
 ```
 
-如果 consumer 满足 `Send + Sync`，并且需要让多个 scoped worker 共享处理，可以使用
-`ParallelBatchProcessor`。它默认会让小批次走顺序路径；调整 `thread_count` 和
-`sequential_threshold` 前，应先测量真实负载：
+如果需要让多个 scoped worker 共享处理，可以使用 `ParallelBatchProcessor`。它保存的
+consumer 必须满足 `Send + Sync + 'static`，因此不能捕获非 `'static` 的调用方状态借用。
+输入项仍可借用调用方数据，但必须满足 `Send`；并行路径使用 scoped worker，输入借用会在调用
+返回前结束。consumer 需要共享状态时，应捕获拥有所有权的值，例如克隆一个 `Arc`。`Arc::clone`
+让 consumer 持有共享所有权，并不会延长被借用值本身的生命周期。如果 consumer 必须借用调用方
+状态，请使用 [`SequentialBatchProcessor::with_consumer`]。并行 processor 默认会让小批次走顺序
+路径；调整 `thread_count` 和 `sequential_threshold` 前，应先测量真实负载：
 
 ```rust
 use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
